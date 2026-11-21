@@ -54,6 +54,11 @@ namespace HallowBrowser
         public static readonly string HttpsPortsTest = TestDir != null ? Env("HALLOW_BROWSER_HTTPS_PORTS") : null;
         public static readonly string SteamNewsTest = TestDir != null ? Env("HALLOW_BROWSER_STEAM_NEWS") : null;
         public static readonly string EpicFreeTest = TestDir != null ? Env("HALLOW_BROWSER_EPIC_FREE") : null;
+        // 1.5 tests: HALLOW_BROWSER_SUGGEST_URL = a local stand-in for the search engine's suggestions (never a real engine),
+        // HALLOW_BROWSER_MPCMDRUN = a stand-in for Defender's MpCmdRun.exe (never a real scan)
+        public static readonly string SuggestTest = TestDir != null ? Env("HALLOW_BROWSER_SUGGEST_URL") : null;
+        public static readonly string MpCmdRunTest = TestDir != null ? Env("HALLOW_BROWSER_MPCMDRUN") : null;
+        public static readonly int[] DlLimitChoices = { 0, 256, 1024, 4096, -1 };   // KB/s for all downloads together while a game runs; -1 = pause them
 
         [DataMember] public string Search = "duckduckgo";
         [DataMember] public bool RestoreSession = true;
@@ -114,6 +119,17 @@ namespace HallowBrowser
         [DataMember] public List<UserExtension> Extensions;    // unpacked extensions you loaded (copies in LocalAppData\HallowBrowser\Extensions)
         [DataMember] public bool ShareShieldCounts = true;     // Shield's blocked counts to %APPDATA%\HallowShield\status.json for Hallow Hub / Remote (counts only)
         [DataMember] public bool GameCorner;                   // off by default: news for your Hub games (Steam) and free games (Epic) on the new tab page
+        // 1.5: address bar, saving logins to Hallow Keys, dark pages, downloads, tabs, media
+        [DataMember] public List<SearchKeyword> Keywords;      // "yt cats" -> YouTube; null = the defaults (yt, w, gh)
+        [DataMember] public bool SearchSuggest;                // OFF by default: what you type goes to the search engine for suggestions
+        [DataMember] public bool SaveLogins = true;            // offer "Save to Hallow Keys?" after you sign in (Keys stores it; the browser never does)
+        [DataMember] public List<string> NeverSave;            // sites you said "Never" for
+        [DataMember] public bool ForceDark;                    // make every page dark (Chromium's own auto dark mode); per site in Sites
+        [DataMember] public bool DownloadScan = true;          // scan finished downloads with Microsoft Defender (low priority)
+        [DataMember] public int DownloadGameKBps;              // 0 = no limit while gaming; -1 = pause downloads while gaming
+        [DataMember] public bool TabPreviews = true;           // a small picture of the tab when you hover it
+        [DataMember] public bool Gestures;                     // mouse gestures (right-drag): off by default
+        [DataMember] public bool AutoPip;                      // pop out a playing video when you switch away from its tab: off by default
 
         [OnDeserializing] void Defaults(StreamingContext c)
         {
@@ -122,6 +138,7 @@ namespace HallowBrowser
             Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
             HttpsOnly = true; SecureDns = "off"; ShareShieldCounts = true;
+            SaveLogins = true; DownloadScan = true; TabPreviews = true;
         }
 
         public static BrowserSettings Load()
@@ -168,6 +185,13 @@ namespace HallowBrowser
             Sites.RemoveAll(x => x == null || string.IsNullOrEmpty(x.Host));
             if (Extensions == null) Extensions = new List<UserExtension>();
             Extensions.RemoveAll(x => x == null || string.IsNullOrEmpty(x.Folder));
+            if (Keywords == null) Keywords = HallowBrowser.Keywords.Defaults();
+            Keywords.RemoveAll(x => x == null || HallowBrowser.Keywords.Clean(x.Key) == null || !HallowBrowser.Keywords.ValidUrl(x.Url));
+            foreach (var k in Keywords) k.Key = HallowBrowser.Keywords.Clean(k.Key);
+            Keywords = Keywords.GroupBy(k => k.Key).Select(g => g.First()).Take(50).ToList();
+            if (NeverSave == null) NeverSave = new List<string>();
+            NeverSave = NeverSave.Where(h => !string.IsNullOrWhiteSpace(h)).Select(SiteRules.Key).Distinct().Take(500).ToList();
+            if (Array.IndexOf(DlLimitChoices, DownloadGameKBps) < 0) DownloadGameKBps = 0;
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);

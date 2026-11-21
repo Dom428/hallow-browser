@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.4.0.0")]
-[assembly: AssemblyFileVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.4";
+        public const string Version = "1.5";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -60,15 +60,17 @@ namespace HallowBrowser
                 return 1;
             }
             Crash.Install();
+            var st0 = BrowserSettings.Load(); MarkRunning(st0);   // 1.5: did it close properly last time?
             // speed: the JIT compiles start-up code on spare cores, guided by a profile of the last start (no admin, no install step)
             try { Directory.CreateDirectory(BrowserSettings.LocalDir); System.Runtime.ProfileOptimization.SetProfileRoot(BrowserSettings.LocalDir); System.Runtime.ProfileOptimization.StartProfile("startup.jit"); } catch { }
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };   // 1.4: more than one window - the last one closing quits
             LoadTheme(app); Engine.Mark("theme");
+            HookPrivateFlyouts();   // 1.5: pop-ups of private windows in the private palette
             app.DispatcherUnhandledException += (s, e) => { Crash.Write(e.Exception); e.Handled = true; try { if (Win != null) Win.SaveSession(); } catch { } Environment.Exit(1); };
 
             var runtime = Engine.FindRuntime(); Engine.Mark("runtime-found");
             if (runtime == null) { NoRuntime(app); GC.KeepAlive(mutex); return 2; }
-            var st = BrowserSettings.Load();
+            var st = st0;
             Engine.Starting = Engine.Create(st);   // the page engine starts while the window is being built
             var w = new BrowserWindow(st, false); Register(w);
             Family.Serve("Browser", line => Command(Win ?? w, line));
@@ -76,6 +78,7 @@ namespace HallowBrowser
             WatchMode(app);
             w.Loaded += async (s, e) => { await w.Start(urls); CrashNotice(w); };
             app.Run(w);
+            MarkClosed();   // 1.5: a normal exit (a crash leaves the marker, and the next start offers your tabs back)
             GC.KeepAlive(mutex);
             return 0;
         }
@@ -120,7 +123,7 @@ namespace HallowBrowser
             return Family.Json(new Dictionary<string, object> {
                 { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true },
                 { "tabs", Windows.Sum(x => x.Tabs.Count) }, { "asleep", Windows.Sum(x => x.Tabs.Count(t => t.Suspended || t.Discarded)) }, { "windows", Windows.Count(x => !x.Private) }, { "privateWindows", Windows.Count(x => x.Private) }, { "gameMode", w.Game != null }, { "game", w.Game },
-                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "httpsOnly", w.S.HttpsOnly }, { "secureDns", w.S.SecureDns }, { "extensions", w.S.Extensions.Count(x => x.Enabled) }, { "gameCorner", w.S.GameCorner }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
+                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "httpsOnly", w.S.HttpsOnly }, { "secureDns", w.S.SecureDns }, { "extensions", w.S.Extensions.Count(x => x.Enabled) }, { "gameCorner", w.S.GameCorner }, { "forceDark", w.S.ForceDark }, { "searchSuggestions", w.S.SearchSuggest }, { "mediaTabs", BrowserWindow.MediaTabs().Count }, { "downloadsRunning", Windows.Sum(x => x.Downloads.Count(d => d.State == "running" || d.State == "paused")) }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
 
         // ---- the family pipe
@@ -142,6 +145,8 @@ namespace HallowBrowser
                         new Dictionary<string, object> { { "id", "new-window" }, { "label", "New window" } },
                         new Dictionary<string, object> { { "id", "private-window" }, { "label", "New private window" } },
                         new Dictionary<string, object> { { "id", "reopen" }, { "label", "Reopen closed tab" }, { "enabled", w.ClosedCount > 0 } },
+                        new Dictionary<string, object> { { "id", "reopen-window" }, { "label", "Reopen closed window" }, { "enabled", ClosedWindows.Count > 0 } },
+                        new Dictionary<string, object> { { "id", "downloads" }, { "label", "Downloads" } },
                         new Dictionary<string, object> { { "id", "-" } },
                         new Dictionary<string, object> { { "id", "game-light" }, { "label", "Gaming-light mode" }, { "checked", w.S.GameLight } },
                         new Dictionary<string, object> { { "id", "cpu-limiter" }, { "label", "CPU limiter" }, { "checked", w.S.CpuLimiter } },
@@ -156,6 +161,8 @@ namespace HallowBrowser
                             case "new-window": OpenWindow(false, null, null); return "ok";
                             case "private-window": OpenWindow(true, null, null); return "ok";
                             case "reopen": w.ReopenClosed(); ShowWindow(w); return "ok";
+                            case "reopen-window": ReopenClosedWindow(); return "ok";
+                            case "downloads": w.NewTab(Omni.DownloadsUrl, true); ShowWindow(w); return "ok";
                             case "game-light": w.S.GameLight = !w.S.GameLight; w.S.Save(); w.Tick(true); return "ok";
                             case "cpu-limiter": w.S.CpuLimiter = !w.S.CpuLimiter; w.S.Save(); w.Tick(true); return "ok";
                             case "sidebar": w.Side.Toggle(); return "ok";
@@ -190,7 +197,7 @@ namespace HallowBrowser
             try { await Task.WhenAny(p.ClearBrowsingDataAsync(kinds), Task.Delay(8000)); } catch { }
             lock (w.S.Typed) w.S.Typed.Clear();
             if (w.History != null) w.History.Clear(); else try { File.Delete(HistoryStore.DefaultPath); } catch { }   // 1.2: the local history store
-            w.Downloads.Clear(); w.S.Save();
+            w.Downloads.Clear(); DownloadHistory.Clear(); w.S.Save();   // 1.5: the downloads list too
         }
 
         // ---- the WebView2 runtime is missing: say where to get it (never downloaded by Hallow Browser)
@@ -262,6 +269,8 @@ namespace HallowBrowser
                 Snap.Save(pw, Path.Combine(dir, "private" + sfx + ".png"), 1280, 800); pw.Close();
                 shot("extensions", w => w.SnapPage("extensions"));
                 shot("sites", w => w.SnapPage("sites"));
+                shot("omni", w => w.SnapOmni());              // 1.5: the address bar's answer, keywords and suggestions (made-up)
+                shot("downloads", w => w.SnapDownloads());    // 1.5: the downloads page with Defender's badges (made-up)
                 var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                 ws.SnapFill("news", false, false);
                 var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);

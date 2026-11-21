@@ -7,9 +7,11 @@ workspaces, split view, a command palette (Ctrl+K), screenshots, reader mode** a
 **bookmarks and history from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox**, a **bookmarks manager and bar**, **sync
 through a folder you pick** (OneDrive, Dropbox, Syncthing, a NAS) and a **speed-dial new tab page**. 1.4 brings **real windows**
 (Ctrl+N, drag a tab out), **private windows**, **site permissions**, **HTTPS-only mode and secure DNS**, **your own extensions**,
-Shield's **"blocked on this page"** number and an opt-in **game corner**. It runs on **Microsoft Edge WebView2** - the Evergreen
+Shield's **"blocked on this page"** number and an opt-in **game corner**. 1.5 offers to **save logins to Hallow Keys**, adds a
+**calculator, keywords and tab search** to the address bar, **dark pages**, **download pause / resume, a speed limit while you play
+and a Microsoft Defender check**, **hover previews**, **mouse gestures**, **media controls** for every tab and **crash recovery**. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
-~870 KB app plus Microsoft's WebView2 DLLs).
+~1 MB app plus Microsoft's WebView2 DLLs).
 
 ![Hallow Browser 1.4: a private window (made-up page)](docs/private.png)
 
@@ -26,6 +28,87 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.5: faster to use, safer downloads, logins into Keys
+
+**Save logins to Hallow Keys**
+- After you sign in, **"Save to Hallow Keys?"** under the address bar - **Save** (or **Update** for a changed password), **Never for
+  this site**, **Not now**. A small script of the browser's own (top frame only) notices a login form being sent - a real submit,
+  a real click on its button or Enter in a box (`isTrusted` events only) - and hands the username and password to the browser.
+- The hand-off uses **Keys' own, documented native-host protocol** - the same two requests Keys' browser extension makes since Keys
+  1.1 ("offers to save new logins"): `save-check` (Keys answers new / update / same) and, only after your click, `save`. Hallow Keys
+  wasn't changed. The same checks as the extension: the address sent to Keys is the address of the top-level document that sent the
+  form, as the engine reports it (a page can't change its origin; frames' messages never reach this handler - tested with a
+  cross-origin frame), Keys decides itself whether it's new, and nothing is saved without your click.
+- **The browser never stores passwords**: the password is held in memory only while the question is open (at most 3 minutes, or until
+  you answer or close the tab), kept out of crash reports, never logged, written or synced. Tested: no test password in any of the
+  browser's files afterwards. Not offered in **private windows** (the script isn't even there). Turn it off, or see the "never"
+  sites, in Settings > Hallow Keys.
+- Honestly: the page's own scripts could fake a "sent" form - all a page can do with that is offer to save a login for its own site,
+  which you can refuse.
+
+**Address bar**
+- **Calculator and conversions**: `200*1.2`, `2^10`, `80*15%`, `sqrt(16)+1`, `5 km in miles`, `72 f to c`, `3 gb in mib`, `60 mph to
+  km/h`, `90 min in hours`... the answer is the first row under the bar (click it to copy). Worked out on this PC.
+- **Search keywords**: `yt cats` (YouTube), `w term` (Wikipedia), `gh repo` (GitHub) - add your own in Settings > Address bar (a
+  keyword, a name and a search address with `%s`).
+- **Tab search**: `% name` lists your open tabs (every window) whose title or address matches; Enter switches to the first.
+- **Search suggestions** from the engine you picked (DuckDuckGo, Google, Bing or Brave's own suggestion address) - **off by default**
+  with a clear switch, because it sends what you type to the engine. Addresses, sums and tab searches are never sent; private windows
+  never send anything. Tests use a local stand-in only.
+
+**Dark pages** - "Make pages dark" (menu, Settings > Look) for every site, and per site (padlock > Dark pages, or the menu's "Make
+*site* dark"). **Which approach:** Chromium's own automatic dark mode, switched on per tab through DevTools
+(`Emulation.setAutoDarkModeOverride`). Measured on runtime 158: a white test page goes from brightness 255 to 18 at once, it stays
+dark through reloads and same- and cross-site navigations, and `{}` turns it off again. The `--enable-features=WebContentsForceDark`
+flag (and `--blink-settings=forceDarkModeEnabled=true`) work too, but only for the whole engine and only after a restart - so no CSS
+invert filter was needed.
+
+**Downloads**
+- **Pause, resume and cancel** in the downloads flyout and on the new **downloads page** (`hallow://downloads`, Ctrl+J > All
+  downloads): every download with its folder, **Show in folder**, Open, Remove from the list. File names, folders and sizes only
+  (never addresses), in `%APPDATA%\HallowBrowser\downloads.json`; private windows' downloads aren't listed; Clear browsing data clears it.
+- **Microsoft Defender checks every finished download** (Settings > Downloads, on by default): Hallow Guard 1.x's pipe can only start a
+  quick scan (`scan quick`), so the browser runs Defender's own `MpCmdRun.exe -Scan -ScanType 3 -File "<file>"` from the newest
+  Defender platform folder, at **Idle** priority, and shows **Defender: clean** or **Defender: threat found** (with Defender's name for
+  it; Defender quarantines it as its settings say). Tests use a stand-in only - never a real scan.
+- **A speed limit while you play** (Settings > Downloads: no limit, 256 KB/s, 1 MB/s, 4 MB/s or pause them). **Honestly:** WebView2 has
+  no per-download throttle, and DevTools network emulation only slows downloads that start as a page navigation (measured: a link with
+  `download` wasn't slowed at all). So the browser **pauses and resumes each download many times a second** to hold the speed
+  (pausing stops reading from the connection, so the sender slows too). Measured: exactly 1,048,576 bytes in 4 s at 256 KB/s in a
+  bare probe; in the browser test (a stand-in server sending ~2 MB/s) about 470 KB/s over 10 s at the 256 KB/s setting - it's bursty,
+  because data already on its way when a pause lands still arrives, and it evens out the longer it runs. All downloads in a window
+  share the limit; it doesn't cover other apps or the game's own updates. Game mode also no longer puts a tab to sleep while its
+  download runs (measured: a sleeping tab stalls the downloads it started).
+
+**Tabs**
+- **Hover previews**: hover a tab for a small picture of it (taken with `CapturePreviewAsync` while the tab is on screen - after you
+  switch to it and after it loads, never while a game runs - kept 240 px wide in memory only) with its title and site.
+- **A drag picture** follows the mouse while you tear a tab off (1.4's leftover), and **private windows' flyouts** (menus, the
+  downloads list, previews) now use the private palette (they weren't part of the window's look before).
+- **Mouse gestures** (Settings, **off by default**): hold the right button on a page and drag - left = back, right = forward, down then
+  right = close the tab. The page's menu stays shut after a gesture. Tested through DevTools input into the off-screen page.
+- **Reopen closed window** (menu, Ctrl+K): the last 5 windows you closed (not the last one - that quits), in memory.
+
+**Media**
+- A **music button** in the toolbar when any tab (any window) plays audio or video: each one with its title (from the page's media
+  session), **play / pause**, **next** (the page's own next-track handler) and mute; click a row to go to the tab. Silent and muted
+  videos count too.
+- **Pop out a playing video when I switch tabs** (optional, off by default): it plays on in 1.0's always-on-top pop-out and comes back
+  when you return to the tab.
+- **Windows' media controls**: verified - WebView2 registers each playing page with Windows' media session by itself (a test page showed
+  up with its title and artist, "Playing"), so the volume flyout, Hallow Mixer and Overlay see it. **But** it appears under the
+  engine's name (`msedgewebview2.exe`), not Hallow Browser's - WebView2 has no way to change that.
+
+**Crash recovery**
+- A tab whose page process crashes shows **"This tab crashed - Reload"** (or "stopped responding") instead of a dead page or reloading
+  by itself; the other tabs are fine. Tested with DevTools `Page.crash`.
+- If the **browser itself** didn't close properly (a crash, or it was killed), the next start says so; with session restore on your
+  tabs are back as usual, with it off you get **Restore your tabs** (the tabs - and other windows - from then, asleep until clicked).
+
+![The address bar's answer, a keyword and suggestions (made-up)](docs/omni.png)
+
+![Downloads with Defender's answers (made-up)](docs/downloads.png)
 
 ## What's new in 1.4: windows, privacy and your own extensions
 
@@ -342,12 +425,14 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
-| What | 1.4 (more windows, site rules, HTTPS-only, Shield count on) | 1.3 (bookmarks, speed dial, Hallow strip on) | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
-|---|---|---|---|---|---|
-| Browser UI drawn (first paint of the window) | 456-515 ms (warm profile, 14 restored tabs); 465 ms on a brand-new profile | 433-462 ms (warm profile, 14 restored tabs) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
-| First page loaded (local test page) | 681-801 ms (warm), 825 ms (new profile) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
-| New tab (pre-warmed, until drawn) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
-| Memory | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+| What | 1.5 (login capture, media and dark-page hooks, previews on) | 1.4 (more windows, site rules, HTTPS-only, Shield count on) | 1.3 (bookmarks, speed dial, Hallow strip on) | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
+|---|---|---|---|---|---|---|
+| Browser UI drawn (first paint of the window) | 514 ms new profile, 569-614 ms warm - measured the same day, back to back, 1.4 gave 592 ms / 604-618 ms (a busier day than 1.4's own numbers) | 456-515 ms (warm profile, 14 restored tabs); 465 ms on a brand-new profile | 433-462 ms (warm profile, 14 restored tabs) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
+| First page loaded (local test page) | about the same as 1.4 in the main run | 681-801 ms (warm), 825 ms (new profile) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
+| New tab (pre-warmed, until drawn) | median 48.3 ms with tiles (7 tries: 9-79 ms); 56.9 ms in the busier main run. Same day, same script: 1.4 and 1.5 identical (4.4 / 4.5 ms from Ctrl+T to the swap) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
+| Memory | 582 MB private with 14 small pages loaded (17 processes) - 1.4 measured 555 MB that way | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+
+1.5: the new parts add nothing at start: the login, media and gesture scripts are tiny and only registered with each page; previews are taken 0.7-0.9 s after a tab is shown (never during a game, never for new tab pages); the downloads list is read only when you open it; the private-flyout check is one comparison per element as it appears.
 
 1.4: more windows, site rules and HTTPS-only add nothing at start (plain WPF and per-navigation checks); Shield's copy is made once per Shield version (16 MB, in the background), and the Shield relay runs 20 s after start and then every 5 minutes (a hidden page of Shield's for about a second, never during a game). The game corner is off unless you switch it on.
 
@@ -377,6 +462,8 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   account, no cookies, no other data; like any web request, Steam and Epic see your IP address and that the request came from
   "HallowBrowser/1.4". The answers are kept in `%LOCALAPPDATA%\HallowBrowser\gamecorner.json` and shown as text and links (no pictures
   or scripts from either site). Switch it off and nothing more is fetched.
+- **Your search engine's suggestion address - only if you switch search suggestions on** (off by default): what you type in the
+  address bar (not addresses, sums or tab searches; never from private windows), as you type. No cookies are sent with it.
 - **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
   (not the pages), instead of your Wi-Fi / internet provider.
 
@@ -422,17 +509,19 @@ Keys' native host normally checks the *extension's identity*. Hallow Browser doe
 - the origin (`scheme://host:port`) is pinned when you click the key. If the tab is on any other origin when you pick the login,
   Keys isn't even asked; the fill script checks `location.origin` again inside the page and fills only the top frame (no iframes);
 - nothing from Keys is logged or kept; the password exists only in that one fill script.
+- **1.5: saving** uses Keys' own `save-check` / `save` requests (the ones its extension sends) with the address of the top-level page
+  that sent the login form, only after you click Save; the password is held in memory only while the question is open.
 
 Tests use a stand-in Keys on a separate test pipe with one made-up login - never the real Keys or vault.
 
 ## Family link
 
 - Pipe `HallowFamily.Browser.<user>`: `ping`, `status`, `open` (focus), `open <url>` (http/https only), `menu` (New tab, New window,
-  New private window, Reopen closed tab, Gaming-light mode, CPU limiter, Sidebar, Vertical tabs), `invoke <id>`, `quit` (every window). `HallowBrowser.exe --cmd "<line>"` for scripts.
+  New private window, Reopen closed tab, Reopen closed window, Downloads, Gaming-light mode, CPU limiter, Sidebar, Vertical tabs), `invoke <id>`, `quit` (every window). `HallowBrowser.exe --cmd "<line>"` for scripts.
 - `%APPDATA%\HallowBrowser\status.json`: `tabs`, `asleep`, `gameMode`, `game`, `shield` (extension / fallback / missing), `shieldVersion`,
   `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps`;
   1.2: `verticalTabs`, `workspaces`, `groups`, `split`; 1.3: `bookmarksBar`, `sync`; 1.4: `windows`, `privateWindows`, `httpsOnly`,
-  `secureDns`, `extensions` (how many are on), `gameCorner` - never addresses, titles, history or workspace / group names.
+  `secureDns`, `extensions` (how many are on), `gameCorner`; 1.5: `forceDark`, `searchSuggestions`, `mediaTabs`, `downloadsRunning` - never addresses, titles, history or workspace / group names.
 - Live notifications go through Hub's `notify Browser<TAB>title<TAB>text` when Hub runs (Hallow Browser has no tray icon of its own;
   without Hub a short-lived tray icon shows the balloon).
 - Hallow Hub's generic host lists it while it runs. The Hallow accent (theme.json), crash reports (`%APPDATA%\HallowBrowser\crashes`,

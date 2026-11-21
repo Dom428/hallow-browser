@@ -259,7 +259,7 @@ namespace HallowBrowser.Tests
                 Ok(Wait(() => Title(0), t => t == "js-ran", 3000) == "js-ran", "site settings: allowed again - they run");
                 int tabsBefore = Tabs().Count; Nav(0, Lh + "/popup.html"); Thread.Sleep(1200);
                 var pp = J(Cmd("test-v-popups"));
-                Ok(I(pp, "blocked") == 1 && Tabs().Count == tabsBefore, "pop-ups: one the page opened by itself (no click) was blocked");
+                Ok(I(pp, "blocked") == 1 && Tabs().Count == tabsBefore, "pop-ups: one the page opened by itself (no click) was blocked (" + Val(Cmd("test-v-popups")) + ", tabs " + Tabs().Count + " vs " + tabsBefore + ")");
                 Cmd("test-v-rule 127.0.0.1 popups allow"); Nav(0, Lh + "/popup.html?2");
                 Ok(Wait(() => Tabs().Count, n => n == tabsBefore + 1, 4000) == tabsBefore + 1, "pop-ups: allowed for the site - it opens (as a tab)");
                 Cmd("test-close " + (Tabs().Count - 1)); Cmd("test-activate 0");

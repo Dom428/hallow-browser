@@ -40,12 +40,16 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("window-restore", "New window", "Ctrl+N", () => run(() => Program.OpenWindow(false, null, null))));          // 1.4
             sp.Children.Add(Ui.MenuRow("mask", "New private window", "Ctrl+Shift+N", () => run(() => Program.OpenWindow(true, null, null))));
             var re = Ui.MenuRow("rotate-left", "Reopen closed tab", "Ctrl+Shift+T", () => run(w.ReopenClosed)); re.IsEnabled = w.ClosedCount > 0; sp.Children.Add(re);
+            var rw = Ui.MenuRow("window-restore", "Reopen closed window", null, () => run(() => Program.ReopenClosedWindow())); rw.IsEnabled = Program.ClosedWindows.Count > 0; sp.Children.Add(rw);   // 1.5
             sp.Children.Add(Sep());
             sp.Children.Add(Ui.MenuRow("download", "Downloads", "Ctrl+J", () => run(() => DownloadsFlyout(w, at))));
             sp.Children.Add(Ui.MenuRow("magnifying-glass", "Find in page", "Ctrl+F", () => run(w.ShowFind)));
             sp.Children.Add(Ui.MenuRow("up-right-from-square", "Pop out video", null, () => run(() => { if (w.Active != null) Pip.PopOut(w, w.Active); })));
             sp.Children.Add(Ui.MenuRow("table-columns", w.S.SidebarOn ? "Hide the sidebar" : "Show the sidebar", "Ctrl+Shift+S", () => run(() => w.Side.Toggle())));
             sp.Children.Add(Ui.MenuRow("fire", "Hot tabs (CPU and memory)", "Shift+Esc", () => run(() => HotTabs.Flyout(w, at))));
+            // 1.5: dark pages
+            sp.Children.Add(Ui.MenuRow("moon", w.S.ForceDark ? "Show pages as sites draw them" : "Make pages dark", null, () => run(w.ToggleForceDark)));
+            if (w.Active != null && Omni.IsWeb(w.Active.Url)) { var host = Omni.HostOf(w.Active.Url); sp.Children.Add(Ui.MenuRow("circle-half-stroke", w.WantsDark(w.Active.Url) ? "Don't make " + host + " dark" : "Make " + host + " dark", null, () => run(() => w.ToggleSiteDark(w.Active)))); }
             sp.Children.Add(Sep());
             // 1.2: the power features
             sp.Children.Add(Ui.MenuRow("terminal", "Command palette", "Ctrl+K", () => run(() => Palette.Show(w))));
@@ -121,6 +125,7 @@ namespace HallowBrowser
             dlWin = w; dlList = new StackPanel();
             var sp = new StackPanel(); sp.Children.Add(Head("Downloads")); sp.Children.Add(dlList);
             sp.Children.Add(Sep());
+            sp.Children.Add(Ui.MenuRow("download", "All downloads", null, () => { CloseFlyouts(); w.NewTab(Omni.DownloadsUrl, true); }));   // 1.5
             sp.Children.Add(Ui.MenuRow("folder-open", "Open the Downloads folder", null, () => { try { Process.Start(Engine.Downloads()); } catch { } }));
             RefreshDownloads(w);
             Show(at, sp, 360);
@@ -130,26 +135,7 @@ namespace HallowBrowser
             if (dlList == null || dlWin != w || open == null || !open.IsOpen) return;
             dlList.Children.Clear();
             if (w.Downloads.Count == 0) { var m = Ui.Muted("Nothing downloaded yet.", 12); m.Margin = new Thickness(12, 2, 12, 8); dlList.Children.Add(m); return; }
-            foreach (var d in w.Downloads.Take(8))
-            {
-                var dd = d;
-                var g = new Grid { Margin = new Thickness(12, 4, 8, 6) }; g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var info = new StackPanel();
-                info.Children.Add(new TextBlock { Text = d.Name, TextTrimming = TextTrimming.CharacterEllipsis });
-                var line = d.State == "running" ? (d.Total > 0 ? Ui.Size(d.Got) + " of " + Ui.Size(d.Total) : Ui.Size(d.Got)) : d.State == "done" ? Ui.Size(d.Got > 0 ? d.Got : d.Total) + " - done" : d.State;
-                info.Children.Add(Ui.Muted(line, 11));
-                if (d.State == "running" && d.Total > 0)
-                {
-                    var bar = new ProgressBar { Height = 3, Maximum = d.Total, Value = d.Got, Margin = new Thickness(0, 4, 0, 0), BorderThickness = new Thickness(0) };
-                    bar.SetResourceReference(Control.ForegroundProperty, "AccentBrush"); bar.SetResourceReference(Control.BackgroundProperty, "LineDim"); info.Children.Add(bar);
-                }
-                g.Children.Add(info);
-                var acts = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(acts, 1);
-                if (d.State == "done") { acts.Children.Add(Ui.Tool("up-right-from-square", "Open", () => { try { Process.Start(dd.File); } catch { } }, 12)); acts.Children.Add(Ui.Tool("folder-open", "Show in folder", () => { try { Process.Start("explorer.exe", "/select,\"" + dd.File + "\""); } catch { } }, 12)); }
-                if (d.State == "running") acts.Children.Add(Ui.Tool("xmark", "Cancel", () => { try { dd.Op.Cancel(); } catch { } }, 12));
-                g.Children.Add(acts);
-                dlList.Children.Add(g);
-            }
+            foreach (var d in w.Downloads.Take(8)) dlList.Children.Add(w.DownloadRow(d, d.Record, false));   // 1.5: pause / resume / cancel, Defender's badge
         }
 
         // ---------------------------------------------------------------- Hallow Keys (the key in the address bar)
@@ -333,7 +319,10 @@ namespace HallowBrowser
 
             col.Children.Add(card("Search", new UIElement[] {
                 Ui.Muted("What the address bar searches with.", 12, 8),
-                Ui.Chips(BrowserSettings.Engines.Select(e => new KeyValuePair<string, string>(e, Omni.EngineName(e))).ToList(), S.Search, v => { S.Search = v; save(); Engine.WriteNewTab(S, Program.AccentHex); }) }));
+                Ui.Chips(BrowserSettings.Engines.Select(e => new KeyValuePair<string, string>(e, Omni.EngineName(e))).ToList(), S.Search, v => { S.Search = v; save(); Engine.WriteNewTab(S, Program.AccentHex); w.ReloadSettings(); }) }));
+            col.Children.Add(card("Address bar", w.AddressSettings()));                 // 1.5
+            col.Children.Add(card("Downloads", w.DownloadSettings()));                  // 1.5
+            col.Children.Add(card("Tab previews, gestures and media", w.TabsMediaSettings()));   // 1.5
 
             col.Children.Add(card("Start-up", new UIElement[] {
                 Ui.Switch("Open the tabs from last time", "Session restore: tabs you had open come back (each loads when you click it).", S.RestoreSession, on => { S.RestoreSession = on; save(); }) }));
@@ -367,6 +356,7 @@ namespace HallowBrowser
                 Ui.Muted("Follow Hallow = the light / dark mode picked in Hallow Toolkit (theme.json), or Windows' when that says \"Same as Windows\".", 11.5, 10),
                 Ui.Muted("Pages", 12, 6),
                 Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("follow", "Follow the browser"), new KeyValuePair<string, string>("dark", "Dark when the site allows"), new KeyValuePair<string, string>("auto", "Like Windows"), new KeyValuePair<string, string>("light", "Light") }, S.PageColors, v => { S.PageColors = v; save(); w.ApplyPageColors(); }),
+                Ui.Switch("Make pages dark", "Even sites without a dark look of their own (Chromium's own automatic dark mode). Choose per site with the padlock, or in Site settings.", S.ForceDark, on => { if (on != S.ForceDark) w.ToggleForceDark(); }),   // 1.5
                 Ui.Switch("Use the Hallow accent", "The colour picked in Hallow Toolkit (theme.json), live.", S.UseHallowAccent, on => { S.UseHallowAccent = on; save(); Program.ReloadTheme(); }) }));
 
             col.Children.Add(card("Speed and gaming", new UIElement[] {
@@ -396,7 +386,7 @@ namespace HallowBrowser
                 Ui.Muted(w.ShieldCounts ? "\"Blocked on this page\" works: Shield is loaded with the feedback permission it asks for (WebView2 has no permission prompt, so the browser grants it in its own copy of Shield)." : "", 11, 0) }));
 
             col.Children.Add(card("Hallow Keys", new UIElement[] {
-                Ui.Switch("Fill logins from Hallow Keys", "A key shows in the address bar when Keys has a login for the page. Nothing is filled until you click it and pick a login, and only on that exact site.", S.KeysOn, on => { S.KeysOn = on; save(); }) }));
+                Ui.Switch("Fill logins from Hallow Keys", "A key shows in the address bar when Keys has a login for the page. Nothing is filled until you click it and pick a login, and only on that exact site.", S.KeysOn, on => { S.KeysOn = on; save(); }) }.Concat(w.KeysSaveSettings()).ToArray()));   // 1.5: saving logins
 
             col.Children.Add(card("About", new UIElement[] {
                 Ui.Muted("Hallow Browser " + Program.Version + " - a Chromium browser on Microsoft Edge WebView2 (runtime " + (Engine.RuntimeVersion ?? "?") + ", SDK " + Program.SdkVersion + ").", 12, 4),

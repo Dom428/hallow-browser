@@ -683,7 +683,7 @@ namespace HallowBrowser
         {
             var c = t.Core; if (c == null || !Omni.IsWeb(t.Url)) { t.Readable = false; return; }
             var url = t.Url; t.ProbedUrl = url;
-            string r; try { r = await c.ExecuteScriptAsync(Reader.Probe); } catch { return; }
+            string r; try { r = await Panels.Eval(c, Reader.Probe); } catch { return; }   // 1.5: through DevTools - ExecuteScriptAsync hands the page a user gesture (it could then open a pop-up)
             if (t.Url != url) return;
             t.Readable = r == "true"; if (t == Active) UpdateBar();
         }

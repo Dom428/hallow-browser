@@ -100,6 +100,17 @@ namespace HallowBrowser
                 foreach (var g in w.Groups.ToList()) { var gg = g; if (a.Group != g) C("Add tab to group " + g.Name, null, "layer-group", () => w.AddToGroup(a, gg)); C((g.Collapsed ? "Expand" : "Collapse") + " group " + g.Name, null, "layer-group", () => w.ToggleCollapse(gg)); C("Put group " + g.Name + " to sleep", null, "moon", () => w.SleepGroup(gg)); }
             }
             C("Downloads", "Ctrl+J", "download", () => w.ShowDownloads());
+            // 1.5
+            C("All downloads (hallow://downloads)", null, "download", () => w.NewTab(Omni.DownloadsUrl, true));
+            C("Reopen closed window", null, "window-restore", () => Program.ReopenClosedWindow());
+            C("Media playing in your tabs", null, "music", () => { var _ = w.MediaFlyoutAtButton(); });
+            C(S.ForceDark ? "Show pages as sites draw them" : "Make pages dark", null, "moon", w.ToggleForceDark);
+            if (a != null && Omni.IsWeb(a.Url)) C(w.WantsDark(a.Url) ? "Don't make this site dark" : "Make this site dark", null, "circle-half-stroke", () => w.ToggleSiteDark(a));
+            T("Search suggestions (sends what you type to " + Omni.EngineName(S.Search) + ")", S.SearchSuggest, v => S.SearchSuggest = v, null);
+            T("Mouse gestures", S.Gestures, v => S.Gestures = v, w.GesturesChanged);
+            T("Pop out a playing video when I switch tabs", S.AutoPip, v => S.AutoPip = v, null);
+            T("Check downloads with Microsoft Defender", S.DownloadScan, v => S.DownloadScan = v, null);
+            T("Offer to save logins in Hallow Keys", S.SaveLogins, v => S.SaveLogins = v, null);
             C("Find in page", "Ctrl+F", "magnifying-glass", w.ShowFind);
             C("Print...", "Ctrl+P", "star", () => { if (a != null && a.Core != null) a.Core.ShowPrintUI(); });
             C("Zoom in", "Ctrl++", "magnifying-glass-plus", () => w.Zoom(1));

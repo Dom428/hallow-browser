@@ -145,6 +145,7 @@ namespace HallowBrowser
         public static void Forget(BrowserWindow w)
         {
             var sp = SharedSpaces; var ws = w.CurrentSpace;
+            RememberClosed(w);   // 1.5: "Reopen closed window"
             if (sp != null && ws != null) { if (ws.Auto) sp.Items.Remove(ws); else ws.Session = w.BuildSession(); }
             SaveAll();
             if (sp != null) BrowserSettings.SaveWorkspaces(sp);
@@ -233,6 +234,7 @@ namespace HallowBrowser
             if (t.View != null) { content.Children.Remove(t.View); var c = t.Core; if (c != null) { owner.Remove(c); capped.Remove(c); } }
             if (t.Page != null) { content.Children.Remove(t.Page); t.Page = null; t.Discarded = true; }   // internal pages are rebuilt by the window they go to
             if (t.ReaderView != null) { content.Children.Remove(t.ReaderView); t.ReaderView = null; }
+            DropCrashView(t); if (PendingLogin != null && PendingLogin.Tab == t) ClearLogin();   // 1.5 (a crashed tab shows its page again in the other window)
             t.Group = null;
             if (Tabs.Count > 0) { if (Active == t) Activate(Tabs[Math.Min(i, Tabs.Count - 1)]); }
             else Active = null;
@@ -249,6 +251,7 @@ namespace HallowBrowser
                 var c = t.Core; if (c != null) Rehook(t, c);
             }
             else if (t.Internal) t.Discarded = true;
+            if (t.Crashed) { t.Crashed = false; ShowCrashed(t, "crashed"); }
             RenderStrip(); Activate(t); LayoutSplit(); Changed();
         }
         public int SlotAt(Point screen)

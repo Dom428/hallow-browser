@@ -25,6 +25,7 @@ namespace HallowBrowser
         [DataMember] public string Sound;    // null = allowed | mute
         [DataMember] public string Script;   // null = allowed | block
         [DataMember] public bool Http;       // HTTPS-only: allowed over http
+        [DataMember] public string Dark;     // 1.5: null = as the global "Make pages dark" | on | off
     }
 
     public static class SiteRules
@@ -36,7 +37,7 @@ namespace HallowBrowser
             var r = Find(s, host); if (r != null || !create) return r;
             r = new SiteRule { Host = Key(host) }; s.Sites.Add(r); return r;
         }
-        public static bool Empty(SiteRule r) { return r == null || (r.Popups == null && r.Sound == null && r.Script == null && !r.Http); }
+        public static bool Empty(SiteRule r) { return r == null || (r.Popups == null && r.Sound == null && r.Script == null && !r.Http && r.Dark == null); }
         public static void Tidy(BrowserSettings s) { s.Sites.RemoveAll(Empty); }
         public static void Reset(BrowserSettings s, string host) { var k = Key(host); s.Sites.RemoveAll(x => x.Host == k); }
 
@@ -271,6 +272,7 @@ namespace HallowBrowser
             rows.Add(row("up-right-from-square", "Pop-ups", Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("", "When I click"), new KeyValuePair<string, string>("allow", "Allow"), new KeyValuePair<string, string>("block", "Block") }, r.Popups ?? "", v => edit(x => x.Popups = v == "" ? null : v))));
             rows.Add(row("volume-high", "Sound", Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("", "Allow"), new KeyValuePair<string, string>("mute", "Mute") }, r.Sound ?? "", v => edit(x => x.Sound = v == "" ? null : v))));
             rows.Add(row("code", "JavaScript", Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("", "Allow"), new KeyValuePair<string, string>("block", "Block") }, r.Script ?? "", v => edit(x => x.Script = v == "" ? null : v))));
+            rows.Add(row("moon", "Dark pages", Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("", S.ForceDark ? "Default (dark)" : "Default (as drawn)"), new KeyValuePair<string, string>("on", "Make dark"), new KeyValuePair<string, string>("off", "Never dark") }, r.Dark ?? "", v => { edit(x => x.Dark = v == "" ? null : v); DarkChanged(); })));   // 1.5
             if (r.Http || HttpThisSession.Contains(SiteRules.Key(host)))
                 rows.Add(row("lock-open", "Insecure http", Ui.Btn(r.Http ? "Allowed - stop allowing" : "Allowed until restart - stop", () => { HttpThisSession.Remove(SiteRules.Key(host)); edit(x => x.Http = false); })));
             var cookieText = Ui.Muted("...", 12); cookieText.VerticalAlignment = VerticalAlignment.Center; cookieText.Margin = new Thickness(0, 0, 10, 0);
@@ -300,7 +302,7 @@ namespace HallowBrowser
             var links = Ui.Row(Ui.Btn("Site settings", () => { if (pop != null) pop.IsOpen = false; NewTab(Omni.SitesUrl, true); }, false, "sliders"), Ui.Btn("Reset this site", () => { var _ = ResetSite(host).ContinueWith(x => Dispatcher.BeginInvoke(fill)); }, false, "rotate-left"));
             links.Margin = new Thickness(0, 10, 0, 0); foreach (FrameworkElement b in links.Children) b.Margin = new Thickness(0, 0, 8, 0);
             sp.Children.Add(links);
-            sp.Children.Add(Ui.Muted("Pop-ups, sound and JavaScript take effect on the next page load.", 11, 0));
+            sp.Children.Add(Ui.Muted("Pop-ups, sound and JavaScript take effect on the next page load; dark pages at once.", 11, 0));
             pop = Panels.ShowFlyout(at, sp, 430); pop.HorizontalOffset = 0;
             await Task.Yield();
         }

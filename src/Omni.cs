@@ -23,7 +23,8 @@ namespace HallowBrowser
         public const string ExtensionsUrl = "hallow://extensions";        // 1.4: your own extensions
         public const string SitesUrl = "hallow://settings/sites";         // 1.4: site settings (permissions, pop-ups, sound, JavaScript, cookies)
         public const string PrivateTabUrl = "https://newtab.hallow/private.html";   // 1.4: a private window's new tab page
-        public static bool IsInternal(string url) { return url == SettingsUrl || url == BookmarksUrl || url == ExtensionsUrl || url == SitesUrl; }
+        public const string DownloadsUrl = "hallow://downloads";            // 1.5: every download, with Show in folder and Defender's answer
+        public static bool IsInternal(string url) { return url == SettingsUrl || url == BookmarksUrl || url == ExtensionsUrl || url == SitesUrl || url == DownloadsUrl; }
 
         public static string EngineName(string e)
         {
@@ -58,6 +59,7 @@ namespace HallowBrowser
             if (s.Equals(BookmarksUrl, StringComparison.OrdinalIgnoreCase)) return BookmarksUrl;
             if (s.Equals(ExtensionsUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://extensions/", StringComparison.OrdinalIgnoreCase)) return ExtensionsUrl;
             if (s.Equals(SitesUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://sites", StringComparison.OrdinalIgnoreCase)) return SitesUrl;
+            if (s.Equals(DownloadsUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://downloads/", StringComparison.OrdinalIgnoreCase)) return DownloadsUrl;
             var m = Regex.Match(s, @"^([a-zA-Z][a-zA-Z0-9+.\-]*):");
             if (m.Success && !LooksLikeHostPort(s))
             {

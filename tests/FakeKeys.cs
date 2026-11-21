@@ -18,6 +18,8 @@ namespace HallowBrowser.Tests
         public readonly List<string> Log = new List<string>();   // request types and urls only
         public string SavedUrl = "http://127.0.0.1:5555";
         public const string User = "tester", Pass = "fake-PW-123";
+        // 1.5: what the browser asked Keys to save (made-up test logins only; kept in this test process's memory)
+        public readonly List<Tuple<string, string, string>> Saved = new List<Tuple<string, string, string>>();
         volatile bool stop; Thread th;
         static readonly JavaScriptSerializer js = new JavaScriptSerializer();
 
@@ -63,6 +65,14 @@ namespace HallowBrowser.Tests
             {
                 if (!match || (m.ContainsKey("id") ? m["id"] as string : "") != "t1") return "{\"ok\":false,\"msg\":\"That login isn't for this site\"}";
                 return js.Serialize(new Dictionary<string, object> { { "ok", true }, { "username", User }, { "password", Pass }, { "totp", null } });
+            }
+            if (type == "save-check" || type == "save")
+            {
+                var user = m.ContainsKey("username") ? m["username"] as string ?? "" : ""; var pw = m.ContainsKey("password") ? m["password"] as string ?? "" : "";
+                if (pw.Length == 0) return "{\"ok\":false}";
+                string state; lock (Saved) { var same = Saved.FirstOrDefault(x => KeysDomain.Matches(x.Item1, url) && x.Item2 == user); state = same == null ? (match && user == User ? (pw == Pass ? "same" : "update") : "new") : same.Item3 == pw ? "same" : "update"; }
+                if (type == "save" && state != "same") lock (Saved) { Saved.RemoveAll(x => KeysDomain.Matches(x.Item1, url) && x.Item2 == user); var u = new Uri(url); Saved.Add(Tuple.Create(u.Scheme + "://" + u.Authority, user, pw)); }
+                return js.Serialize(new Dictionary<string, object> { { "ok", true }, { "state", state } });
             }
             return "{\"ok\":false,\"msg\":\"Unknown request\"}";
         }

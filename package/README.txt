@@ -9,6 +9,23 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.5 - FASTER TO USE, SAFER DOWNLOADS, LOGINS INTO KEYS
+- Save to Hallow Keys: after you sign in, Save / Never for this site / Not now. Keys
+  keeps it (encrypted); the browser never stores passwords. Not in private windows.
+- Address bar: sums and conversions (200*1.2, 5 km in miles), keywords (yt cats,
+  w term, gh repo - add your own), tab search (% name). Search suggestions from your
+  engine are OFF by default (they send what you type to the engine).
+- Make pages dark: for every site or per site (menu, padlock, Settings > Look).
+- Downloads: pause, resume, cancel; a speed limit while you play; Microsoft Defender
+  checks each finished file (clean / threat found); hallow://downloads lists them all
+  with Show in folder.
+- Tabs: hover previews, a picture while you drag a tab out, mouse gestures (off by
+  default), Reopen closed window. Private windows' menus are purple too.
+- Media: a music button for every tab playing audio or video (play / pause / next);
+  optional pop-out when you switch away from a playing video.
+- Crash recovery: "This tab crashed - Reload", and "Restore your tabs" if the browser
+  didn't close properly.
+
 WHAT'S NEW IN 1.4 - WINDOWS, PRIVACY AND YOUR OWN EXTENSIONS
 - More windows: Ctrl+N opens a new window. Drag a tab out of the strip to give it its own
   window, or drop it into another window's strip (the page moves as it is). Each window
