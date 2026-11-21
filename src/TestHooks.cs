@@ -153,6 +153,7 @@ namespace HallowBrowser
             }
             if (cmd.StartsWith("test-p-")) return Power(w, cmd.Substring(7), arg);
             if (cmd.StartsWith("test-m-")) return MoveIn(w, cmd.Substring(7), arg);   // 1.3
+            if (cmd.StartsWith("test-v-")) return V14(w, cmd.Substring(7), arg);      // 1.4
             return "error unknown test command";
         }
 

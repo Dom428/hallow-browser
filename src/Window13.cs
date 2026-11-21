@@ -53,8 +53,9 @@ namespace HallowBrowser
             bmBar.Drop += (a, b) => { var id = b.Data.GetData(DragFormat) as string; if (id != null && Bookmarks != null) Bookmarks.Move(id, BookmarkStore.BarId, -1); b.Handled = true; };
             return bmBar;
         }
-        public void ToggleBookmarksBar() { S.BookmarksBar = !S.BookmarksBar; S.Save(); ApplyBookmarksBar(); Toast(S.BookmarksBar ? "Bookmarks bar on (Ctrl+Shift+B hides it)." : "Bookmarks bar off (Ctrl+Shift+B shows it).", 3); SyncSoon(8); }
-        public void ApplyBookmarksBar() { if (bmBar == null) return; bmBar.Visibility = (S.BookmarksBar || snapBar) && !fullscreen ? Visibility.Visible : Visibility.Collapsed; RenderBookmarksBar(); }
+        public void ToggleBookmarksBar() { if (Private) { Toast("The bookmarks bar can't be changed from a private window.", 3); return; } S.BookmarksBar = !S.BookmarksBar; S.Save(); ApplyBookmarksBar(); ApplyBookmarksBarAll(); Toast(S.BookmarksBar ? "Bookmarks bar on (Ctrl+Shift+B hides it)." : "Bookmarks bar off (Ctrl+Shift+B shows it).", 3); SyncSoon(8); }
+        public void ApplyBookmarksBar() { if (bmBar == null) return; bmBar.Visibility = (S.BookmarksBar || snapBar) && !fullscreen && !Private ? Visibility.Visible : Visibility.Collapsed; RenderBookmarksBar(); }
+        public void ApplyBookmarksBarAll() { foreach (var w in Program.Windows) if (w != this) w.ApplyBookmarksBar(); }
         public bool BookmarksBarShown { get { return bmBar != null && bmBar.Visibility == Visibility.Visible; } }
         public int BarItemCount { get { return bmItems == null ? 0 : bmItems.Children.OfType<FrameworkElement>().Count(x => x.Tag is Bookmark); } }
 
@@ -437,10 +438,11 @@ namespace HallowBrowser
             try { var p = Side == null ? null : Side.Panels.FirstOrDefault(x => x.Audible && x.View != null); if (p != null) { var t = p.View.CoreWebView2 == null ? null : p.View.CoreWebView2.DocumentTitle; if (!string.IsNullOrWhiteSpace(t)) playing = t + " (" + p.Site.Name + ")"; } } catch { }
             var hist = History; var s = S;
             Task.Run(() => { lock (ntLock) NewTabData.Write(NewTabData.Build(s, hist != null && hist.Loaded ? hist.All() : new List<HistoryEntry>(), playing, DateTime.Now)); });
+            GameCornerTick(false);   // 1.4: when it is on and due
         }
         void NewTabMessage(string m, string source)
         {
-            if (source == null || !Omni.IsNewTab(source)) return;   // only the new tab page itself
+            if (source == null || !Omni.IsNewTab(source) || Private) return;   // only the new tab page itself (1.4: never from a private window)
             var p = m.Split('\t'); var url = p.Length > 1 ? p[1] : null; if (!Omni.IsWeb(url)) return;
             if (p[0] == "hallow:nt-hide") { if (!S.NewTabHidden.Contains(url)) S.NewTabHidden.Add(url); }
             else if (p[0] == "hallow:nt-pin") { PinToNewTab(url, p.Length > 2 ? p[2] : null); return; }
@@ -490,13 +492,14 @@ namespace HallowBrowser
         public bool SyncReady { get { return S.SyncOn && !string.IsNullOrEmpty(S.SyncFolder); } }
         public void StartSync()
         {
-            if (snap) return;
+            if (snap || Private || !IsPrimary) return;   // 1.4: the first window syncs for all of them
             if (syncTimer == null) { syncTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMinutes(2) }; syncTimer.Tick += (a, b) => { var _ = SyncNow(false); }; }
             if (SyncReady) { syncTimer.Start(); SyncSoon(3); } else syncTimer.Stop();
         }
         void SyncSoon(int seconds)
         {
-            if (!SyncReady || snap) return;
+            if (!SyncReady || snap || Private) return;   // 1.4: never from a private window
+            if (!IsPrimary) { var m = Program.First; if (m != null && m != this && m.IsPrimary) m.SyncSoon(seconds); return; }
             syncDirty = true;
             if (syncSoonTimer == null) { syncSoonTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(seconds) }; syncSoonTimer.Tick += (a, b) => { syncSoonTimer.Stop(); var _ = SyncNow(false); }; }
             syncSoonTimer.Stop(); syncSoonTimer.Interval = TimeSpan.FromSeconds(seconds); syncSoonTimer.Start();

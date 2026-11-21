@@ -71,6 +71,7 @@ namespace HallowBrowser.Tests
         {
             if (mode == "sidebar") return Integration11.Main(exe, dir);   // 1.1: sidebar, live, hot tabs, bandwidth, light/dark
             if (mode == "movein") return Integration13.Main(exe, dir);    // 1.3: import, bookmarks bar / manager, new tab page, sync
+            if (mode == "v14") return Integration14.Main(exe, dir);       // 1.4: windows, private, permissions, HTTPS-only, secure DNS, extensions, Shield relay, game corner
             if (mode == "power") return Integration12.Main(exe, dir);     // 1.2: vertical tabs, groups, workspaces, split, Ctrl+K, screenshots, reader, mute
             // everything goes to the test folder: settings, profile, pipes (".test-<leaf>"), the Keys stand-in's pipe
             Directory.CreateDirectory(dir);

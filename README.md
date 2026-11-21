@@ -5,11 +5,13 @@ YouTube, Spotify and WhatsApp signed in beside the page, **Hallow Keys** fills y
 puts background tabs (and sidebar panels) to sleep while you play. 1.2 adds the power features: **vertical tabs, tab groups,
 workspaces, split view, a command palette (Ctrl+K), screenshots, reader mode** and saved sessions; 1.3 helps you **move in** -
 **bookmarks and history from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox**, a **bookmarks manager and bar**, **sync
-through a folder you pick** (OneDrive, Dropbox, Syncthing, a NAS) and a **speed-dial new tab page**. It runs on **Microsoft Edge
-WebView2** - the Evergreen runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the
-browser itself is small (a ~550 KB app plus Microsoft's WebView2 DLLs).
+through a folder you pick** (OneDrive, Dropbox, Syncthing, a NAS) and a **speed-dial new tab page**. 1.4 brings **real windows**
+(Ctrl+N, drag a tab out), **private windows**, **site permissions**, **HTTPS-only mode and secure DNS**, **your own extensions**,
+Shield's **"blocked on this page"** number and an opt-in **game corner**. It runs on **Microsoft Edge WebView2** - the Evergreen
+runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
+~870 KB app plus Microsoft's WebView2 DLLs).
 
-![Hallow Browser 1.3: the bookmarks bar and the bookmarks manager (made-up bookmarks)](docs/bookmarks.png)
+![Hallow Browser 1.4: a private window (made-up page)](docs/private.png)
 
 Part of the Hallow family (Mixer, Hub, Vault, Overlay, Remote, Clips, Keys, Assist, Guard, Shield, Setup, Toolkit).
 
@@ -24,6 +26,94 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.4: windows, privacy and your own extensions
+
+**More than one window**
+- **Ctrl+N** opens a new window (menu > New window). **Drag a tab out of the strip** to give it its own window where you let go, or
+  **into another window's strip** to move it there - the page moves as it is (it isn't reloaded: the same WebView goes along).
+- Each window keeps **its own tabs, groups and split view** in the session and comes back next time. A new window gets its own
+  workspace ("Window 2"); the workspace switcher shows which workspaces are open in another window, and switching to one that's open
+  elsewhere brings that window forward. Closing a window (not the last) closes its tabs - and its "Window n" workspace, unless you
+  switched it to another workspace first. **Closing the last window quits**; menu > Exit closes every window and keeps them all for
+  next time.
+- Sync, live notifications and Shield's relay run once, in the first window (the next one takes over if you close it).
+
+**Private windows** (Ctrl+Shift+N, menu > New private window)
+- A separate WebView2 profile with **InPrivate mode** (`CoreWebView2ControllerOptions.IsInPrivateModeEnabled`): its cookies, cache
+  and site data are thrown away when the last private window closes, and pages there don't see your normal sign-ins.
+- **Nothing is written**: no history (Ctrl+K's history, the address bar's typed list), no session or workspace, no bookmark, bookmarks
+  bar, new-tab-page or sync changes (the star and the bar are hidden there). **Downloads are still kept** in your Downloads folder.
+- Its own look: **dark purple** whatever the light / dark mode, a **mask** and a PRIVATE chip in the title bar, and its own new tab
+  page. The sidebar isn't there (its panels are signed in on your normal profile).
+- **Shield in private windows:** WebView2 lets Shield be *added* to an InPrivate profile, but it **doesn't run there** (tested: the
+  test ad request went through; Chromium runs extensions in private windows only when they're "allowed in InPrivate", and WebView2 has
+  no switch for that). So private windows get **Shield's network-only fallback** - its ~7,100 block rules through
+  `WebResourceRequested` (no cosmetic filtering, no per-site settings). Tested: the test ad request is blocked there.
+
+**Site permissions and site settings**
+- The engine's permission requests come to a **Hallow prompt** under the address bar - "*site* wants to use your camera" - with
+  **Allow** (saved), **Allow this time** and **Block** (saved): camera, microphone, location, notifications, clipboard, MIDI devices,
+  motion sensors, window placement, local fonts, files and several downloads at once (`PermissionRequested` with a deferral; the
+  answer is saved in the profile with `SavesInProfile`, so WebView2 doesn't ask again). Autoplay and storage keep the engine's default.
+- **Site settings** (`hallow://settings/sites`, menu > Site settings): every site with settings of its own - its permissions
+  (Allow / Block / Ask, from `GetNonDefaultPermissionSettingsAsync`, changed with `SetPermissionStateAsync`), **pop-ups** (blocked unless
+  you clicked - like other browsers - or Allow / Block), **sound** (Mute), **JavaScript** (Block: `IsScriptEnabled` off for that site's
+  pages), insecure http allowed, and **cookies** (count, Delete). **Reset** per site.
+- The **padlock** in the address bar is a button now: the connection (https or not) and the current site's settings.
+- Honestly: WebView2 has no per-site cookie *blocking* - the browser can delete a site's cookies, and third-party cookies stay blocked
+  everywhere (Settings > Privacy).
+
+**HTTPS-only mode and secure DNS** (Settings > Security)
+- **HTTPS-only** (on by default): an `http://` address (port 80) is opened as `https://` first. If the secure version doesn't answer,
+  has a bad certificate or sends you back to http, a Hallow page says **"This site doesn't support a secure connection"** with **Go
+  back**, **Continue to the site (not secure)** (until the browser restarts) and **Always allow this site** (listed in Site settings).
+  Nothing is sent over http before you agree. Local names and IP addresses (localhost, `router`, `nas.local`, `192.168.x.x`, LAN game
+  servers) are left alone, like other browsers do.
+- **Secure DNS** (DNS over HTTPS): **Cloudflare, Quad9, Google** or Off. **A change needs a browser restart** (Settings says so).
+  How: Chromium keeps this in the engine's `Local State` (`dns_over_https.mode = secure` + the provider's template), which the runtime
+  reads when it starts - the browser writes it before the engine starts. **Tested for real** with a local DoH stand-in: a name only
+  the stand-in knows opened, every lookup went there (Microsoft's own background lookups too), and a name it didn't know didn't open -
+  no quiet fallback to Windows' DNS. The feature-flag route (`--enable-features=DnsOverHttps:...` in `AdditionalBrowserArguments`)
+  did **nothing** on its own in WebView2 158, so it isn't used. In secure mode, if the provider can't be reached, pages don't load.
+
+**Your own extensions** (`hallow://extensions`, menu > Extensions)
+- **Load unpacked...**: pick an extension's folder (the one with `manifest.json`). It's copied into the browser's data
+  (`%LOCALAPPDATA%\HallowBrowser\Extensions`) and loaded with `AddBrowserExtensionAsync`; **switch it on / off** (`EnableAsync`) or
+  **Remove** it (the browser's copy is deleted, never your folder). Loading a newer folder of the same extension replaces it.
+- Their buttons are under the **puzzle piece** in the toolbar (an overflow menu); a popup opens in a flyout like Shield's.
+- **Hallow Shield stays built in** - listed as "Built in", it can't be removed.
+- **Chrome Web Store installs aren't possible in WebView2** (Microsoft's engine has no store support). Instead: get the extension's
+  source or release zip from its developer (many publish one on GitHub), unzip it and Load unpacked. Updates don't come by
+  themselves - load the newer folder. Some extension APIs are missing in WebView2 (native messaging, permission prompts), and
+  extensions don't run in private windows.
+
+**Shield: "blocked on this page" and the Hallow family counts**
+- WebView2 has **no API to grant an extension an optional permission**, and Shield asking for it itself (`chrome.permissions.request`,
+  from its popup, with a click) **never gets an answer** in WebView2 (tested: no prompt, the promise just waits). So the browser loads
+  **its own copy of Shield** (`%LOCALAPPDATA%\HallowBrowser\ShieldLoaded\<version>`, made once per Shield version) in which
+  `declarativeNetRequestFeedback` is a *required* permission. Same extension id (the manifest's key), and it's added **over** the
+  installed Shield, which keeps Shield's settings, filters and stats (tested; 1.3 removed and re-added it on Shield updates, which
+  lost them). Now the popup shows **"N ads and trackers blocked on this page"** (`getMatchedRules` for that tab) and Shield keeps its
+  blocked counts (Stats).
+- **Family bridge without native messaging:** every 5 minutes the browser opens a page of Shield's own origin (its `family.js`, never
+  shown), which reads Shield's stats and builds the report with **Shield's own `familyReport()`** - `blockedToday, blockedWeek,
+  bannersToday, level, version, browser, profile, day`, never a site - and merges it into **`%APPDATA%\HallowShield\status.json`** in
+  the bridge's format (same mutex, atomic replace), **keeping the other browsers' entries** (ours is "Hallow Browser"). Hallow Hub and
+  Remote show it like Shield's counts from Chrome. Settings > Hallow Shield > "Share Shield's counts with Hallow Hub and Remote" (on;
+  local only).
+
+**Game corner** (new tab page - **off by default**, Settings > Game corner: "this contacts Steam and Epic")
+- **News** for the games in your **Hallow Hub library** (Hub's `hub.json`, read only: the Steam app ids of the games you last played,
+  hidden ones left out) through Steam's public news API (`ISteamNews/GetNewsForApp/v2`, 3 items each, no key), and **Epic's free
+  games** (now and next) from its public promotions list.
+- Fetched **at most every 6 hours** (an hour after a failed try), **never while a game runs**, kept in
+  `%LOCALAPPDATA%\HallowBrowser\gamecorner.json`. The new tab page shows text and links only, from that local copy - no pictures or
+  scripts from Steam or Epic. See [Privacy](#privacy-what-leaves-your-pc).
+- On this PC, Epic's endpoint didn't resolve (the DNS in use answers "no such domain" for it), so the free-games half was only
+  checked against a stand-in in Epic's response format; Steam's format was checked once against the real API (read-only).
+
+![Site settings and the permission prompt (made-up sites)](docs/sites.png)
 
 ## What's new in 1.3: moving in and syncing
 
@@ -252,12 +342,14 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
-| What | 1.3 (bookmarks, speed dial, Hallow strip on) | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
-|---|---|---|---|---|
-| Browser UI drawn (first paint of the window) | 433-462 ms (warm profile, 14 restored tabs) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
-| First page loaded (local test page) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
-| New tab (pre-warmed, until drawn) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
-| Memory | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+| What | 1.4 (more windows, site rules, HTTPS-only, Shield count on) | 1.3 (bookmarks, speed dial, Hallow strip on) | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
+|---|---|---|---|---|---|
+| Browser UI drawn (first paint of the window) | 456-515 ms (warm profile, 14 restored tabs); 465 ms on a brand-new profile | 433-462 ms (warm profile, 14 restored tabs) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
+| First page loaded (local test page) | 681-801 ms (warm), 825 ms (new profile) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
+| New tab (pre-warmed, until drawn) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
+| Memory | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+
+1.4: more windows, site rules and HTTPS-only add nothing at start (plain WPF and per-navigation checks); Shield's copy is made once per Shield version (16 MB, in the background), and the Shield relay runs 20 s after start and then every 5 minutes (a hidden page of Shield's for about a second, never during a game). The game corner is off unless you switch it on.
 
 1.3: the bookmarks bar is plain WPF and is filled when the bookmarks file has been read in the background; the new tab page's tiles come from a small data.json written in the background (at most once a minute for the Hallow strip) - the page itself stays static. The machine was busier on the day 1.3 was measured: 1.2 measured again the same day gave a 63 ms median for new tabs (46 ms when 1.2 shipped), so compare within a column.
 
@@ -274,6 +366,23 @@ when clicked; the JIT compiles start-up code on spare cores from a profile of th
 are capped at 8 (Chromium still keeps sites apart where isolation needs it); hardware acceleration stays on. No comparison with Edge's
 start-up was made (it would have meant opening Edge on your screen).
 
+## Privacy: what leaves your PC
+
+Hallow Browser has no server. Besides the pages you open, it contacts:
+- **GitHub** - to look for updates of the browser and of Shield (sha256-checked).
+- **Steam and Epic - only if you switch the game corner on** (off by default). Then, at most every 6 hours and never while a game
+  runs: one request per game to `https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=<id>&count=3&maxlength=1&format=json`
+  for up to 8 Steam games from your Hallow Hub library, and one request to Epic's public free-games list
+  (`https://store-site-backend-static.epicgames.com/freeGamesPromotions`, the same for everyone). **Only the app ids are sent** - no
+  account, no cookies, no other data; like any web request, Steam and Epic see your IP address and that the request came from
+  "HallowBrowser/1.4". The answers are kept in `%LOCALAPPDATA%\HallowBrowser\gamecorner.json` and shown as text and links (no pictures
+  or scripts from either site). Switch it off and nothing more is fetched.
+- **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
+  (not the pages), instead of your Wi-Fi / internet provider.
+
+Kept on this PC only: Shield's counts in `%APPDATA%\HallowShield\status.json` (for Hallow Hub and Remote - counts, never sites),
+`status.json` (no addresses or titles), history, bookmarks, site settings. Private windows keep nothing but downloads.
+
 ## Hallow Shield inside WebView2
 
 Shield 1.7's Chrome build ships inside the package (`shield\`, from Shield's GitHub release, sha256-checked) and is loaded with
@@ -288,8 +397,9 @@ integration test against local pages (ad hosts pointed at the test server):
 | tabs (query / get) | **Yes** |
 | The popup | WebView2 has no extension toolbar, so the **Shield button** opens Shield's own `popup.html` in a small window under it, on the extension's origin. The popup asks for "the active tab", which in WebView2 would be that little window - so the browser finds the page's tab id with `chrome.tabs.query` and opens `popup.html?tab=<id>` (Shield's own parameter). Site mode, levels, switches, zapper, filters, stats work there |
 | Options page | **Yes** - opens in a tab (Menu > Hallow Shield settings) |
-| "Blocked on this page" count | Shows "-": `getMatchedRules` needs the optional `declarativeNetRequestFeedback` permission - same as in Chrome until you allow it |
-| nativeMessaging (Shield's Hallow family bridge) | **No** - not available in WebView2. The bridge keeps working for Shield in Chrome / Edge |
+| "Blocked on this page" count | **Yes since 1.4** - WebView2 can't grant optional permissions and Shield's own request gets no answer there, so the browser loads its own copy of Shield with `declarativeNetRequestFeedback` as a required permission (see 1.4) |
+| nativeMessaging (Shield's Hallow family bridge) | **No** - not available in WebView2. **1.4 relays the counts itself** into `%APPDATA%\HallowShield\status.json` (see 1.4); the bridge keeps working for Shield in Chrome / Edge |
+| InPrivate profiles (private windows) | Shield can be added there but **doesn't run** (no "allow in InPrivate" in WebView2) - private windows use the network-only fallback below |
 | Fallback | If the runtime ever refuses the extension, Shield runs **network-only**: its plain block rules (~7,100 `||host^` / `||host/path` rules, no site conditions) through `WebResourceRequested` - no cosmetic filtering, no per-site settings. The browser says so in the Shield panel and Settings. Tested too (`HALLOW_BROWSER_FORCE_FALLBACK`) |
 
 Updates: newer Shield versions come from Shield's own GitHub release (`hallow-shield-chrome-<v>.zip`, checked against GitHub's sha256
@@ -317,11 +427,12 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 
 ## Family link
 
-- Pipe `HallowFamily.Browser.<user>`: `ping`, `status`, `open` (focus), `open <url>` (http/https only), `menu` (New tab, Reopen
-  closed tab, Gaming-light mode, CPU limiter, Sidebar, Vertical tabs), `invoke <id>`, `quit`. `HallowBrowser.exe --cmd "<line>"` for scripts.
+- Pipe `HallowFamily.Browser.<user>`: `ping`, `status`, `open` (focus), `open <url>` (http/https only), `menu` (New tab, New window,
+  New private window, Reopen closed tab, Gaming-light mode, CPU limiter, Sidebar, Vertical tabs), `invoke <id>`, `quit` (every window). `HallowBrowser.exe --cmd "<line>"` for scripts.
 - `%APPDATA%\HallowBrowser\status.json`: `tabs`, `asleep`, `gameMode`, `game`, `shield` (extension / fallback / missing), `shieldVersion`,
   `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps`;
-  1.2: `verticalTabs`, `workspaces`, `groups`, `split` - never addresses, titles, history or workspace / group names.
+  1.2: `verticalTabs`, `workspaces`, `groups`, `split`; 1.3: `bookmarksBar`, `sync`; 1.4: `windows`, `privateWindows`, `httpsOnly`,
+  `secureDns`, `extensions` (how many are on), `gameCorner` - never addresses, titles, history or workspace / group names.
 - Live notifications go through Hub's `notify Browser<TAB>title<TAB>text` when Hub runs (Hallow Browser has no tray icon of its own;
   without Hub a short-lived tray icon shows the balloon).
 - Hallow Hub's generic host lists it while it runs. The Hallow accent (theme.json), crash reports (`%APPDATA%\HallowBrowser\crashes`,
@@ -338,6 +449,9 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.3: the sync file (Hallow Browser sync.hbsync, encrypted if you set a password) | the folder you picked in Settings > Sync |
 | Screenshots you save | `Pictures\Hallow Browser` |
 | Shield updates | `%LOCALAPPDATA%\HallowBrowser\Shield` |
+| 1.4: the Shield copy the browser loads (with the feedback permission), your extensions' copies, the game corner's cache (gamecorner.json), newtab\private.html | `%LOCALAPPDATA%\HallowBrowser\ShieldLoaded`, `...\Extensions`, `...\gamecorner.json` |
+| 1.4: site settings (pop-ups, sound, JavaScript, http allowed) and your extensions' list | settings.json in %APPDATA%\HallowBrowser (permissions themselves are in the profile) |
+| 1.4: Shield's counts for Hallow Hub / Remote | `%APPDATA%\HallowShield\status.json` (merged with Shield's bridge's entries) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
 
@@ -349,7 +463,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -377,7 +491,21 @@ split view loading two pages side by side (swap, saved with the session), Ctrl+K
 and a panel and running them, history in the profile folder and Clear history, Ctrl+D, screenshots as PNGs (the full page taller than
 the viewport, a region at half size; "copy" in a test folder never touches the clipboard), reader mode extracting a test article
 without its nav / ads / sidebar / comments / footer, and mute (the speaker button, Mute all other tabs). Page pictures come from
-`CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>` (every picture in light and dark).
+`CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>` (every picture in light and dark). 1.4 adds (unit)
+where a dragged tab goes (reorder / another window / a new window, the drop slot), the HTTPS-only rules (what's upgraded, test port
+pairs, which errors ask, the page escaped and in both looks), secure DNS in Local State (written, unchanged, removed, a broken file left
+alone), site rules and permission names, Shield's patched manifest, the status.json relay (merging with other browsers, replacing our
+entry by id, the sums, only the bridge's fields), unpacked extension manifests (_locales names, MV2 / MV3 popups), the game corner
+(Hub's library, Steam's news in its real response shape, Epic's free / upcoming games, every 6 hours, the page data), the private
+palette's contrast, sessions with more windows and 1.4's settings; and (integration "v14", local pages and stand-ins only - a local
+DoH server and https server with a throw-away self-signed certificate accepted only in tests, stand-in Steam / Epic endpoints) secure
+DNS really going through the DoH stand-in, http upgraded to https and the "not secure" page with its own Continue button, a
+geolocation request answered through the prompt's code (never Windows' location), saved / one-time / blocked permissions and Reset,
+JavaScript / pop-ups / sound / cookies per site, Shield's "blocked on this page" number and the status.json relay merged with another
+browser's entry, a test unpacked extension (content script, popup, off, removed), new windows and moving a live page between windows
+without a reload, a private window leaving nothing in the session / workspaces / settings / history files (downloads kept, its own
+cookies, Shield's fallback blocking), the game corner (off = nothing fetched; only app ids sent; on the new tab page; not again within
+6 hours), and both windows coming back after a restart.
 
 ## Credits
 

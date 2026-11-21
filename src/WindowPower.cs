@@ -81,7 +81,7 @@ namespace HallowBrowser
             readerBtn.Visibility = t.Readable || t.ReaderOn ? Visibility.Visible : Visibility.Collapsed;
             ((Path)readerBtn.Content).SetResourceReference(Shape.FillProperty, t.ReaderOn ? "AccentBrush" : "Text");
             readerBtn.ToolTip = t.ReaderOn ? "Leave reader mode (F9)" : "Reader mode (F9)";
-            starBtn.Visibility = Omni.IsWeb(t.Url) && !t.Internal ? Visibility.Visible : Visibility.Collapsed;
+            starBtn.Visibility = Omni.IsWeb(t.Url) && !t.Internal && !Private ? Visibility.Visible : Visibility.Collapsed;   // 1.4: no bookmark changes from a private window
             var on = IsBookmarked(t);
             ((Path)starBtn.Content).SetResourceReference(Shape.FillProperty, on ? "AccentBrush" : "Muted");
             starBtn.ToolTip = on ? "Bookmarked - click to remove (Ctrl+D)" : "Bookmark this page (Ctrl+D)";
@@ -379,6 +379,8 @@ namespace HallowBrowser
         public Workspace CurrentSpace { get { return Spaces == null ? null : Spaces.Items.FirstOrDefault(x => x.Id == SpaceId); } }
         void LoadSpaces()
         {
+            // 1.4: one store for every window (each window shows one workspace; the first window's is "current")
+            if (Program.SharedSpaces != null) { Spaces = Program.SharedSpaces; if (SpaceId == null || !Spaces.Items.Any(x => x.Id == SpaceId)) SpaceId = Program.NewAutoSpace() ?? Spaces.Current; UpdateSpaceButton(); return; }
             Spaces = BrowserSettings.LoadWorkspaces();
             if (Spaces.Items == null) Spaces.Items = new List<Workspace>();
             Spaces.Items.RemoveAll(x => x == null || string.IsNullOrEmpty(x.Id));
@@ -386,6 +388,8 @@ namespace HallowBrowser
             if (!Spaces.Items.Any(x => x.Id == Spaces.Current)) Spaces.Current = Spaces.Items[0].Id;
             foreach (var x in Spaces.Items) if (string.IsNullOrWhiteSpace(x.Name)) x.Name = "Workspace";
             SpaceId = Spaces.Current; UpdateSpaceButton();
+            Spaces.Items.RemoveAll(x => x.Auto && x.Id != SpaceId && (x.Session == null || x.Session.Tabs == null || x.Session.Tabs.Count == 0));
+            Program.SharedSpaces = Spaces;
         }
         void UpdateSpaceButton() { var c = CurrentSpace; if (wsText != null) wsText.Text = c == null ? "Default" : c.Name; }
 
@@ -397,7 +401,7 @@ namespace HallowBrowser
             int activeIdx = session != null ? Math.Max(0, Math.Min(session.Active, first.Count - 1)) : 0;
             int sl = -1, sr = -1; bool hasSplit = session != null && WorkspaceRules.ParseSplit(session.Split, first.Count, out sl, out sr);
             foreach (var u in urls) { first.Add(new SessionTab { Url = u }); activeIdx = first.Count - 1; }
-            if (first.Count == 0) first.Add(new SessionTab { Url = Omni.NewTabUrl });
+            if (first.Count == 0) first.Add(new SessionTab { Url = Private ? Omni.PrivateTabUrl : Omni.NewTabUrl });
             var gmap = new Dictionary<string, TabGroup>();
             if (session != null && session.Groups != null)
                 foreach (var sg in session.Groups)
@@ -448,14 +452,17 @@ namespace HallowBrowser
         }
         public async Task SwitchWorkspace(string id)
         {
-            if (Spaces == null || id == SpaceId || switching || snap) return;
+            if (Spaces == null || id == SpaceId || switching || snap || Private) return;
             var ws = Spaces.Items.FirstOrDefault(x => x.Id == id); if (ws == null) return;
+            var there = Program.WindowWithSpace(id, this);   // 1.4: already open in another window - go there
+            if (there != null) { there.Bring(); there.Toast("Workspace " + ws.Name + " is open in this window.", 3); return; }
             switching = true;
             try
             {
                 SaveSession();
+                var left = CurrentSpace; if (left != null && left.Auto) left.Auto = false;   // a window's own workspace is kept once you leave it
                 CloseAllQuiet();
-                SpaceId = Spaces.Current = id; BrowserSettings.SaveWorkspaces(Spaces); UpdateSpaceButton();
+                SpaceId = id; if (Program.First == this) Spaces.Current = id; BrowserSettings.SaveWorkspaces(Spaces); UpdateSpaceButton();
                 await OpenSession(ws.Session, new List<string>(), false);
                 SaveSession(); WriteStatus();
                 Toast("Workspace " + ws.Name + " (" + Tabs.Count + (Tabs.Count == 1 ? " tab)" : " tabs)"), 2);
@@ -479,13 +486,16 @@ namespace HallowBrowser
         {
             if (Spaces == null || Spaces.Items.Count < 2) { Toast("This is the only workspace.", 3); return; }
             var ws = Spaces.Items.FirstOrDefault(x => x.Id == id); if (ws == null) return;
-            if (id == SpaceId) await SwitchWorkspace(Spaces.Items.First(x => x.Id != id).Id);
+            if (Program.WindowWithSpace(id, this) != null) { Toast("Workspace " + ws.Name + " is open in another window - close that window first.", 4); return; }
+            if (id == SpaceId) { var free = Spaces.Items.FirstOrDefault(x => x.Id != id && Program.WindowWithSpace(x.Id, this) == null); if (free == null) { Toast("Every other workspace is open in a window.", 4); return; } await SwitchWorkspace(free.Id); }
             Spaces.Items.Remove(ws); BrowserSettings.SaveWorkspaces(Spaces);
             Toast("Workspace " + ws.Name + " deleted.", 3);
         }
         public void MoveToWorkspace(Tab t, string id)
         {
             var ws = Spaces == null ? null : Spaces.Items.FirstOrDefault(x => x.Id == id); if (ws == null || t == null || id == SpaceId || !(Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url))) return;
+            var there = Program.WindowWithSpace(id, this);   // 1.4: that workspace is open in another window: the tab moves there, page and all
+            if (there != null) { Program.MoveTab(t, this, there, -1); return; }
             if (ws.Session == null) ws.Session = new Session();
             ws.Session.Tabs.Add(new SessionTab { Url = t.Url, Title = t.Title });
             BrowserSettings.SaveWorkspaces(Spaces);
@@ -555,7 +565,8 @@ namespace HallowBrowser
                 FrameworkElement r = null; var holder = new ContentControl { Focusable = false, IsTabStop = false };
                 var tools = new List<UIElement> { tool("pen", "Rename", () => holder.Content = input(ws.Name, "Rename", v => { RenameWorkspace(id, v); refresh(); })) };
                 if (Spaces.Items.Count > 1) tools.Add(tool("trash-can", "Delete this workspace (closes its " + n + (n == 1 ? " tab)" : " tabs)"), () => { close(); var _ = DeleteWorkspace(id); }));
-                r = row("briefcase", cur ? "AccentBrush" : "Lilac", ws.Name, n + (n == 1 ? " tab" : " tabs") + (cur ? "  -  here now" : ""), cur ? null : (Action)(() => { close(); var _ = SwitchWorkspace(id); }), tools.ToArray());
+                var elsewhere = cur ? null : Program.WindowWithSpace(id, this); if (elsewhere != null) n = elsewhere.Tabs.Count;
+                r = row("briefcase", cur ? "AccentBrush" : "Lilac", ws.Name, n + (n == 1 ? " tab" : " tabs") + (cur ? "  -  here now" : elsewhere != null ? "  -  open in another window" : ""), cur ? null : (Action)(() => { close(); var _ = SwitchWorkspace(id); }), tools.ToArray());
                 holder.Content = r; sp.Children.Add(holder);
             }
             var nw = new ContentControl { Focusable = false, IsTabStop = false };
@@ -585,15 +596,23 @@ namespace HallowBrowser
         void EnsureStores()
         {
             if (History != null) return;
+            if (!snap && Program.SharedHistory != null)   // 1.4: one history and one bookmark store for every window
+            {
+                History = Program.SharedHistory; Bookmarks = Program.SharedBookmarks;
+                Bookmarks.Changed += () => Dispatcher.BeginInvoke(new Action(BookmarksChanged));
+                if (Bookmarks.Loaded) Dispatcher.BeginInvoke(new Action(() => { if (Active != null) UpdateBar(); StoresLoaded(); }));
+                return;
+            }
             History = new HistoryStore(HistoryStore.DefaultPath); Bookmarks = new BookmarkStore(BookmarkStore.DefaultPath);
             Bookmarks.Changed += () => Dispatcher.BeginInvoke(new Action(BookmarksChanged));   // 1.3: the bar, the manager, sync
             if (snap) { Bookmarks.Frozen = true; return; }
+            Program.SharedHistory = History; Program.SharedBookmarks = Bookmarks;
             var h = History; var b = Bookmarks;
             Task.Run(() => { h.Load(); b.Load(); }).ContinueWith(_ => Dispatcher.BeginInvoke(new Action(() => { if (Active != null) UpdateBar(); StoresLoaded(); })));
         }
         void RecordHistory(Tab x)
         {
-            if (!S.KeepHistory || snap || x == null) return;
+            if (!S.KeepHistory || snap || x == null || Private) return;   // 1.4: nothing from a private window
             EnsureStores();
             History.Add(x.Url, x.Title == "New tab" ? null : x.Title, DateTime.Now);
             if (historyTimer == null) { historyTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) }; historyTimer.Tick += (a, b) => { historyTimer.Stop(); var h = History; Task.Run(() => h.Save()); RefreshNewTabData(); }; }
@@ -609,6 +628,7 @@ namespace HallowBrowser
         public bool IsBookmarked(Tab t) { return t != null && Bookmarks != null && Bookmarks.Loaded && Bookmarks.Has(t.Url); }
         public void ToggleBookmark(Tab t)
         {
+            if (Private) { Toast("Bookmarks can't be changed from a private window.", 3); return; }
             if (t == null || !Omni.IsWeb(t.Url)) { Toast("Only web pages can be bookmarked.", 3); return; }
             EnsureStores(); if (!Bookmarks.Loaded) Bookmarks.Load();
             var on = Bookmarks.Toggle(t.Url, t.Title);

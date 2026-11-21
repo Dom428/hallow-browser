@@ -236,18 +236,20 @@ namespace HallowBrowser
         }
 
         // ---- on / off (Ctrl+Shift+S)
-        public void Toggle() { w.S.SidebarOn = !w.S.SidebarOn; w.S.Save(); ApplyOn(); }
+        public void Toggle() { if (w.Private) { w.Toast("The sidebar's panels use your signed-in profile, so they aren't in private windows.", 4); return; } w.S.SidebarOn = !w.S.SidebarOn; w.S.Save(); ApplyOn(); }
         public void ApplyOn()
         {
-            rail.Visibility = w.S.SidebarOn ? Visibility.Visible : Visibility.Collapsed;
-            railCol.Width = w.S.SidebarOn ? GridLength.Auto : new GridLength(0);
-            if (!w.S.SidebarOn && Open != null) Hide();
+            bool on = w.S.SidebarOn && !w.Private;   // 1.4: not in private windows (the panels are signed in on your normal profile)
+            rail.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            railCol.Width = on ? GridLength.Auto : new GridLength(0);
+            if (!on && Open != null) Hide();
         }
 
         // ---- show / hide a panel
         public void Toggle(SidePanel p) { if (Open == p) Hide(); else Show(p); }
         public void Show(SidePanel p)
         {
+            if (w.Private) return;
             if (!w.S.SidebarOn) { w.S.SidebarOn = true; ApplyOn(); }
             if (Open != null && Open != p) HideOnly(Open);
             Open = p; p.Shown = true;

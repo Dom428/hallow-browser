@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 namespace HallowBrowser
 {
-    public static class Engine
+    public static partial class Engine
     {
         public static CoreWebView2Environment Env;
         public static Task<CoreWebView2Environment> Starting;
@@ -47,6 +47,7 @@ namespace HallowBrowser
             if (BrowserSettings.HostRules != null) rules += ", " + BrowserSettings.HostRules.Replace("\"", "");
             a.Add("--host-resolver-rules=\"" + rules + "\"");
             if (BrowserSettings.Offscreen) { a.Add("--disable-features=CalculateNativeWinOcclusion"); a.Add("--disable-backgrounding-occluded-windows"); a.Add("--autoplay-policy=no-user-gesture-required"); }
+            if (BrowserSettings.IgnoreCerts) a.Add("--ignore-certificate-errors");   // 1.4 tests only: the local stand-ins' self-signed certificates
             return string.Join(" ", a);
         }
 
@@ -54,7 +55,12 @@ namespace HallowBrowser
         // They're written before the engine starts (the runtime reads them at start). A broken file is left alone.
         public static void WritePrefs(BrowserSettings s)
         {
-            var f = Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "Default", "Preferences");
+            WritePrefs(s, Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "Default", "Preferences"));
+            WritePrefs(s, Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "WV2Profile_" + BrowserWindow.PrivateProfile.ToLowerInvariant(), "Preferences"));   // 1.4: private windows' profile
+            WriteLocalState(s);
+        }
+        static void WritePrefs(BrowserSettings s, string f)
+        {
             try
             {
                 var js = new JavaScriptSerializer { MaxJsonLength = 64 * 1024 * 1024 };
@@ -78,6 +84,7 @@ namespace HallowBrowser
             if (Env != null) return Env;
             Directory.CreateDirectory(BrowserSettings.ProfileDir);
             WritePrefs(s);
+            SecureDnsApplied = s.SecureDns;
             var o = new CoreWebView2EnvironmentOptions(ExtraArgs(s));
             o.AreBrowserExtensionsEnabled = true;          // Hallow Shield
             o.EnableTrackingPrevention = true;
@@ -86,6 +93,54 @@ namespace HallowBrowser
             RuntimeVersion = Env.BrowserVersionString;
             Mark("environment");
             return Env;
+        }
+
+        // 1.4: secure DNS (DNS over HTTPS). Chromium keeps it in "Local State" (dns_over_https.mode / .templates), which the runtime
+        // reads when it starts - tested with a local DoH stand-in: every lookup then goes to the provider (and nowhere else). A feature
+        // flag in AdditionalBrowserArguments alone did nothing. "off" leaves the runtime's own default (the key is removed).
+        public static string SecureDnsApplied;
+        public static string DohTemplate(string provider)
+        {
+            if (provider == null || provider == "off") return null;
+            if (BrowserSettings.DohTemplateTest != null) return BrowserSettings.DohTemplateTest;
+            switch (provider)
+            {
+                case "cloudflare": return "https://chrome.cloudflare-dns.com/dns-query";
+                case "quad9": return "https://dns.quad9.net/dns-query";
+                case "google": return "https://dns.google/dns-query{?dns}";
+            }
+            return null;
+        }
+        public static string DnsName(string p) { return p == "cloudflare" ? "Cloudflare" : p == "quad9" ? "Quad9" : p == "google" ? "Google" : "Off"; }
+        public static void WriteLocalState(BrowserSettings s)
+        {
+            var f = Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "Local State");
+            try
+            {
+                var json = LocalStateJson(File.Exists(f) ? File.ReadAllText(f) : null, DohTemplate(s.SecureDns));
+                if (json == null) return;
+                Directory.CreateDirectory(Path.GetDirectoryName(f));
+                var tmp = f + ".hallow.tmp";
+                File.WriteAllText(tmp, json, new UTF8Encoding(false));
+                if (File.Exists(f)) File.Replace(tmp, f, null); else File.Move(tmp, f);
+            }
+            catch { }
+        }
+        // the new Local State text, or null when nothing changes (a broken file is left alone)
+        public static string LocalStateJson(string existing, string template)
+        {
+            var js = new JavaScriptSerializer { MaxJsonLength = 64 * 1024 * 1024 };
+            Dictionary<string, object> d;
+            if (existing != null) { try { d = js.Deserialize<Dictionary<string, object>>(existing); } catch { return null; } if (d == null) return null; }
+            else d = new Dictionary<string, object>();
+            if (template == null) { if (!d.ContainsKey("dns_over_https")) return null; d.Remove("dns_over_https"); }
+            else
+            {
+                object cur; var c = d.TryGetValue("dns_over_https", out cur) ? cur as Dictionary<string, object> : null; object m, t;
+                if (c != null && c.TryGetValue("mode", out m) && (m as string) == "secure" && c.TryGetValue("templates", out t) && (t as string) == template) return null;
+                d["dns_over_https"] = new Dictionary<string, object> { { "mode", "secure" }, { "templates", template } };
+            }
+            return js.Serialize(d);
         }
 
         // the profile-wide choices (dark pages, tracking prevention, no built-in password saving: Hallow Keys does that)
@@ -121,6 +176,9 @@ namespace HallowBrowser
                 var html = NewTabHtml(s.Search, accent, Look.IsLight);
                 var f = Path.Combine(NewTabDir, "index.html");
                 if (!File.Exists(f) || File.ReadAllText(f) != html) File.WriteAllText(f, html, new UTF8Encoding(false));
+                var ph = PrivateTabHtml(s.Search);   // 1.4: a private window's new tab page
+                var pf = Path.Combine(NewTabDir, "private.html");
+                if (!File.Exists(pf) || File.ReadAllText(pf) != ph) File.WriteAllText(pf, ph, new UTF8Encoding(false));
             }
             catch { }
         }
@@ -152,8 +210,11 @@ namespace HallowBrowser
                 "#fam{position:fixed;bottom:40px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}#fam:empty{display:none}" +
                 "#fam div{padding:5px 12px;border-radius:14px;border:1px solid " + line + ";background:" + tile + ";font:11.5px 'Cascadia Mono',Consolas,monospace;color:" + muted + "}#fam b{color:" + head + ";font-weight:600}" +
                 "#t{position:fixed;bottom:18px;color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}" +
+                "#gc{width:min(720px,90vw);margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}#gc:empty{display:none}#gc section{background:" + tile + ";border:1px solid " + line + ";border-radius:12px;padding:10px 14px}" +
+                "#gc h2{font:600 11px 'Cascadia Mono',Consolas,monospace;letter-spacing:.12em;color:" + head + ";margin:2px 0 8px}#gc a{display:block;color:" + fg + ";text-decoration:none;font-size:12.5px;padding:4px 0;border-top:1px solid " + line + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+                "#gc a:first-of-type{border-top:0}#gc a:hover{color:" + head + "}#gc a small{color:" + muted + ";margin-right:6px}#gc .note{color:" + muted + ";font-size:11px;margin-top:6px}" +
                 "</style></head><body><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
-                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=fam></div><div id=t></div>" +
+                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=gc></div><div id=fam></div><div id=t></div>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +
                 "var D={};function c(){var d=new Date(),s=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);document.getElementById('t').textContent=D.clock?'':s;document.getElementById('clk').textContent=D.clock?s:'';}c();setInterval(c,15000);" +
                 "function post(m){try{chrome.webview.postMessage(m);}catch(e){}}" +
@@ -162,7 +223,11 @@ namespace HallowBrowser
                 "var i=el('i',null,s.l);i.style.background=s.c;a.appendChild(i);a.appendChild(el('span',null,s.t));" +
                 "var p=el('button','pn','\u2605');p.title=s.pin?'Unpin':'Pin';p.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-pin\\t')+s.u+'\\t'+s.t);};a.appendChild(p);" +
                 "var x=el('button','x','\u00d7');x.title=s.pin?'Unpin':'Remove from this page';x.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-hide\\t')+s.u);};a.appendChild(x);g.appendChild(a);});" +
-                "var f=document.getElementById('fam');f.textContent='';(D.family||[]).forEach(function(s){var d=el('div');var b=el('b',null,s.k+' ');d.appendChild(b);d.appendChild(document.createTextNode(s.v));f.appendChild(d);});c();}" +
+                "var f=document.getElementById('fam');f.textContent='';(D.family||[]).forEach(function(s){var d=el('div');var b=el('b',null,s.k+' ');d.appendChild(b);d.appendChild(document.createTextNode(s.v));f.appendChild(d);});" +
+                "var gc=document.getElementById('gc');gc.textContent='';var G=D.games;if(G&&((G.news||[]).length||(G.free||[]).length)){" +
+                "var sn=el('section');sn.appendChild(el('h2',null,'GAME NEWS'));(G.news||[]).forEach(function(n){var a=el('a');a.href=n.u;a.title=n.t;a.appendChild(el('small',null,n.g));a.appendChild(document.createTextNode(n.t));sn.appendChild(a);});if(!(G.news||[]).length)sn.appendChild(el('div','note','No news for the games in your Hallow Hub library.'));gc.appendChild(sn);" +
+                "var sf=el('section');sf.appendChild(el('h2',null,'FREE GAMES'));(G.free||[]).forEach(function(n){var a=el('a');a.href=n.u;a.title=n.t;a.appendChild(el('small',null,n.w));a.appendChild(document.createTextNode(n.t));sf.appendChild(a);});if(!(G.free||[]).length)sf.appendChild(el('div','note','No free games right now.'));" +
+                "sf.appendChild(el('div','note',G.note||''));gc.appendChild(sf);}c();}" +
                 "window.hallowRefresh=function(){return fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){D=j||{};draw();return (D.tiles||[]).length;}).catch(function(){return -1;});};" +
                 "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden)hallowRefresh();});</script></body></html>";
         }

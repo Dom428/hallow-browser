@@ -9,6 +9,28 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.4 - WINDOWS, PRIVACY AND YOUR OWN EXTENSIONS
+- More windows: Ctrl+N opens a new window. Drag a tab out of the strip to give it its own
+  window, or drop it into another window's strip (the page moves as it is). Each window
+  keeps its own tabs next time; closing the last window quits.
+- Private windows (Ctrl+Shift+N): dark purple with a mask. No history, no session, no
+  bookmark or sync changes, cookies gone when you close it - downloads are still kept.
+  Shield blocks there too (its network-only fallback: WebView2 doesn't run extensions in
+  private windows).
+- Site permissions: camera, microphone, location, notifications, clipboard, MIDI and more
+  ask first - Allow, Allow this time or Block. Site settings (hallow://settings/sites and
+  the padlock in the address bar): permissions, pop-ups, sound, JavaScript, cookies.
+- HTTPS-only mode (on): addresses are tried with https first; a site without it asks
+  before going on. Secure DNS (Settings > Security): Cloudflare, Quad9 or Google - needs a
+  browser restart.
+- Your own extensions (hallow://extensions): load an unpacked extension folder, switch it
+  on or off, remove it. The Chrome Web Store can't work in WebView2 - the page says what
+  to do instead. Shield stays built in.
+- Shield's "blocked on this page" number works, and its counts reach Hallow Hub and Remote
+  (%APPDATA%\HallowShield\status.json - counts only).
+- Game corner on the new tab page (OFF by default - it contacts Steam and Epic): news for
+  the games in your Hallow Hub library and Epic's free games, at most every 6 hours.
+
 WHAT'S NEW IN 1.3 - MOVING IN AND SYNCING
 - Import from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox on this PC:
   bookmarks (into an "Imported from ..." folder, nothing twice) and history. Read from

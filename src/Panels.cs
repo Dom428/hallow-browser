@@ -37,6 +37,8 @@ namespace HallowBrowser
             var sp = new StackPanel(); Popup p = null;
             Action<Action> run = a => { p.IsOpen = false; a(); };
             sp.Children.Add(Ui.MenuRow("plus", "New tab", "Ctrl+T", () => run(() => w.NewTab(Omni.NewTabUrl, true))));
+            sp.Children.Add(Ui.MenuRow("window-restore", "New window", "Ctrl+N", () => run(() => Program.OpenWindow(false, null, null))));          // 1.4
+            sp.Children.Add(Ui.MenuRow("mask", "New private window", "Ctrl+Shift+N", () => run(() => Program.OpenWindow(true, null, null))));
             var re = Ui.MenuRow("rotate-left", "Reopen closed tab", "Ctrl+Shift+T", () => run(w.ReopenClosed)); re.IsEnabled = w.ClosedCount > 0; sp.Children.Add(re);
             sp.Children.Add(Sep());
             sp.Children.Add(Ui.MenuRow("download", "Downloads", "Ctrl+J", () => run(() => DownloadsFlyout(w, at))));
@@ -66,11 +68,13 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("star", "Print...", "Ctrl+P", () => run(() => { if (w.Active != null && w.Active.Core != null) w.Active.Core.ShowPrintUI(); })));
             sp.Children.Add(Sep());
             sp.Children.Add(Ui.MenuRow("shield-halved", "Hallow Shield settings", null, () => run(() => OpenShieldSettings(w))));
+            sp.Children.Add(Ui.MenuRow("puzzle-piece", "Extensions", null, () => run(() => w.NewTab(Omni.ExtensionsUrl, true))));              // 1.4
+            sp.Children.Add(Ui.MenuRow("sliders", "Site settings", null, () => run(() => w.NewTab(Omni.SitesUrl, true))));
             sp.Children.Add(Ui.MenuRow("broom", "Clear browsing data...", "Ctrl+Shift+Del", () => run(() => ClearData(w))));
             sp.Children.Add(Ui.MenuRow("gear", "Settings", "Ctrl+,", () => run(() => w.NewTab(Omni.SettingsUrl, true))));
             if (w.Update != null) sp.Children.Add(Ui.MenuRow("download", "Update to " + w.Update.Version.ToString(2), null, () => run(() => DoUpdate(w))));
             sp.Children.Add(Sep());
-            sp.Children.Add(Ui.MenuRow("xmark", "Exit", null, () => run(w.Close)));
+            sp.Children.Add(Ui.MenuRow("xmark", "Exit", null, () => run(Program.Quit)));   // 1.4: every window (their tabs are kept for next time)
             p = Show(at, sp, 290);
         }
         public static void DoUpdate(BrowserWindow w)
@@ -192,6 +196,7 @@ namespace HallowBrowser
                 if (at != null) Show(at, sp, 340);
                 return null;
             }
+            if (shieldWin != null && shieldWin.Owner != w) { try { shieldWin.Owner = w; } catch { } }   // 1.4: the window you clicked in
             if (shieldWin == null)
             {
                 shieldWin = new Window { Owner = w, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, Width = 324, Height = 600, Topmost = false };
@@ -201,6 +206,7 @@ namespace HallowBrowser
                 border.Child = shieldView; shieldWin.Content = border;
                 shieldWin.Deactivated += (a, b) => { if (!BrowserSettings.Offscreen) shieldWin.Hide(); };
                 shieldWin.KeyDown += (a, b) => { if (b.Key == Key.Escape) shieldWin.Hide(); };
+                var me = shieldWin; shieldWin.Closed += (a, b) => { if (shieldWin == me) { shieldWin = null; shieldView = null; } };   // its owner window closed
             }
             if (BrowserSettings.Offscreen) { shieldWin.Left = -32000; shieldWin.Top = -32000; shieldWin.ShowActivated = false; }
             else if (at != null)
@@ -347,6 +353,14 @@ namespace HallowBrowser
                 Ui.Row(Ui.Btn("Clear browsing data now...", () => ClearData(w), false, "broom"), Ui.Btn("Clear history", () => w.ClearHistory(), false, "clock-rotate-left")),
                 Ui.Muted("The page engine is Microsoft's WebView2 runtime, which has its own diagnostic data settings (Windows Settings > Privacy > Diagnostics). Hallow Browser has no server and sends nothing anywhere.", 11.5, 0) }));
 
+            // 1.4: HTTPS-only and secure DNS, site settings, extensions, private windows, the game corner
+            col.Children.Add(card("Security", w.SecuritySettings()));
+            col.Children.Add(card("Sites, extensions and windows", new UIElement[] {
+                Ui.Muted("Sites ask before they use your camera, microphone, location, notifications and so on. Your answers, and the pop-ups, sound and JavaScript you set per site, are in Site settings (the padlock in the address bar shows the current site's).", 12, 8),
+                Ui.Row(Ui.Btn("Site settings", () => w.NewTab(Omni.SitesUrl, true), false, "sliders"), Ui.Btn("Extensions", () => w.NewTab(Omni.ExtensionsUrl, true), false, "puzzle-piece"), Ui.Btn("New private window", () => Program.OpenWindow(true, null, null), false, "mask")),
+                Ui.Muted("Ctrl+N opens a new window and Ctrl+Shift+N a private one (nothing kept: no history, session, bookmark or sync changes - downloads stay). Drag a tab out of the strip to give it its own window, or into another window's strip.", 11.5, 0) }));
+            col.Children.Add(card("Game corner", w.GameCornerSettings()));
+
             col.Children.Add(card("Look", new UIElement[] {
                 Ui.Muted("The browser", 12, 6),
                 Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("follow", "Follow Hallow"), new KeyValuePair<string, string>("light", "Light"), new KeyValuePair<string, string>("dark", "Dark") }, S.Look, v => { S.Look = v; save(); w.Dispatcher.BeginInvoke(new Action(Program.ReloadTheme)); }),
@@ -377,7 +391,9 @@ namespace HallowBrowser
                 Ui.Muted(shieldInfo, 12, 8),
                 Ui.Row(Ui.Btn("Shield settings", () => OpenShieldSettings(w), true, "shield-halved"), Ui.Btn("Check for a Shield update", () => { w.Toast("Checking...", 2); Task.Run(() => ShieldHost.CheckForUpdate()).ContinueWith(r => w.Dispatcher.BeginInvoke(new Action(() => w.Toast(r.Result ?? "Shield is up to date.", 5)))); }, false, "arrows-rotate")),
                 new Border { Height = 8 },
-                Ui.Switch("Get new Shield versions between browser updates", "From Shield's own GitHub release, checked against GitHub's sha256.", S.ShieldAutoUpdate, on => { S.ShieldAutoUpdate = on; save(); }) }));
+                Ui.Switch("Get new Shield versions between browser updates", "From Shield's own GitHub release, checked against GitHub's sha256.", S.ShieldAutoUpdate, on => { S.ShieldAutoUpdate = on; save(); }),
+                Ui.Switch("Share Shield's counts with Hallow Hub and Remote", "Blocked today / this week and cookie banners answered go to %APPDATA%\\HallowShield\\status.json on this PC (the file Shield's family bridge writes) about every 5 minutes. Counts only - never a site.", S.ShareShieldCounts, on => { S.ShareShieldCounts = on; save(); if (on) { var _ = w.RelayShield(); } }),
+                Ui.Muted(w.ShieldCounts ? "\"Blocked on this page\" works: Shield is loaded with the feedback permission it asks for (WebView2 has no permission prompt, so the browser grants it in its own copy of Shield)." : "", 11, 0) }));
 
             col.Children.Add(card("Hallow Keys", new UIElement[] {
                 Ui.Switch("Fill logins from Hallow Keys", "A key shows in the address bar when Keys has a login for the page. Nothing is filled until you click it and pick a login, and only on that exact site.", S.KeysOn, on => { S.KeysOn = on; save(); }) }));

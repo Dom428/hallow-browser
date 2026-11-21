@@ -111,7 +111,9 @@ namespace HallowBrowser
                 var playing = MixerPlaying(ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Mixer"), "status.json"))) ?? playingFallback;
                 fam = Strip(ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Guard"), "status.json")), ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Shield"), "status.json")), playing, now);
             }
-            return js.Serialize(new Dictionary<string, object> { { "tiles", tiles }, { "clock", s.NewTabClock }, { "family", fam ?? new List<Dictionary<string, string>>() } });
+            // 1.4: the game corner (only when it's on; from its local copy - the page itself never contacts Steam or Epic)
+            var games = s.GameCorner ? GameCorner.ForPage(GameCorner.Load()) : null;
+            return js.Serialize(new Dictionary<string, object> { { "tiles", tiles }, { "clock", s.NewTabClock }, { "family", fam ?? new List<Dictionary<string, string>>() }, { "games", games } });
         }
         static string last;
         public static bool Write(string json)

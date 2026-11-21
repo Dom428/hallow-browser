@@ -24,6 +24,8 @@ namespace HallowBrowser
         public bool KeysLocked;
         public Stopwatch OpenTimer;           // new-tab speed (perf)
         public string PendingUrl;             // where to go once the WebView is ready
+        public string HttpsBlocked;           // 1.4: the http address the "not secure - continue?" page is about (while it shows)
+        public bool MutedBySite;              // 1.4: muted by its site setting (unmuted again when it leaves that site)
 
         // the tab's look in the strip
         public Border Header; public TextBlock TitleBlock; public ContentControl IconHost; public Button CloseBtn; public Path Sound;

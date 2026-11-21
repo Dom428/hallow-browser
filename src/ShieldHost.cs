@@ -17,7 +17,7 @@ using System.Web.Script.Serialization;
 
 namespace HallowBrowser
 {
-    public static class ShieldHost
+    public static partial class ShieldHost
     {
         public const string Repo = "Dom428/hallow-shield";
         static readonly JavaScriptSerializer js = new JavaScriptSerializer { MaxJsonLength = 64 * 1024 * 1024 };

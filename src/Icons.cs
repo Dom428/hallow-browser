@@ -7,6 +7,7 @@ namespace HallowBrowser
     public static partial class Icons
     {
         static readonly Dictionary<string, Geometry> cache = new Dictionary<string, Geometry>();
+        public static bool Has(string name) { return name != null && Data.ContainsKey(name); }   // 1.4
         public static Geometry Get(string name)
         {
             if (name == null) return null;

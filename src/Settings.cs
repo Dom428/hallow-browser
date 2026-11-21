@@ -45,6 +45,15 @@ namespace HallowBrowser
         public static readonly int[] PanelSleepChoices = { 0, 1, 5, 10, 30 };
         public static readonly int[] ReaderSizes = { 14, 16, 18, 20, 22, 24, 28 };
         public static readonly int[] BandwidthChoices = { 0, 256, 1024, 4096, 10240 };   // KB/s per tab, 0 = off
+        public static readonly string[] DnsChoices = { "off", "cloudflare", "quad9", "google" };
+        // 1.4 tests: HALLOW_BROWSER_DOH_TEMPLATE = a local DoH stand-in, HALLOW_BROWSER_IGNORE_CERTS=1 = the stand-ins' self-signed
+        // certificates are accepted, HALLOW_BROWSER_HTTPS_PORTS = "httpPort=httpsPort,..." for the local http/https pair,
+        // HALLOW_BROWSER_STEAM_NEWS / _EPIC_FREE = local stand-ins for Steam's news API and Epic's free games list
+        public static readonly string DohTemplateTest = TestDir != null ? Env("HALLOW_BROWSER_DOH_TEMPLATE") : null;
+        public static readonly bool IgnoreCerts = TestDir != null && Env("HALLOW_BROWSER_IGNORE_CERTS") == "1";
+        public static readonly string HttpsPortsTest = TestDir != null ? Env("HALLOW_BROWSER_HTTPS_PORTS") : null;
+        public static readonly string SteamNewsTest = TestDir != null ? Env("HALLOW_BROWSER_STEAM_NEWS") : null;
+        public static readonly string EpicFreeTest = TestDir != null ? Env("HALLOW_BROWSER_EPIC_FREE") : null;
 
         [DataMember] public string Search = "duckduckgo";
         [DataMember] public bool RestoreSession = true;
@@ -98,6 +107,13 @@ namespace HallowBrowser
         [DataMember] public bool SyncEncrypt;                  // the password itself is kept apart (DPAPI, sync-password.bin)
         [DataMember] public string SyncDevice;                 // this PC's random id in version vectors
         [DataMember] public string SyncNote;                   // the last round's result, for Settings
+        // 1.4: HTTPS-only, secure DNS, site settings, your own extensions, Shield's family relay, the game corner
+        [DataMember] public bool HttpsOnly = true;             // http addresses are tried as https first; a page that can't do https asks first
+        [DataMember] public string SecureDns = "off";          // off | cloudflare | quad9 | google (DNS over HTTPS; applies after a restart)
+        [DataMember] public List<SiteRule> Sites;              // per-site choices the browser keeps itself (pop-ups, sound, JavaScript, http allowed)
+        [DataMember] public List<UserExtension> Extensions;    // unpacked extensions you loaded (copies in LocalAppData\HallowBrowser\Extensions)
+        [DataMember] public bool ShareShieldCounts = true;     // Shield's blocked counts to %APPDATA%\HallowShield\status.json for Hallow Hub / Remote (counts only)
+        [DataMember] public bool GameCorner;                   // off by default: news for your Hub games (Steam) and free games (Epic) on the new tab page
 
         [OnDeserializing] void Defaults(StreamingContext c)
         {
@@ -105,6 +121,7 @@ namespace HallowBrowser
             GameLight = true; SleepMinutes = 15; Preconnect = true; KeysOn = true; ShieldAutoUpdate = true; Left = Top = double.NaN; Width = 1280; Height = 820;
             Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
+            HttpsOnly = true; SecureDns = "off"; ShareShieldCounts = true;
         }
 
         public static BrowserSettings Load()
@@ -146,6 +163,11 @@ namespace HallowBrowser
             if (NewTabHidden == null) NewTabHidden = new List<string>();
             if (NewTabHidden.Count > 200) NewTabHidden.RemoveRange(0, NewTabHidden.Count - 200);
             if (string.IsNullOrEmpty(SyncDevice)) SyncDevice = Guid.NewGuid().ToString("N").Substring(0, 12);
+            if (Array.IndexOf(DnsChoices, SecureDns) < 0) SecureDns = "off";
+            if (Sites == null) Sites = new List<SiteRule>();
+            Sites.RemoveAll(x => x == null || string.IsNullOrEmpty(x.Host));
+            if (Extensions == null) Extensions = new List<UserExtension>();
+            Extensions.RemoveAll(x => x == null || string.IsNullOrEmpty(x.Folder));
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
@@ -209,9 +231,10 @@ namespace HallowBrowser
         [DataMember] public List<SessionTab> Tabs = new List<SessionTab>(); [DataMember] public int Active;
         [DataMember] public List<SessionGroup> Groups;   // 1.2: tab groups (tabs name theirs by Id)
         [DataMember] public string Split;                // 1.2: "left,right" tab indexes of the split view, or null
+        [DataMember] public List<WindowSession> Windows; // 1.4: the other windows (this session's own tabs are the first window's)
     }
     // 1.2: workspaces - separate sets of tabs and groups on the same profile (same sign-ins)
-    [DataContract] public class Workspace { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public Session Session; }
+    [DataContract] public class Workspace { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public Session Session; [DataMember] public bool Auto; }   // 1.4: Auto = a window's own "Window n"
     [DataContract] public class WorkspaceStore { [DataMember] public string Current; [DataMember] public List<Workspace> Items = new List<Workspace>(); }
     [DataContract] public class SavedSession { [DataMember] public string Name; [DataMember] public string Saved; [DataMember] public Session Session; }
     [DataContract] public class SavedList { [DataMember] public List<SavedSession> Items = new List<SavedSession>(); }
