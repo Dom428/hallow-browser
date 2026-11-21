@@ -238,7 +238,7 @@ namespace HallowBrowser
             if (!m.StartsWith("hallow:nt-play\t") && !m.StartsWith("hallow:nt-clip\t") && m != "hallow:nt-overlay") return false;
             if (source == null || !Omni.IsNewTab(source) || Private) return true;
             var arg = m.Contains("\t") ? m.Substring(m.IndexOf('\t') + 1) : "";
-            if (m.StartsWith("hallow:nt-play\t")) { var g = NewTabFamily.LastGames.FirstOrDefault(x => x.Id == arg); Task.Run(() => NewTabFamily.Play(arg)).ContinueWith(r => Dispatcher.BeginInvoke(new Action(() => { if (g != null) Toast(r.Result == "hub" ? "Hallow Hub is starting " + g.Name + "." : r.Result == "link" ? "Starting " + g.Name + " through Steam." : "That game isn't in the list.", 4); }))); }
+            if (m.StartsWith("hallow:nt-play\t")) PlayFromNewTab(arg, null);   // 1.8: and game mode at once
             else if (m.StartsWith("hallow:nt-clip\t")) { var r = NewTabFamily.OpenClip(arg); if (r == "missing") Toast("That clip isn't there any more.", 4); }
             else Task.Run(() => NewTabFamily.ToggleOverlay()).ContinueWith(r => Dispatcher.BeginInvoke(new Action(async () => { await Task.Delay(400); RefreshFamily(0); })));
             return true;

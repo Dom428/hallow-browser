@@ -149,6 +149,7 @@ namespace HallowBrowser
             inBar.Children.Add(zoomChip); inBar.Children.Add(keyBtn);
             BuildAddressExtras(inBar);   // 1.2: reader mode, bookmark star
             BuildTranslateButton(inBar);   // 1.7
+            BuildStreamButtons(inBar);     // 1.8: Clip it, theatre mode
             ag.Children.Add(inBar);
             addressBox.Child = ag; bar.Children.Add(addressBox);
             var right = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(right, 2);
@@ -503,6 +504,7 @@ namespace HallowBrowser
             Hook15(c);   // 1.5: login capture for Hallow Keys, media controls, gestures
             Hook16(c);   // 1.6: spell check off / Add to dictionary, Open link in profile
             Hook17(c);   // 1.7: translation
+            Hook18(c);   // 1.8: SponsorBlock on YouTube
             // 1.2: in split view, clicking into a side makes it the active tab
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
@@ -669,7 +671,7 @@ namespace HallowBrowser
             keyBtn.Opacity = t.KeysItems != null && t.KeysItems.Count > 0 ? 1 : 0.5;
             keyBtn.ToolTip = t.KeysLocked ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
-            UpdateBarPower(t); UpdateTranslateButton(t); UpdateZoom(); UpdateTitle();
+            UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateZoom(); UpdateTitle();
         }
         void UpdateTitle()
         {
@@ -758,6 +760,7 @@ namespace HallowBrowser
                 wc.CaptionHeight = 38; WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
                 WindowState = preFullState; FitMaximized(); Side.FullScreen(false); ApplyTabLayout();
             }
+            AfterFullscreen18(on);   // 1.8: back into theatre mode
         }
 
         // ================================================================ keyboard (like Chrome)
@@ -803,7 +806,8 @@ namespace HallowBrowser
             }
             else if (alt && !ctrl)
             {
-                if (k == Key.Left) act = GoBack; else if (k == Key.Right) act = GoForward; else if (k == Key.D) act = FocusAddress; else if (k == Key.Home) act = () => Go(Active, Omni.NewTabUrl);
+                if (k == Key.T && shift) act = ToggleTheatre;   // 1.8
+                else if (k == Key.Left) act = GoBack; else if (k == Key.Right) act = GoForward; else if (k == Key.D) act = FocusAddress; else if (k == Key.Home) act = () => Go(Active, Omni.NewTabUrl);
             }
             else if (!ctrl && !alt)
             {
@@ -815,6 +819,7 @@ namespace HallowBrowser
                 else if (k == Key.F12) act = () => { if (Active != null && Active.Core != null) Active.Core.OpenDevToolsWindow(); };
                 else if (k == Key.Escape && shift) act = () => HotTabs.Flyout(this, menuBtn);
                 else if (k == Key.Escape && fullscreen && !(Active != null && Active.Core != null && Active.Core.ContainsFullScreenElement)) act = () => SetFullscreen(false);
+                else if (k == Key.Escape && Theatre && !fullscreen && !(Active != null && Active.Core != null && Active.Core.ContainsFullScreenElement)) act = () => SetTheatre(false);   // 1.8
                 else if (k == Key.Escape && Active != null && Active.Loading && !Address.IsKeyboardFocusWithin) act = () => Active.Core.Stop();
             }
             if (act != null) { e.Handled = true; act(); }
@@ -882,12 +887,12 @@ namespace HallowBrowser
         DateTime lastRam = DateTime.MinValue; ProcessPriorityClass? appliedPriority; public long LastMemMb;
         public void Tick(bool force)
         {
-            var g = S.GameLight ? Games.Game() : null;
+            var g = GameNow();   // 1.8: also a game just started from the new tab page (until it closes)
             bool changed = g != Game;
             Game = g;
             gameChip.Visibility = Game != null ? Visibility.Visible : Visibility.Collapsed;
             gameText.Text = Game != null ? "GAME MODE" : "";
-            if (Game != null) gameChip.ToolTip = "Game mode (" + Game + "): background tabs sleep and the browser runs at a lower priority. Tabs playing sound stay awake.";
+            if (Game != null) gameChip.ToolTip = "Game mode (" + Game + (Launched.Active && !Launched.Seen ? ", starting" : "") + "): background tabs sleep and the browser runs at a lower priority. Tabs playing sound stay awake.";
             var now = DateTime.Now;
             var states = Tabs.Select(t => t.State(t == Active)).ToList();
             var sleepMin = SleepMinutesNow();   // 1.6: the memory saver level (and sooner on battery)

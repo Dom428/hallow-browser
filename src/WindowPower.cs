@@ -328,8 +328,8 @@ namespace HallowBrowser
         {
             if (AppMode) { vtabs.Visibility = Visibility.Collapsed; vtabsCol.Width = new GridLength(0); strip.Visibility = Visibility.Collapsed; newBtn.Visibility = Visibility.Collapsed; Side.Dock(false); return; }   // 1.6: an app window has no tabs
             bool v = S.VerticalTabs, ic = S.VTabsCollapsed;
-            vtabs.Visibility = v && !fullscreen ? Visibility.Visible : Visibility.Collapsed;
-            vtabsCol.Width = v && !fullscreen ? new GridLength(ic ? 52 : 240) : new GridLength(0);
+            vtabs.Visibility = v && !fullscreen && !Theatre ? Visibility.Visible : Visibility.Collapsed;
+            vtabsCol.Width = v && !fullscreen && !Theatre ? new GridLength(ic ? 52 : 240) : new GridLength(0);
             strip.Visibility = v ? Visibility.Collapsed : Visibility.Visible; newBtn.Visibility = strip.Visibility;
             vCollapseBtn.Content = Ui.Icon(ic ? "angles-right" : "angles-left", 11); vCollapseBtn.ToolTip = ic ? "Show tab names" : "Icons only";
             vHead.Visibility = ic ? Visibility.Collapsed : Visibility.Visible;

@@ -15,7 +15,10 @@ Overlay switch on the new tab page**, **sites installed as apps**, **spell check
 startup boost**, optional **UI sounds and ambience**, and a **reading list and page notes**. 1.7 adds **translate pages** (opt-in: your own
 LibreTranslate server, or DeepL / Google with your own key - nothing preset, nothing sent until you click), a **cleaner Settings page with
 sections and search** (Ctrl+K finds settings too), a **taskbar jump list** and optional **tab previews in the taskbar**, **Shield's My filters
-in sync** and opt-in **encrypted history sync** - and says honestly that WebView2 can't cast ("Open in Edge to cast" instead). It runs on **Microsoft Edge WebView2** - the Evergreen
+in sync** and opt-in **encrypted history sync** - and says honestly that WebView2 can't cast ("Open in Edge to cast" instead). 1.8 brings **gaming
+extras**: opt-in **YouTube sponsor / intro skipping** with SponsorBlock (only a 4-character hash prefix goes out), the **Twitch chat in the
+sidebar** beside a full-screen or theatre-mode stream, **theatre mode**, **Clip it** (Hallow Clips saves the last 30 s of a stream on your
+screen) and **game mode at once** when you start a game from the new tab page. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -34,6 +37,60 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.8: gaming extras
+
+**Skip sponsors and intros on YouTube** (Settings > Gaming > YouTube and Twitch) - **off by default**, because it contacts
+**SponsorBlock**, the free community list of sponsor segments (sponsor.ajay.app):
+- For each video you open, the browser asks SponsorBlock's public API with the **privacy-preserving hash-prefix lookup**:
+  `GET https://sponsor.ajay.app/api/skipSegments/<prefix>?categories=[...]&actionType=skip`, where `<prefix>` is **only the first 4
+  characters of the SHA-256 of the video's id**. SponsorBlock answers for every video whose hash starts the same way (64 videos for one
+  prefix in a real check) and the browser picks yours out, so SponsorBlock doesn't learn which video you watch. No address, no account,
+  no cookies, no referrer - the request comes from the browser itself ("HallowBrowser/1.8"), not from the page. Answers are kept in
+  memory for 30 minutes; a video you go back to isn't asked for again.
+- Pick what to skip: **sponsors, intros and intermissions, outros and end cards, self-promotion, interaction reminders** (like /
+  subscribe) - sponsors and self-promotion by default. **Skip automatically** (a small note says what was skipped, with **Undo**) or
+  **Show a Skip button** over the video. A segment skipped once isn't skipped again by itself if you go back into it - you get the
+  button instead. Works with YouTube moving from video to video without loading a new page, and in full screen.
+- It's the browser's own small script on youtube.com (in its own closed shadow DOM, so the page can't restyle it), not Hallow Shield.
+  If SponsorBlock can't be reached, nothing is skipped.
+- **Credit and terms**: segment data from **SponsorBlock** by its contributors. SponsorBlock's API and database are licensed
+  **CC BY-NC-SA 4.0** (its wiki: "The API and database follow CC BY-NC-SA 4.0 unless you have explicit permission"). Hallow Browser is
+  free and non-commercial, credits SponsorBlock in Settings and here, uses the data as it comes and keeps it only in memory - it
+  doesn't redistribute it. SponsorBlock's API rules (no automated submissions) don't apply: the browser only reads, never submits.
+- Tested only against a local stand-in SponsorBlock server and a YouTube-like test page with a real `<video>`. The real API was called
+  once, by hand, read-only, to check the answer's format (an array of `{videoID, segments: [{category, actionType, segment, ...}]}`).
+
+**Twitch extras**:
+- **Chat in the sidebar** (optional, off by default): watching a channel (`twitch.tv/<channel>`) opens its pop-out chat
+  (`https://www.twitch.tv/popout/<channel>/chat`) in a sidebar panel of its own - signed in like your tabs, not added to your sidebar
+  sites. It **stays beside the stream in full screen** (Twitch's full-screen button: the stream fills the window, the chat beside it)
+  **and in theatre mode**; another tab or leaving the channel closes it, another channel switches it; close it with its X and it stays
+  closed for that channel.
+- **Theatre mode**: the **TV button** in the address bar on a stream (or **Alt+Shift+T**, or Ctrl+K) hides the browser around the page -
+  the tab strip, toolbar, bookmarks bar, vertical tabs and the sidebar's rail - and on Twitch also turns on **Twitch's own theatre mode**
+  (its player button, turned off again when you leave). **Esc** leaves. Full screen from theatre mode comes back to theatre mode.
+- **Auto-claim channel points: not built.** Twitch's Terms of Service (*Prohibited Conduct*) forbid accessing Twitch's services "by
+  means of any robot, spider, scraper, crawler, or other automated means for any purpose". A script clicking the bonus for you is
+  automation of exactly that kind, so the browser never clicks it (tested: the bonus button on the test page is never clicked).
+
+**Clip it - the last 30 seconds of a stream into Hallow Clips**: the **clapperboard button** in the address bar on a stream (a Twitch
+channel or a YouTube video - shown when Hallow Clips is installed; also in Ctrl+K) asks Hallow Clips over its family pipe
+(`HallowFamily.Clips.<user>`) to `save` its replay buffer and shows **"Clip saved (the last 30 s): <file>"** with the file from Clips'
+reply. Clips records **your screen**, so:
+- the stream has to be on screen (the active tab of a window that isn't minimised, or a popped-out video) - otherwise the browser
+  says so and asks nothing;
+- if Clips isn't running, isn't recording (by default it records only while a game runs - turn off *Only while a game is running* in
+  Clips' settings to clip streams), or is paused for Discord Clips, the browser explains that instead. Clips' own errors ("Nothing
+  recorded yet") are passed on. The browser doesn't record anything itself; the length is Clips' clip length (30 s by default).
+
+**Game launch handoff**: **Play** on the new tab page's **Your games** row turns **game mode on at once** (background tabs sleep,
+lower priority) instead of waiting for the next look. It turns off when the game closes - told by **Steam's own running flag** for that
+game (`HKCU\Software\Valve\Steam\Apps\<id>\Running`, read only), **Hallow Hub's playing state** or the game's process - or after
+**2 minutes** if the game never showed up. Hub's playing state still turns game mode on by itself, as before. Tested with launch links
+written to a log and Steam's flag from a test file: no game was started.
+
+![1.8: Settings > Gaming > YouTube and Twitch (made-up)](docs/stream-settings.png)
 
 ## What's new in 1.7: translate pages, a cleaner Settings, taskbar extras, more sync
 
@@ -566,6 +623,8 @@ start:
 | New tab (pre-warmed, until drawn) | median 48.3 ms with tiles (7 tries: 9-79 ms); 56.9 ms in the busier main run. Same day, same script: 1.4 and 1.5 identical (4.4 / 4.5 ms from Ctrl+T to the swap) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
 | Memory | 582 MB private with 14 small pages loaded (17 processes) - 1.4 measured 555 MB that way | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
 
+1.8, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **484 / 472-478 ms** (new profile / warm) vs 1.7 491 / 477-509 ms; pre-warmed new tab swap **median 3.8 ms** vs 1.7 3.8 ms; new tab with tiles until drawn median 48.1 ms in the movein run (46.5 ms in 1.7's; within the run-to-run spread). The new parts add nothing at start or to new tabs: two more WPF buttons; nothing is injected into pages unless SponsorBlock is on, and then only into YouTube videos; the Twitch chat panel is created only when you watch a channel with it switched on; Steam's flag is read only while a launched game is being followed.
+
 1.7, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **477 / 476-493 ms** (new profile / warm) vs 1.6 511 / 475-493 ms; pre-warmed new tab swap **median 3.8 ms** vs 1.6 3.7 ms; new tab with tiles until drawn median 46.5 ms in the movein run (44.9 ms in 1.6). The new parts add nothing at start: the translate button is one more WPF button and checks the page's language only once a service is set up; the jump list is written at idle 4 s after start; taskbar previews are off by default; the settings search index is built the first time Ctrl+K is asked for a setting; My filters are read from Shield at most every 10 minutes and only when sync is on.
 
 1.6, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **617 / 616-636 ms** (new profile / warm) vs 1.5 608 / 584-629 ms; pre-warmed new tab swap **median 4.3 ms** vs 1.5 4.2 ms; new tab with tiles until drawn median 44.9 ms in the movein run (48 ms in 1.5). The new parts add nothing at start: the family rows are fetched after the page's first paint and written in the background 1.5 s after start; the profile chip, reading list and notes panels are plain WPF; spell words and the profile list are small files read once; sounds load only when switched on. Startup boost (off by default) draws a window ~130 ms after a new start while boosted.
@@ -604,6 +663,11 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   address bar (not addresses, sums or tab searches; never from private windows), as you type. No cookies are sent with it.
 - **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
   (not the pages), instead of your Wi-Fi / internet provider.
+- 1.8: **SponsorBlock - only if you switch "Skip sponsors and intros on YouTube" on** (off by default): for each YouTube video you
+  open, `https://sponsor.ajay.app/api/skipSegments/<4 characters>?categories=[...]&actionType=skip` - the first 4 characters of the
+  SHA-256 of the video's id (shared by many videos) and the kinds you picked; no address, cookies, referrer or account. SponsorBlock sees
+  your IP address, like any request. The Twitch chat panel is Twitch's own page (like a tab), only if you switch it on. Clip it and the
+  game launch handoff are local (Hallow Clips' pipe, Hub's status file, Steam's registry flag).
 - 1.7: **The translation service you pick - only if you set one up and click Translate** (or said "Always translate" for that
   language): the text of the page (not the address, cookies or form fields) goes to that one service - your own LibreTranslate
   server, DeepL or Google with your own key. Nothing is preset. Shield's My filters and (opt-in, encrypted only) history go only to
@@ -700,6 +764,7 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.6: installed sites (list and icons), their Start menu shortcuts | `%LOCALAPPDATA%\HallowBrowser\apps`, Start menu > Hallow Browser Apps |
 | 1.6: the sounds (written from the app when first played), words you added to the dictionary | `%LOCALAPPDATA%\HallowBrowser\sounds`, the engine profile's `Custom Dictionary.txt` |
 | 1.7: your translation API keys (protected by Windows for your user; never synced) | `%LOCALAPPDATA%\HallowBrowser\translate-keys.bin` (another profile: its own Local folder) |
+| 1.8: SponsorBlock's answers | in memory only (30 minutes), never written to disk |
 | 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
@@ -712,7 +777,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe (1.6: runs tools\gen-sounds.ps1 first - the sounds are synthesised, then embedded)
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -754,7 +819,14 @@ JavaScript / pop-ups / sound / cookies per site, Shield's "blocked on this page"
 browser's entry, a test unpacked extension (content script, popup, off, removed), new windows and moving a live page between windows
 without a reload, a private window leaving nothing in the session / workspaces / settings / history files (downloads kept, its own
 cookies, Shield's fallback blocking), the game corner (off = nothing fetched; only app ids sent; on the new tab page; not again within
-6 hours), and both windows coming back after a restart. 1.6 adds (unit) the migration of a fake 1.5 folder into the Default profile
+6 hours), and both windows coming back after a restart. 1.8 adds (unit) which addresses are YouTube videos and Twitch channels, the
+4-character SHA-256 prefix and the exact SponsorBlock request (no video id in it), picking our video's skip segments out of an answer for
+many, everything off by default, the launch handoff's rules (at once, Steam / Hub / the process, closed, never showed up) and the Skip
+button's contrast; and (integration "v18", a stand-in SponsorBlock server, a YouTube-like page with a real `<video>`, a Twitch-like page,
+a stand-in Clips pipe and Hub folder, launch links to a log) nothing contacted while off, the request's prefix / headers, auto skip with
+Undo, the Skip button, categories, moving between videos in the page, the memory cache, SponsorBlock failing, the chat panel beside
+full screen and theatre mode, Twitch's theatre button, Clip it (not running / not recording / paused / off screen / saved / Clips'
+error) and game mode at once until the game closes. 1.6 adds (unit) the migration of a fake 1.5 folder into the Default profile
 (every file compared before / after, the backup, settings and tabs loading as before), profile ids / folders / WebView2 profile names /
 pipes / arguments, Chromium's dictionary file and its checksum, memory saver levels and the battery rule, the synthesised WAVs (format,
 no clipping, a seamless loop), manifest parsing / scope / square icons / a readable .ico / a shortcut in the test folder, the family rows
@@ -774,4 +846,6 @@ levels, battery throttling measured in the page, "memory saved", sounds at volum
   as it allows (`WebView2-LICENSE.txt`, `WebView2-NOTICE.txt`). The WebView2 runtime itself is Microsoft's and isn't shipped.
 - **Hallow Shield** (Dom428/hallow-shield) and its filter lists (uBlock Origin's lists, EasyList, EasyPrivacy and others - see
   `shield\LISTS-LICENSE.txt`).
+- **SponsorBlock** (sponsor.ajay.app, by Ajay Ramachandran and its contributors): YouTube segment data through its public API, licensed
+  **CC BY-NC-SA 4.0** - fetched when you turn the option on, used as it comes, non-commercially, kept in memory only.
 - Icons: **Font Awesome Free** 7.3.1 (CC BY 4.0, `FontAwesome-LICENSE.txt`).

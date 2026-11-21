@@ -10,7 +10,7 @@ using Microsoft.Web.WebView2.Wpf;
 
 namespace HallowBrowser
 {
-    public class Tab
+    public partial class Tab
     {
         static int next;
         public readonly int Id = ++next;

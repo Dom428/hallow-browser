@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.7.0.0")]
-[assembly: AssemblyFileVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.8.0.0")]
+[assembly: AssemblyFileVersion("1.8.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.7";
+        public const string Version = "1.8";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -318,6 +318,12 @@ namespace HallowBrowser
                 ws2.ContentGrid.Children.Add(Panels.SettingsPage(ws2));
                 Snap.Save(ws2, Path.Combine(dir, "settings-search" + sfx + ".png"), 1280, 800); ws2.Close();
                 s.TranslateProvider = ""; s.TranslateLibreUrl = null;
+                // 1.8: the YouTube and Twitch card (SponsorBlock and the Twitch chat switched on - made-up, nothing is contacted in --snap)
+                s.SponsorSkip = true; s.TwitchChat = true;
+                var ws3 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws3.SnapFill("news", false, false); ws3.SettingsQuery = "SponsorBlock";
+                ws3.ContentGrid.Children.Add(Panels.SettingsPage(ws3));
+                Snap.Save(ws3, Path.Combine(dir, "stream-settings" + sfx + ".png"), 1280, 800); ws3.Close();
+                s.SponsorSkip = false; s.TwitchChat = false;
             }
         }
     }

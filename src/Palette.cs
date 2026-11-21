@@ -98,6 +98,7 @@ namespace HallowBrowser
                 {
                     C(a.Translated ? "Show original (undo translation)" : "Translate this page", null, "language", () => { if (a.Translated) { var _ = w.ShowOriginal(a); } else if (Translator.Ready(S)) { var _ = w.TranslateTab(a, false); } else w.OpenSettingsAt("translate"); });
                     C("Open in Edge to cast", null, "tv", () => w.OpenInEdgeToCast(a));
+                    if (BrowserWindow.IsStream(a.Url)) { C("Clip it (Hallow Clips saves the last 30 s)", null, "clapperboard", () => { var _ = w.ClipIt(a); }); C(w.Theatre ? "Leave theatre mode" : "Theatre mode", "Alt+Shift+T", "tv", w.ToggleTheatre); }   // 1.8
                 }
                 C("Reload", "F5", "arrow-rotate-right", () => { if (a.Core != null) a.Core.Reload(); });
                 C(w.IsBookmarked(a) ? "Remove bookmark" : "Bookmark this page", "Ctrl+D", "bookmark", () => w.ToggleBookmark(a));

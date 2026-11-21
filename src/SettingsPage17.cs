@@ -24,7 +24,7 @@ namespace HallowBrowser
             { "Downloads", "General" }, { "Tab previews, gestures and media", "General" }, { "Translate pages", "General" }, { "Cast to a TV", "General" }, { "Spell check", "General" }, { "Sidebar", "General" },
             { "Privacy", "Privacy & security" }, { "Security", "Privacy & security" }, { "Sites, extensions and windows", "Privacy & security" }, { "Hallow Keys", "Privacy & security" },
             { "Hallow Shield", "Shield" },
-            { "Speed and gaming", "Gaming" }, { "Memory saver and battery", "Gaming" }, { "Game corner", "Gaming" }, { "Hallow apps on the new tab page", "Gaming" }, { "Live notifications", "Gaming" },
+            { "Speed and gaming", "Gaming" }, { "Memory saver and battery", "Gaming" }, { "Game corner", "Gaming" }, { "Hallow apps on the new tab page", "Gaming" }, { "Live notifications", "Gaming" }, { "YouTube and Twitch", "Gaming" },
             { "Look", "Appearance" }, { "Sounds and ambience", "Appearance" }, { "Taskbar", "Appearance" },
             { "Sync", "Sync" }, { "Profiles", "Profiles" }, { "About", "Advanced" } };
         public static string SectionOf(string card) { string s; return sectionOf.TryGetValue(card ?? "", out s) ? s : "Advanced"; }

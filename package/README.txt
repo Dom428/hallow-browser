@@ -9,6 +9,19 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.8 - GAMING EXTRAS
+- Skip sponsors and intros on YouTube (OFF by default - it contacts SponsorBlock, the
+  community list at sponsor.ajay.app). Only a 4-character hash prefix of each video goes
+  out, never the video's address, your account or cookies. Skip automatically (with Undo)
+  or show a Skip button. Segment data: SponsorBlock contributors, CC BY-NC-SA 4.0.
+- Twitch: the channel's chat in the sidebar (optional), also beside a full-screen stream;
+  theatre mode (TV button or Alt+Shift+T, Esc leaves). Auto-claiming channel points is
+  not offered - Twitch's terms forbid automation.
+- Clip it: the clapperboard button on a stream asks Hallow Clips to save the last 30 s.
+  Clips records your screen, so keep the stream on screen; by default Clips only records
+  while a game runs (the browser tells you when it isn't recording).
+- Playing a game from "Your games" on the new tab page turns game mode on at once; it goes
+  off when the game closes.
 WHAT'S NEW IN 1.7 - TRANSLATE PAGES, A CLEANER SETTINGS, TASKBAR EXTRAS, MORE SYNC
 - Translate pages (OFF until you set it up - nothing preset): your own LibreTranslate
   server (e.g. on your NAS), or DeepL / Google with your own API key (kept protected by

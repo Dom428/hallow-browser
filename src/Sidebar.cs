@@ -96,7 +96,7 @@ namespace HallowBrowser
     }
 
     // one panel while the browser runs
-    public class SidePanel
+    public partial class SidePanel
     {
         public SidebarSite Site;
         public WebView2 View;                 // null until first opened (and after "Unload")
@@ -184,7 +184,7 @@ namespace HallowBrowser
         public void Rebuild()
         {
             // keep the panels that are still in the list, drop the others (their WebViews go away)
-            foreach (var p in Panels.Where(p => !w.S.SidebarSites.Contains(p.Site)).ToList()) Remove(p, false);
+            foreach (var p in Panels.Where(p => !p.Transient && !w.S.SidebarSites.Contains(p.Site)).ToList()) Remove(p, false);
             railList.Children.Clear();
             AddNativeButtons();   // 1.6: the reading list and notes (the browser's own panels) first
             foreach (var site in w.S.SidebarSites)
@@ -243,7 +243,7 @@ namespace HallowBrowser
             bool on = w.S.SidebarOn && !w.Private && !w.AppMode;   // 1.4: not in private windows (the panels are signed in on your normal profile); 1.6: nor app windows
             rail.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             railCol.Width = on ? GridLength.Auto : new GridLength(0);
-            if (!on && Open != null) Hide();
+            if (!on && Open != null && !Open.Transient) Hide();   // 1.8: the Twitch chat stays beside its stream
         }
 
         // ---- show / hide a panel
@@ -251,11 +251,11 @@ namespace HallowBrowser
         public void Show(SidePanel p)
         {
             if (w.Private) return;
-            if (!w.S.SidebarOn) { w.S.SidebarOn = true; ApplyOn(); }
+            if (!w.S.SidebarOn && !p.Transient) { w.S.SidebarOn = true; ApplyOn(); }
             if (NativeOpen != null) RemoveNative();   // 1.6
             if (Open != null && Open != p) HideOnly(Open);
             Open = p; p.Shown = true;
-            w.S.SidebarOpenId = p.Site.Id; w.S.Save();
+            if (!p.Transient) { w.S.SidebarOpenId = p.Site.Id; w.S.Save(); }   // 1.8: the Twitch chat isn't reopened at start
             host.Visibility = Visibility.Visible; splitter.Visibility = Visibility.Visible;
             hostCol.Width = new GridLength(SidebarRules.ClampWidth(p.Site.Width)); splitCol.Width = GridLength.Auto;
             headTitle.Text = p.Title ?? p.Site.Name;
@@ -269,8 +269,8 @@ namespace HallowBrowser
         public void Hide()
         {
             if (Open == null) { if (NativeOpen != null) HideNative(true); return; }   // 1.6: the reading list / notes
-            HideOnly(Open); Open = null;
-            w.S.SidebarOpenId = null; w.S.Save();
+            var was = Open; HideOnly(Open); Open = null;
+            if (!was.Transient) { w.S.SidebarOpenId = null; w.S.Save(); } else ChatClosedByYou(was);
             host.Visibility = Visibility.Collapsed; splitter.Visibility = Visibility.Collapsed;
             hostCol.Width = new GridLength(0); splitCol.Width = new GridLength(0);
             w.PanelsChanged();
@@ -389,6 +389,7 @@ namespace HallowBrowser
         }
         public void FullScreen(bool on)
         {
+            if (on && Open != null && Open == Chat) { rail.Visibility = Visibility.Collapsed; railCol.Width = new GridLength(0); return; }   // 1.8: the chat beside a full-screen stream
             if (on) { rail.Visibility = host.Visibility = splitter.Visibility = Visibility.Collapsed; railCol.Width = hostCol.Width = splitCol.Width = new GridLength(0); return; }
             ApplyOn();
             if (Open != null) { host.Visibility = splitter.Visibility = Visibility.Visible; hostCol.Width = new GridLength(SidebarRules.ClampWidth(Open.Site.Width)); splitCol.Width = GridLength.Auto; }

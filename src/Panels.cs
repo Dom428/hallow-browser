@@ -393,6 +393,7 @@ namespace HallowBrowser
             col.Children.Add(card("Sidebar", SidebarSettings(w)));
 
             col.Children.Add(card("Live notifications", LiveSettings(w)));
+            col.Children.Add(card("YouTube and Twitch", w.StreamSettings()));   // 1.8
 
             var shieldInfo = w.ShieldState == "extension" ? "Hallow Shield " + w.ShieldVersion + " is built in and always on (pause it per site in its panel)." : w.ShieldNote ?? "Starting...";
             col.Children.Add(card("Hallow Shield", new UIElement[] {

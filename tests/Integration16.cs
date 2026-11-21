@@ -169,6 +169,8 @@ namespace HallowBrowser.Tests
                 Ok(ovLines.Contains("toggle") && !ovVisible && ovText2 == "Overlay: off", "family: the Overlay switch sends Overlay \"toggle\" over its pipe and shows the new state (" + ovText2 + ")");
                 Cmd("test-eval " + nt + " chrome.webview.postMessage('hallow:nt-play\\t999999')"); Thread.Sleep(800);
                 Ok(File.ReadAllText(launchLog).Split('\n').Count(l => l.Trim().Length > 0) == 2, "family: a Play for a game that isn't in the list does nothing");
+                // 1.8: Play also turns game mode on until the game shows up and closes (or 2 minutes) - none starts here, so end it now
+                Cmd("test-g-set grace 0"); Cmd("test-tick"); Ok(Val(Cmd("test-state")).Contains("\"game\":null"), "family (1.8): the Play handoff ends when the game never shows up");
                 File.Delete(Path.Combine(clipsDir, "status.json")); Cmd("test-y-famrefresh"); Eval(nt, "window.hallowFamily()"); Thread.Sleep(600);
                 Ok(Eval(nt, "document.querySelectorAll('#hf .hc').length") == "2" && Eval(nt, "document.body.innerText.indexOf('RECENT CLIPS')") == "-1", "family: Clips not installed = no clips row");
                 foreach (var a in new[] { "Hub", "Overlay" }) File.Delete(Path.Combine(run, "Hallow" + a, "status.json"));
