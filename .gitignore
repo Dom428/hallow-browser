@@ -1,0 +1,13 @@
+# build output
+HallowBrowser.exe
+/Microsoft.Web.WebView2.Core.dll
+/Microsoft.Web.WebView2.Wpf.dll
+/WebView2Loader.dll
+tests/*.exe
+tests/*.dll
+tests/out/
+package/HallowBrowser.exe
+package/*.dll
+# Hallow Shield (fetched by tools\get-shield.ps1, sha256-pinned)
+/shield/
+package/shield/
