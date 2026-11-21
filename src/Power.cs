@@ -190,6 +190,42 @@ namespace HallowBrowser
             Save();
             return added;
         }
+        // 1.7: pages from history sync - new addresses added; for known ones the newer visit brings its title and time, visits = the most
+        // (so every PC ends with the same record and sync settles). Returns how many entries changed.
+        public int MergeSynced(List<HistoryEntry> pages)
+        {
+            if (!Loaded) Load();
+            int changed = 0;
+            lock (gate)
+            {
+                var by = new Dictionary<string, HistoryEntry>(StringComparer.Ordinal);
+                foreach (var e in items) if (!by.ContainsKey(e.Url)) by[e.Url] = e;
+                foreach (var p in pages)
+                {
+                    HistoryEntry e;
+                    if (by.TryGetValue(p.Url, out e))
+                    {
+                        bool ch = false;
+                        if (p.Visits > e.Visits) { e.Visits = p.Visits; ch = true; }
+                        if (string.CompareOrdinal(p.Last ?? "", e.Last ?? "") > 0) { e.Last = p.Last; if (!string.IsNullOrWhiteSpace(p.Title) && p.Title != e.Title) e.Title = p.Title; ch = true; }
+                        else if (string.CompareOrdinal(p.Last ?? "", e.Last ?? "") == 0 && !string.IsNullOrWhiteSpace(p.Title) && string.CompareOrdinal(p.Title, e.Title ?? "") > 0) { e.Title = p.Title; ch = true; }
+                        else if (string.IsNullOrWhiteSpace(e.Title) && !string.IsNullOrWhiteSpace(p.Title)) { e.Title = p.Title; ch = true; }
+                        if (ch) changed++;
+                        continue;
+                    }
+                    e = new HistoryEntry { Url = p.Url, Title = p.Title, Last = p.Last ?? DateTime.Now.ToString("s"), Visits = Math.Max(1, p.Visits) };
+                    by[e.Url] = e; items.Add(e); changed++;
+                }
+                if (changed > 0)
+                {
+                    items = items.OrderByDescending(x => x.Last ?? "", StringComparer.Ordinal).ToList();
+                    if (items.Count > Max) items.RemoveRange(Max, items.Count - Max);
+                    dirty = true;
+                }
+            }
+            if (changed > 0) Save();
+            return changed;
+        }
         public void Clear()
         {
             lock (gate) { items.Clear(); dirty = false; loaded = true; }

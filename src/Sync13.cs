@@ -11,7 +11,8 @@
 //   - the folder's copy is written whole (a temp file, then replace), retried while a cloud client holds it
 //   - optional encryption: a sync password -> PBKDF2-SHA256 (600,000 rounds) -> AES-256-GCM. Without the password the file in the
 //     folder is unreadable. The password is kept on this PC only, protected by Windows (DPAPI, this user).
-// Never synced: history, cookies, passwords, open tabs of other PCs' windows, window sizes and other per-PC settings.
+// Never synced: cookies, passwords, open tabs of other PCs' windows, window sizes and other per-PC settings; history only opt-in and
+// only encrypted (1.7, Sync17.cs).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -74,6 +75,7 @@ namespace HallowBrowser
         public string Dev, DevName, Password;
         public Func<SyncRecord, string, string> CopyData;   // a conflict copy's content (rec, "PC name"), or null = no copy for this kind
         public string KeepDir;                              // where merged conflict files go (this PC's data folder)
+        public int HistoryMax;                              // 1.7: history syncs here with this cap; 0 = not here (other PCs' pages pass through, encrypted)
     }
     public class SyncOutcome
     {
@@ -90,7 +92,25 @@ namespace HallowBrowser
     {
         public const string FileName = "Hallow Browser sync.hbsync";
         public static int WriteTries = 8;
-        static bool Singleton(string kind) { return kind == "set" || kind == "side"; }
+        static bool Singleton(string kind) { return kind == "set" || kind == "side" || kind == "shf"; }
+        // 1.7: kinds that never leave tombstones: a page falling out of the history cap, or My filters that couldn't be read this time,
+        // aren't deletes. And kinds that are never written to an unencrypted folder.
+        public static bool NoTombstone(string kind) { return kind == "hist" || kind == "shf"; }
+        public static bool EncryptedOnly(string kind) { return kind == "hist"; }
+        static readonly System.Text.RegularExpressions.Regex lastRx = new System.Text.RegularExpressions.Regex("\"l\":\"([^\"]*)\"");
+        static string LastVisit(string data) { if (data == null) return ""; var m = lastRx.Match(data); return m.Success ? m.Groups[1].Value : ""; }
+        // history: the newest max pages (by when they last changed); max 0 = not syncing here, leave them as they are
+        public static List<SyncRecord> Cap(List<SyncRecord> merged, int historyMax, bool encrypted)
+        {
+            var res = merged.Where(r => !(r.Kind == "hist" && r.Gone) && (encrypted || !EncryptedOnly(r.Kind))).ToList();
+            if (historyMax > 0 && encrypted)
+            {
+                // by last visit (the same order this PC picks its own newest pages in), so the cap settles instead of swapping pages
+                var keep = new HashSet<string>(res.Where(r => r.Kind == "hist").OrderByDescending(r => LastVisit(r.Data), StringComparer.Ordinal).ThenBy(r => r.Id, StringComparer.Ordinal).Take(historyMax).Select(r => r.Id));
+                res = res.Where(r => r.Kind != "hist" || keep.Contains(r.Id)).ToList();
+            }
+            return res;
+        }
 
         // brings this PC's records up to date against what it knew: new, changed (hash differs), gone (tombstone)
         public static List<SyncRecord> Stamp(List<SyncRecord> local, SyncState st, string dev, string devName, DateTime nowUtc, bool joining = false)
@@ -115,6 +135,7 @@ namespace HallowBrowser
             foreach (var k in known.Values)
             {
                 if (seen.Contains(k.Id)) continue;
+                if (NoTombstone(k.Kind)) continue;   // 1.7: not here this time isn't a delete
                 if (k.Gone) { if (k.Time > now - TimeSpan.FromDays(365).Ticks) res.Add(k.Clone()); continue; }   // tombstones are let go after a year
                 res.Add(new SyncRecord { Id = k.Id, Kind = k.Kind, Gone = true, Vv = Vv.Bump(k.Vv, dev), Time = now, Dev = dev, DevName = devName, Hash = "" });
             }
@@ -128,7 +149,7 @@ namespace HallowBrowser
             return string.CompareOrdinal(a.Hash ?? "", b.Hash ?? "") >= 0;
         }
         // two copies into one: the same result on both PCs, whichever merges first
-        public static List<SyncRecord> Merge(List<SyncRecord> a, List<SyncRecord> b, Func<SyncRecord, string, string> copyData, ref int conflicts)
+        public static List<SyncRecord> Merge(List<SyncRecord> a, List<SyncRecord> b, Func<SyncRecord, string, string> copyData, ref int conflicts, Func<SyncRecord, SyncRecord, string> combine = null)
         {
             foreach (var r in b) if (!r.Gone) r.Hash = SyncRecord.HashOf(r.Kind, r.Data);
             var A = a.Where(x => x != null && x.Id != null).GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
@@ -151,6 +172,12 @@ namespace HallowBrowser
                 else if (c == 1) w = x;
                 else if (c == -1) w = y;
                 else if (x.Hash == y.Hash) { w = x.Clone(); w.Vv = Vv.Max(x.Vv, y.Vv); }
+                else if (combine != null && combine(x, y) != null)
+                {
+                    // 1.7: both changed and the kind can be put together (a history page: most visits, newest visit) - the same result on both PCs
+                    var data = combine(x, y); var xw = Later(x, y);
+                    w = (xw ? x : y).Clone(); w.Data = data; w.Hash = SyncRecord.HashOf(w.Kind, data); w.Vv = Vv.Max(x.Vv, y.Vv); w.Time = Math.Max(x.Time, y.Time);
+                }
                 else
                 {
                     var xw = Later(x, y); var win = xw ? x : y; var lose = xw ? y : x;
@@ -240,13 +267,14 @@ namespace HallowBrowser
                 catch (InvalidDataException e) { res.State = "error"; res.Message = e.Message + " - nothing was changed in " + prov; return res; }
                 catch { res.State = "waiting"; res.Message = "Waiting for " + prov + " to finish copying the sync file"; return res; }
                 remoteDigest = Digest(doc.Records);
-                merged = Merge(mine, doc.Records, o.CopyData, ref conflicts);
+                merged = Merge(mine, doc.Records, o.CopyData, ref conflicts, SyncData.Combine);
             }
             foreach (var cf in ConflictFiles(folder))
             {
-                try { var doc = Read(Importer.ReadShared(cf), o.Password); merged = Merge(merged, doc.Records, o.CopyData, ref conflicts); mergedFiles.Add(cf); }
+                try { var doc = Read(Importer.ReadShared(cf), o.Password); merged = Merge(merged, doc.Records, o.CopyData, ref conflicts, SyncData.Combine); mergedFiles.Add(cf); }
                 catch { }   // still being written, or another password: left alone
             }
+            merged = Cap(merged, o.HistoryMax, !string.IsNullOrEmpty(o.Password));   // 1.7: history's size cap; never unencrypted
             res.Conflicts = conflicts; res.ConflictFiles = mergedFiles.Count;
             // what this PC has to take
             var before = mine.Where(r => !r.Gone).ToDictionary(r => r.Id, r => r.Hash);

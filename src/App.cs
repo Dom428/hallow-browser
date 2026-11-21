@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.6";
+        public const string Version = "1.7";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -43,6 +43,9 @@ namespace HallowBrowser
             if (si >= 0 && si + 1 < args.Length) { BrowserSettings.Frozen = true; var sa = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; LoadTheme(sa); SnapAll(args[si + 1]); return 0; }
 
             // 1.6: --profile <id or name> (a profile's own process), --app <url> (an installed site in its own window)
+            // 1.7: --jump new-tab | private-window | reading-list (the taskbar / Start jump list)
+            string jump = null; { int ji = Array.IndexOf(args, "--jump"); if (ji >= 0) { if (ji + 1 < args.Length) jump = JumpInvoke(args[ji + 1]); var al = args.ToList(); al.RemoveRange(ji, Math.Min(2, args.Length - ji)); args = al.ToArray(); } }
+            PendingJump = jump;
             string wantProfile, appArg; List<string> rest; ParseArgs(args, out wantProfile, out appArg, out rest);
             var urls = rest.Select(a => Omni.Interpret(a, "duckduckgo")).Where(u => u != null && Omni.IsWeb(u)).ToList();
             var appUrl = appArg == null ? null : Omni.Interpret(appArg, "duckduckgo"); if (appUrl != null && !Omni.IsWeb(appUrl)) appUrl = null;
@@ -59,7 +62,8 @@ namespace HallowBrowser
                 for (int i = 0; i < 20; i++)
                 {
                     bool ok = true;
-                    if (appUrl != null) ok = Family.Send(pipe, "app " + appUrl, 3000) != null;
+                    if (jump != null) ok = Family.Send(pipe, "invoke " + jump, 3000) != null;
+                    else if (appUrl != null) ok = Family.Send(pipe, "app " + appUrl, 3000) != null;
                     else if (urls.Count == 0) ok = Family.Send(pipe, "open", 3000) != null;
                     else foreach (var u in urls) ok &= Family.Send(pipe, "open " + u, 3000) != null;
                     if (ok) return 0;
@@ -183,6 +187,7 @@ namespace HallowBrowser
                             case "reopen": w.ReopenClosed(); ShowWindow(w); return "ok";
                             case "reopen-window": ReopenClosedWindow(); return "ok";
                             case "downloads": w.NewTab(Omni.DownloadsUrl, true); ShowWindow(w); return "ok";
+                            case "reading-list": w.Side.ShowNative("reading"); ShowWindow(w); return "ok";   // 1.7: the jump list
                             case "game-light": w.S.GameLight = !w.S.GameLight; w.S.Save(); w.Tick(true); return "ok";
                             case "cpu-limiter": w.S.CpuLimiter = !w.S.CpuLimiter; w.S.Save(); w.Tick(true); return "ok";
                             case "sidebar": w.Side.Toggle(); return "ok";
@@ -307,6 +312,12 @@ namespace HallowBrowser
                 var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);
                 Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 5600);
                 ws.Close(); Profiles = null;
+                // 1.7: Settings filtered by a search, with a translation service set up (a made-up NAS address)
+                s.TranslateProvider = "libre"; s.TranslateLibreUrl = "http://192.168.1.20:5000";
+                var ws2 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws2.SnapFill("news", false, false); ws2.SettingsQuery = "translate";
+                ws2.ContentGrid.Children.Add(Panels.SettingsPage(ws2));
+                Snap.Save(ws2, Path.Combine(dir, "settings-search" + sfx + ".png"), 1280, 800); ws2.Close();
+                s.TranslateProvider = ""; s.TranslateLibreUrl = null;
             }
         }
     }

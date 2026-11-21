@@ -148,6 +148,7 @@ namespace HallowBrowser
             keyBtn = Ui.Tool("key", "Fill a login from Hallow Keys", () => Panels.Keys(this, keyBtn), 13); keyBtn.Height = 24; keyBtn.Width = 28; keyBtn.Visibility = Visibility.Collapsed;
             inBar.Children.Add(zoomChip); inBar.Children.Add(keyBtn);
             BuildAddressExtras(inBar);   // 1.2: reader mode, bookmark star
+            BuildTranslateButton(inBar);   // 1.7
             ag.Children.Add(inBar);
             addressBox.Child = ag; bar.Children.Add(addressBox);
             var right = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(right, 2);
@@ -246,6 +247,7 @@ namespace HallowBrowser
             Live = new LiveWatcher(this); Live.Start();
             BackgroundChecks();
             WriteStatus();
+            if (Program.First == this) { ScheduleJumpList(4000); Program.RunPendingJump(this); }   // 1.7: the taskbar jump list; a jump-list item that started the browser
         }
 
         // ================================================================ tabs
@@ -500,6 +502,7 @@ namespace HallowBrowser
             Hook14(c);   // 1.4: site permissions, HTTPS-only, per-site scripting / sound / pop-ups
             Hook15(c);   // 1.5: login capture for Hallow Keys, media controls, gestures
             Hook16(c);   // 1.6: spell check off / Add to dictionary, Open link in profile
+            Hook17(c);   // 1.7: translation
             // 1.2: in split view, clicking into a side makes it the active tab
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
@@ -666,7 +669,7 @@ namespace HallowBrowser
             keyBtn.Opacity = t.KeysItems != null && t.KeysItems.Count > 0 ? 1 : 0.5;
             keyBtn.ToolTip = t.KeysLocked ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
-            UpdateBarPower(t); UpdateZoom(); UpdateTitle();
+            UpdateBarPower(t); UpdateTranslateButton(t); UpdateZoom(); UpdateTitle();
         }
         void UpdateTitle()
         {
@@ -957,7 +960,7 @@ namespace HallowBrowser
         public string PriorityName { get { return appliedPriority.HasValue ? appliedPriority.Value.ToString() : "Normal"; } }
 
         // ================================================================ session, status, toast
-        void Changed() { saveTimer.Stop(); saveTimer.Start(); statusTimer.Stop(); statusTimer.Start(); }
+        void Changed() { saveTimer.Stop(); saveTimer.Start(); statusTimer.Stop(); statusTimer.Start(); if (S.TaskbarTabs || thumbsOn) ThumbsSoon(); }
         public void SaveSession()
         {
             if (snap || Private || Tabs.Count == 0) return;
@@ -1043,7 +1046,13 @@ namespace HallowBrowser
             t.Page = bm ? BookmarksPage() : ex ? ExtensionsPage() : si ? SitesPage() : dl ? DownloadsPage() : ap ? AppsPage() : Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
             content.Children.Add(t.Page); SetTabIcon(t); LayoutSplit();
         }
-        public void ReloadSettings() { var t = Tabs.FirstOrDefault(x => x.Url == Omni.SettingsUrl); if (t == null) return; content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = IsShown(t) ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); LayoutSplit(); }
+        public void ReloadSettings()
+        {
+            var t = Tabs.FirstOrDefault(x => x.Url == Omni.SettingsUrl); if (t == null) return;
+            var off = SettingsPg != null ? SettingsPg.Scroll.VerticalOffset : 0;   // 1.7: stay where you were
+            content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = IsShown(t) ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); LayoutSplit();
+            var sv = SettingsPg != null ? SettingsPg.Scroll : null; if (sv != null && off > 0) sv.Loaded += (a, b) => sv.ScrollToVerticalOffset(off);
+        }
         public void ApplyPageColors() { var p = Profile; if (p != null) Engine.ApplyProfile(p, S); Engine.WriteNewTab(S, Program.AccentHex); }
         // 1.1: light / dark changed (theme.json, Windows' setting or the Look choice): title bars, page backgrounds, pages that follow
         public void ThemeChanged()

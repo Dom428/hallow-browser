@@ -9,6 +9,20 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.7 - TRANSLATE PAGES, A CLEANER SETTINGS, TASKBAR EXTRAS, MORE SYNC
+- Translate pages (OFF until you set it up - nothing preset): your own LibreTranslate
+  server (e.g. on your NAS), or DeepL / Google with your own API key (kept protected by
+  Windows on this PC). Then a translate button: the page's text goes to the service you
+  picked only when you click Translate. Show original undoes it; "Always translate
+  <language>" for the languages you choose.
+- Casting: WebView2 can't (no Cast / Media Router in it - checked). "Open in Edge to
+  cast" opens the tab in Microsoft Edge, which can.
+- Settings in sections (General, Privacy & security, Shield, Gaming, Appearance, Sync,
+  Profiles, Advanced) with a search box; Ctrl+K finds settings too.
+- Taskbar: a jump list (New tab, New private window, Reading list, your profiles) and,
+  if you switch it on, a preview per tab when you hover the taskbar button.
+- Sync: Hallow Shield's My filters, and - only if you turn it on, only encrypted with the
+  sync password - your history (the newest 1,000 pages by default).
 WHAT'S NEW IN 1.6 - PROFILES, YOUR HALLOW APPS ON THE NEW TAB, SITES AS APPS
 - Profiles ("Personal", "Gaming"...): each with its own sign-ins, history, bookmarks,
   sidebar panels, settings, sync and private windows. The profile button in the title bar

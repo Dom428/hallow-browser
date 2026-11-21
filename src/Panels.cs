@@ -27,6 +27,7 @@ namespace HallowBrowser
             open = p; p.IsOpen = true; return p;
         }
         public static void CloseFlyouts() { if (open != null) open.IsOpen = false; }
+        public static DependencyObject OpenFlyoutContent { get { return open != null && open.IsOpen ? open.Child : null; } }   // 1.7: tests read what a flyout says
         public static Popup ShowFlyout(UIElement target, UIElement child, double width) { return Show(target, child, width); }
         static FrameworkElement Sep() { var b = new Border { Height = 1, Margin = new Thickness(6, 5, 6, 5) }; b.SetResourceReference(Border.BackgroundProperty, "LineDim"); return b; }
         static TextBlock Head(string text) { var t = Ui.Label(text); t.Margin = new Thickness(12, 8, 12, 6); return t; }
@@ -64,6 +65,7 @@ namespace HallowBrowser
             // 1.6: reading list, install a site, apps, profiles
             sp.Children.Add(Ui.MenuRow("book-bookmark", "Save for later", "Ctrl+Shift+D", () => run(() => w.SaveForLater(w.Active))));
             sp.Children.Add(Ui.MenuRow("book-bookmark", "Reading list", null, () => run(() => w.Side.ShowNative("reading"))));
+            if (w.Active != null && Omni.IsWeb(w.Active.Url)) { sp.Children.Add(Ui.MenuRow("language", w.Active.Translated ? "Show original" : "Translate...", null, () => run(() => w.TranslateFlyout(w.Active)))); sp.Children.Add(Ui.MenuRow("tv", "Cast... (open in Edge)", null, () => run(() => w.OpenInEdgeToCast(w.Active)))); }   // 1.7
             sp.Children.Add(Ui.MenuRow("note-sticky", "Notes for this page", null, () => run(() => w.Side.ShowNative("notes"))));
             var ins = Ui.MenuRow("square-plus", "Install this site...", null, () => run(() => { var _ = w.InstallSite(w.Active); })); ins.IsEnabled = !w.Private && w.Active != null && Omni.IsWeb(w.Active.Url); sp.Children.Add(ins);
             sp.Children.Add(Ui.MenuRow("table-cells-large", "Apps", null, () => run(() => w.NewTab(Omni.AppsUrl, true))));
@@ -322,7 +324,8 @@ namespace HallowBrowser
             var h = Ui.Row(new Image { Source = Ui.AppIcon(), Width = 30, Height = 30, Margin = new Thickness(0, 0, 12, 0) }, Ui.T("HALLOW", 22, true, "AccentBrush"), Ui.T(" BROWSER", 22, false, "Text"));
             col.Children.Add(h);
             var sub = Ui.Muted("SETTINGS // v" + Program.Version + "  -  engine: Microsoft Edge WebView2 " + (Engine.RuntimeVersion ?? "?"), 11, 18); sub.FontFamily = (FontFamily)w.FindResource("MonoFont"); col.Children.Add(sub);
-            Func<string, UIElement[], Border> card = (title, items) => { var sp = new StackPanel(); sp.Children.Add(Ui.Label(title)); foreach (var i in items) sp.Children.Add(i); return Ui.Card(sp); };
+            var cards = new List<Tuple<string, Border>>();   // 1.7: every card with its title, laid out in sections at the end
+            Func<string, UIElement[], Border> card = (title, items) => { var sp = new StackPanel(); sp.Children.Add(Ui.Label(title)); foreach (var i in items) sp.Children.Add(i); var b = Ui.Card(sp); cards.Add(Tuple.Create(title, b)); return b; };
             Action save = () => S.Save();
 
             col.Children.Add(card("Search", new UIElement[] {
@@ -331,6 +334,8 @@ namespace HallowBrowser
             col.Children.Add(card("Address bar", w.AddressSettings()));                 // 1.5
             col.Children.Add(card("Downloads", w.DownloadSettings()));                  // 1.5
             col.Children.Add(card("Tab previews, gestures and media", w.TabsMediaSettings()));   // 1.5
+            col.Children.Add(card("Translate pages", w.TranslateSettings()));             // 1.7
+            col.Children.Add(card("Cast to a TV", w.CastSettings()));                     // 1.7
 
             col.Children.Add(card("Profiles", w.ProfileSettings()));                    // 1.6
             col.Children.Add(card("Spell check", w.SpellSettings()));                   // 1.6
@@ -384,6 +389,7 @@ namespace HallowBrowser
 
             col.Children.Add(card("Memory saver and battery", w.MemorySettings()));   // 1.6
             col.Children.Add(card("Sounds and ambience", w.VibeSettings()));         // 1.6
+            col.Children.Add(card("Taskbar", w.TaskbarSettings()));                  // 1.7
             col.Children.Add(card("Sidebar", SidebarSettings(w)));
 
             col.Children.Add(card("Live notifications", LiveSettings(w)));
@@ -408,9 +414,13 @@ namespace HallowBrowser
                 new Border { Height = 8 },
                 Ui.Muted("Credits: Microsoft Edge WebView2 SDK (Microsoft.Web.WebView2 " + Program.SdkVersion + ", BSD-style licence, redistributed as allowed); Hallow Shield's lists (see its LISTS-LICENSE); icons Font Awesome Free (CC BY 4.0).", 11, 0) }));
 
-            var sv = new ScrollViewer { Content = col, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
-            sv.SetResourceReference(Control.BackgroundProperty, "Bg");
-            return sv;
+            // 1.7: sections, section links and search (SettingsPage17.cs)
+            foreach (var c in cards) col.Children.Remove(c.Item2);
+            col.Children.Remove(h); col.Children.Remove(sub);
+            var pg = SettingsLayout.Build(w, new List<UIElement> { h, sub }, cards);
+            w.SettingsPg = pg;
+            if (!string.IsNullOrEmpty(w.SettingsQuery)) pg.Box.Text = w.SettingsQuery;
+            return pg.Scroll;
         }
 
         // ---------------------------------------------------------------- 1.2: Settings > Tabs and workspaces

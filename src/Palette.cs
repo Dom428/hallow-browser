@@ -19,7 +19,7 @@ namespace HallowBrowser
 
     public static class Palette
     {
-        static readonly Dictionary<string, int> weight = new Dictionary<string, int> { { "Tab", 40 }, { "Bookmark", 30 }, { "Panel", 25 }, { "Workspace", 22 }, { "Command", 20 }, { "Session", 15 }, { "History", 0 } };
+        static readonly Dictionary<string, int> weight = new Dictionary<string, int> { { "Tab", 40 }, { "Bookmark", 30 }, { "Panel", 25 }, { "Workspace", 22 }, { "Command", 20 }, { "Setting", 18 }, { "Session", 15 }, { "History", 0 } };
 
         // ---- the search (the same code the box uses; tests call it directly)
         public static List<PaletteItem> Search(BrowserWindow w, string q, int max = 12)
@@ -43,6 +43,8 @@ namespace HallowBrowser
                     all.Add(new PaletteItem { Kind = "Bookmark", Title = b.Title ?? u, Sub = Omni.Display(u), Icon = "bookmark", Run = () => w.Navigate(u, false) });
                 }
             all.AddRange(Commands(w));
+            // 1.7: every card and setting of the Settings page (opens Settings there, filtered to it)
+            if (q.Length > 0) foreach (var e in w.SettingsIndex()) { var ee = e; all.Add(new PaletteItem { Kind = "Setting", Title = e.Label ?? e.Card, Sub = "Settings > " + e.Section + " > " + e.Card, Icon = "sliders", Run = () => w.OpenSettingsAt(ee.Label ?? ee.Card) }); }
             if (q.Length > 0) foreach (var it in all) it.Score = Score(q, it);
             else foreach (var it in all) it.Score = it.Kind == "Tab" ? 0 : -1;   // empty box: your tabs
             var res = all.Where(x => x.Score >= 0).ToList();
@@ -92,6 +94,11 @@ namespace HallowBrowser
                 C("Close other tabs", null, "xmark", () => w.CloseOthers(a));
                 C("Put tab to sleep", null, "moon", () => w.Discard(a));
                 C("Pop out video", null, "up-right-from-square", () => Pip.PopOut(w, a));
+                if (Omni.IsWeb(a.Url))   // 1.7: translate, and casting through Edge (WebView2 can't cast)
+                {
+                    C(a.Translated ? "Show original (undo translation)" : "Translate this page", null, "language", () => { if (a.Translated) { var _ = w.ShowOriginal(a); } else if (Translator.Ready(S)) { var _ = w.TranslateTab(a, false); } else w.OpenSettingsAt("translate"); });
+                    C("Open in Edge to cast", null, "tv", () => w.OpenInEdgeToCast(a));
+                }
                 C("Reload", "F5", "arrow-rotate-right", () => { if (a.Core != null) a.Core.Reload(); });
                 C(w.IsBookmarked(a) ? "Remove bookmark" : "Bookmark this page", "Ctrl+D", "bookmark", () => w.ToggleBookmark(a));
                 C(a.ReaderOn ? "Leave reader mode" : "Reader mode", "F9", "book-open", () => w.ToggleReader(a));

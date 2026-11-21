@@ -1,8 +1,8 @@
 ﻿// Hallow Browser 1.3 - what sync carries, as records (Sync13.cs merges them): bookmarks and folders, the settings that make
 // sense on every PC, saved sessions, workspaces and the sidebar's panels. And back: merged records into this PC's stores.
-// Never: history, cookies, Hallow Keys data, addresses you typed, window places, per-PC choices (RAM limiter, CPU limiter),
-// the sync settings themselves. Hallow Shield's My filters live inside Shield (the extension), not in the browser - Shield's
-// own Export / Import moves them.
+// Never: cookies, Hallow Keys data, addresses you typed, window places, per-PC choices (RAM limiter, CPU limiter), translation keys,
+// the sync settings themselves. 1.6: page notes. 1.7: Hallow Shield's My filters (read / written through Shield - Sync17.cs) and,
+// opt-in and only encrypted, history.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 
 namespace HallowBrowser
 {
-    public class SyncInput
+    public partial class SyncInput
     {
         public BrowserSettings Settings; public BookmarkStore Bookmarks;
         public List<SavedSession> Saved; public WorkspaceStore Spaces; public string CurrentSpace; public Session CurrentLive;
@@ -27,7 +27,7 @@ namespace HallowBrowser
             "GameLight", "SleepMinutes", "Preconnect", "KeysOn", "ShieldAutoUpdate", "SidebarOn", "SidebarSleepMinutes", "LiveOn", "LiveChannels",
             "BandwidthKBps", "BandwidthGameOnly", "VerticalTabs", "VTabsCollapsed", "SidebarSide", "ReaderFontSize", "ReaderWidth", "KeepHistory",
             "BookmarksBar", "NewTabTopSites", "NewTabClock", "NewTabFamily", "NewTabPinned", "NewTabHidden" };
-        public static readonly string[] Kinds = { "bm", "set", "saved", "ws", "side", "note" };   // 1.6: "note"
+        public static readonly string[] Kinds = { "bm", "set", "saved", "ws", "side", "note", "shf", "hist" };   // 1.6: "note"; 1.7: Shield's My filters, history
         static FieldInfo F(string n) { return typeof(BrowserSettings).GetField(n, BindingFlags.Public | BindingFlags.Instance); }
 
         static string Ser(object o) { return js.Serialize(o); }
@@ -64,6 +64,9 @@ namespace HallowBrowser
             if (i.Notes != null)
                 foreach (var n in i.Notes.Where(x => x != null && x.Key != null && !string.IsNullOrEmpty(x.Text)))
                     res.Add(new SyncRecord { Id = "note:" + PageNotes.IdOf(n.Key), Kind = "note", Data = Ser(new SortedDictionary<string, object>(StringComparer.Ordinal) { { "k", n.Key }, { "t", n.Title }, { "u", n.Url }, { "x", n.Text } }) });
+            // 1.7: Shield's My filters (only when they could be read) and history (only when it syncs - encrypted)
+            if (i.ShieldFilters != null) res.Add(new SyncRecord { Id = "shf", Kind = "shf", Data = Ser(i.ShieldFilters.Replace("\r\n", "\n")) });
+            if (i.History != null && i.HistoryMax > 0) res.AddRange(SyncHistory.Records(i.History.All(), i.HistoryMax));
             if (i.Spaces != null && i.Spaces.Items != null)
                 foreach (var w in i.Spaces.Items)
                 {
@@ -72,6 +75,8 @@ namespace HallowBrowser
                 }
             return res;
         }
+        // 1.7: kinds whose two changed versions are put together instead of one winning
+        public static string Combine(SyncRecord x, SyncRecord y) { return x.Kind == "hist" && y.Kind == "hist" && !x.Gone && !y.Gone ? SyncHistory.Combine(x, y) : null; }
         // a hash per kind of what this PC has (so a merge isn't applied over an edit made meanwhile)
         public static Dictionary<string, string> KindHashes(List<SyncRecord> rs)
         {
@@ -154,6 +159,17 @@ namespace HallowBrowser
                 }
                 i.Notes.Clear(); i.Notes.AddRange(list);
                 done.Add("notes");
+            }
+            // 1.7: My filters come in (the window writes them into Shield); pages from other PCs are merged into history
+            if (kinds.Contains("shf") && i.ShieldFilters != null)   // only when this PC syncs them and could read Shield (else they just pass through)
+            {
+                var r = result.FirstOrDefault(x => x.Kind == "shf" && x.Id == "shf");
+                if (r != null) { try { var text = js.Deserialize<string>(r.Data); if (text != null && text != (i.ShieldFilters ?? "").Replace("\r\n", "\n")) { i.ShieldFiltersIn = text; done.Add("Shield's My filters"); } } catch { } }
+            }
+            if (kinds.Contains("hist") && i.History != null && i.HistoryMax > 0)
+            {
+                var n = i.History.MergeSynced(result.Where(x => x.Kind == "hist").Select(SyncHistory.From).Where(x => x != null).ToList());
+                if (n > 0) done.Add("history");
             }
             if (kinds.Contains("saved") && i.Saved != null)
             {

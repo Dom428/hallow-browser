@@ -517,9 +517,12 @@ namespace HallowBrowser
         }
         SyncInput MakeSyncInput()
         {
-            return new SyncInput { Settings = S, Bookmarks = Bookmarks, Saved = BrowserSettings.LoadSaved(), Spaces = Spaces, CurrentSpace = SpaceId, CurrentLive = Tabs.Count > 0 ? BuildSession() : null, Notes = PageNotes.All };
+            var hist = HistorySyncing && History != null && History.Loaded;   // 1.7: history only encrypted; My filters as last read from Shield
+            return new SyncInput { Settings = S, Bookmarks = Bookmarks, Saved = BrowserSettings.LoadSaved(), Spaces = Spaces, CurrentSpace = SpaceId, CurrentLive = Tabs.Count > 0 ? BuildSession() : null, Notes = PageNotes.All,
+                ShieldFilters = S.SyncShieldFilters ? ShieldFiltersCache : null, History = hist ? History : null, HistoryMax = hist ? S.SyncHistoryMax : 0 };
         }
-        SyncOptions MakeSyncOptions(string pw) { return new SyncOptions { Dev = S.SyncDevice, DevName = Environment.MachineName, Password = pw, CopyData = SyncData.CopyData, KeepDir = BrowserSettings.Dir }; }
+        SyncOptions MakeSyncOptions(string pw) { return new SyncOptions { Dev = S.SyncDevice, DevName = Environment.MachineName, Password = pw, CopyData = SyncData.CopyData, KeepDir = BrowserSettings.Dir, HistoryMax = pw != null && HistorySyncing ? S.SyncHistoryMax : 0 }; }
+        DateTime filtersReadAt = DateTime.MinValue;
         public async Task<SyncOutcome> SyncNow(bool manual)
         {
             if (!SyncReady || syncBusy || snap) return null;
@@ -530,6 +533,10 @@ namespace HallowBrowser
                 if (!Bookmarks.Loaded) { var b = Bookmarks; await Task.Run(() => b.Load()); }
                 string pw = null;
                 if (S.SyncEncrypt) { pw = SyncCrypto.LoadPassword(); if (pw == null) { SyncNoted(new SyncOutcome { State = "error", Message = "Encryption is on but no sync password is set on this PC - set it in Settings > Sync" }, manual); return LastSync; } }
+                // 1.7: Shield's My filters, read through Shield at most every 10 minutes (not while a game runs), or when asked
+                if (S.SyncShieldFilters && ShieldState == "extension" && (ShieldFiltersCache == null || manual || (DateTime.Now - filtersReadAt).TotalMinutes >= 10) && (Game == null || BrowserSettings.Offscreen))
+                { filtersReadAt = DateTime.Now; await ReadShieldFilters(); }
+                if (HistorySyncing && History != null && !History.Loaded) { var h = History; await Task.Run(() => h.Load()); }
                 var input = MakeSyncInput(); var local = SyncData.Gather(input); var hashes = SyncData.KindHashes(local);
                 var st = BrowserSettings.Read<SyncState>(SyncStatePath) ?? new SyncState();
                 var opts = MakeSyncOptions(pw); var folder = SyncFolderFor(S.SyncFolder);   // 1.6: a profile other than Default syncs in its own sub-folder
@@ -541,7 +548,7 @@ namespace HallowBrowser
                     if (o.ChangedKinds.Count > 0)
                     {
                         var input2 = MakeSyncInput(); var now2 = SyncData.KindHashes(SyncData.Gather(input2));
-                        if (o.ChangedKinds.Any(k => now2[k] != hashes[k])) { saveState = false; SyncSoon(3); }   // changed here meanwhile: merge again
+                        if (o.ChangedKinds.Any(k => k != "hist" && now2[k] != hashes[k])) { saveState = false; SyncSoon(3); }   // changed here meanwhile: merge again (1.7: history merges in either way)
                         else ApplySync(input2, o);
                     }
                     if (saveState) BrowserSettings.WriteFile(SyncStatePath, o.State2, typeof(SyncState));
@@ -568,6 +575,7 @@ namespace HallowBrowser
             }
             if (o.ChangedKinds.Contains("saved")) BrowserSettings.SaveSaved(input.Saved);
             if (o.ChangedKinds.Contains("note")) { PageNotes.Replace(input.Notes); Side.RefreshNative(); }   // 1.6
+            if (input.ShieldFiltersIn != null && S.SyncShieldFilters) { var f = input.ShieldFiltersIn; ShieldFiltersCache = f; var _ = WriteShieldFilters(f); }   // 1.7: into Shield (its background recompiles them)
             if (o.ChangedKinds.Contains("ws")) { BrowserSettings.SaveWorkspaces(Spaces); UpdateSpaceButton(); }
             if (done.Count > 0 && o.Incoming > 0) Toast("Synced: " + string.Join(", ", done) + " came in from your other PC" + (o.Conflicts > 0 ? " (" + o.Conflicts + " changed on both - the newer one kept, the other bookmark kept as a conflict copy)" : "") + ".", 6);
         }
@@ -639,7 +647,8 @@ namespace HallowBrowser
             items.Add(warn); refreshWarn();
             syncNoteBlock = Ui.Muted("Last sync: " + (S.SyncNote ?? "never"), 12, 8); items.Add(syncNoteBlock);
             if (LastSync != null) syncNoteBlock.SetResourceReference(TextBlock.ForegroundProperty, LastSync.State == "synced" ? "GreenText" : "AmberText");   // status text: green / amber text shades
-            items.Add(Ui.Muted("Synced: bookmarks and folders, saved sessions, workspaces (the one you're in keeps its open tabs), settings (not window places or per-PC choices like the RAM and CPU limiters), sidebar panels. Changed on two PCs at once: the newer change wins and the other bookmark is kept as a \"conflict copy\". Not synced: history (it stays on this PC), cookies, passwords (Hallow Keys has its own sync). Hallow Shield's My filters live inside Shield - use Export / Import in Shield's settings.", 11.5, 0));
+            items.AddRange(SyncSettings17());   // 1.7: Shield's My filters, history (encrypted only)
+            items.Add(Ui.Muted("Synced: bookmarks and folders, saved sessions, workspaces (the one you're in keeps its open tabs), settings (not window places or per-PC choices like the RAM and CPU limiters), sidebar panels, page notes, Shield's My filters, and - only when you turn it on, and only encrypted - history. Changed on two PCs at once: the newer change wins and the other bookmark is kept as a \"conflict copy\". Never synced: cookies, passwords (Hallow Keys has its own sync), translation keys, open tabs of other windows.", 11.5, 0));
             return items.ToArray();
         }
         // Settings > Bookmarks and new tab

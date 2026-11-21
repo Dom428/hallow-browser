@@ -12,7 +12,10 @@ Shield's **"blocked on this page"** number and an opt-in **game corner**. 1.5 of
 and a Microsoft Defender check**, **hover previews**, **mouse gestures**, **media controls** for every tab and **crash recovery**. 1.6 brings
 **profiles** ("Personal", "Gaming" - separate sign-ins, history, bookmarks, panels and settings), **your Hallow games, clips and the
 Overlay switch on the new tab page**, **sites installed as apps**, **spell check**, **memory saver levels, battery saver and an opt-in
-startup boost**, optional **UI sounds and ambience**, and a **reading list and page notes**. It runs on **Microsoft Edge WebView2** - the Evergreen
+startup boost**, optional **UI sounds and ambience**, and a **reading list and page notes**. 1.7 adds **translate pages** (opt-in: your own
+LibreTranslate server, or DeepL / Google with your own key - nothing preset, nothing sent until you click), a **cleaner Settings page with
+sections and search** (Ctrl+K finds settings too), a **taskbar jump list** and optional **tab previews in the taskbar**, **Shield's My filters
+in sync** and opt-in **encrypted history sync** - and says honestly that WebView2 can't cast ("Open in Edge to cast" instead). It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -31,6 +34,61 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.7: translate pages, a cleaner Settings, taskbar extras, more sync
+
+**Translate pages** (Settings > General > Translate pages) - **off until you pick a service, and nothing is preset**:
+- **Your own LibreTranslate server** (any LibreTranslate-compatible address you enter - e.g. one on your NAS), or **DeepL** or
+  **Google Cloud Translation with your own API key**. Keys are kept on this PC only, protected by Windows (DPAPI, your user:
+  `translate-keys.bin`) - never in settings.json, never in sync. Hallow has no translation server of its own.
+- Once a service is set up, a **translate button** shows in the address bar. Its panel says exactly **what is sent: the text of the
+  page, to the service you picked** - not the address, not cookies, not form fields - and nothing goes out until you click
+  **Translate** (tested: setting a service up sends nothing; the request carries no page address, cookie or referrer).
+- The page's text nodes are translated **in batches** (at most 50 texts / ~4,500 characters per request; the first 3,000 pieces of a
+  very long page); code, `<pre>`, form fields, scripts, editable areas and anything marked `translate="no"` / `notranslate` are left
+  alone. **Show original** puts every text back exactly (spaces included). The browser makes the requests itself, so the key never
+  enters the page.
+- **Always translate <language>** (in the button's panel): pages in that language are translated as they load - only those (tested:
+  a French page is, an English page sends nothing), never in private windows by themselves.
+- Honestly: text a page adds after you translated stays as it is until you translate again.
+- Tested against local stand-ins only (a fake LibreTranslate server, fake DeepL and Google endpoints): the exact request each service
+  gets (DeepL: `Authorization: DeepL-Auth-Key`, Free keys to api-free.deepl.com; Google: `X-Goog-Api-Key`, never in the address), a
+  refused key changes nothing and says so. The real services were never called.
+
+**Cast** - checked, and **WebView2 can't**: it has Chromium's Presentation API (`navigator.presentation`, `PresentationRequest`) but
+no Media Router behind it - measured: `getAvailability()` answers false and `start()` (with a click) fails with "NotFoundError: No
+screens found"; there's no `chrome.cast` and no Cast dialog. So there's no DLNA / Cast stack of our own; instead **"Open in Edge to
+cast"** (menu, Ctrl+K, Settings > General > Cast to a TV) opens the current tab in **Microsoft Edge** (`microsoft-edge:<address>`),
+whose menu has *Cast media to device*. Your Hallow sign-ins aren't in Edge.
+
+**A cleaner Settings page** - the cards are grouped into **General, Privacy & security, Shield, Gaming, Appearance, Sync, Profiles and
+Advanced**, with a row of section links at the top, and a **search box**: type and only the matching cards stay (inside a card the
+matching switches stay bright), **Enter jumps** to the first match. **Ctrl+K finds settings too** - every card and every switch or
+choice, e.g. "cookies" -> *Block third-party cookies (Settings > Privacy & security > Privacy)*; picking one opens Settings right there.
+Changing a setting keeps your search and where you were.
+
+**Taskbar extras** (Settings > Appearance > Taskbar):
+- A **jump list** on the taskbar and Start icon: **New tab, New private window, Reading list** and **each of your profiles** (Windows'
+  `ICustomDestinationList` through COM - no libraries). The items start `HallowBrowser.exe --jump new-tab` (or `--profile <id>`); a
+  running browser gets them through its pipe. Tested on a **test AppUserModelID** (written, found in Windows' list file, deleted) so
+  your real jump list was never touched; an unknown `--jump` value opens nothing.
+- **Each tab in the taskbar preview** (**off by default**): every tab gets a hidden stand-in window registered with
+  `ITaskbarList3::RegisterTab`; Windows asks it for a picture (DWM iconic thumbnails from the tab's own preview), a click switches to
+  that tab, its X closes it. Tested by sending the stand-ins Windows' own messages (RegisterTab and DwmSetIconicThumbnail answer S_OK,
+  activate / close work). Honestly: the hover row itself is drawn by Windows' taskbar and wasn't looked at (that would mean using your
+  screen), and with many tabs the row gets long.
+
+**More sync** (Settings > Sync):
+- **Hallow Shield's My filters**: Shield keeps them in its own storage; since 1.4 the browser runs its own copy of Shield, so it reads
+  and writes My filters **through a hidden page of Shield's own origin** (like the family relay) - Shield's background sees the change
+  and recompiles them, as when you edit them in Shield (tested: written, read back, compiled by Shield, and synced into a second test
+  profile's Shield). The newer change wins; a PC that can't reach Shield sends nothing for them (never an empty list over yours).
+- **History, opt-in and encrypted only**: it needs the sync password (AES-256-GCM in the folder); without one, history is never
+  written there - not even other PCs'. A **size cap** (the newest 250 / 1,000 / 2,500 / 5,000 pages, default 1,000). Pages from your
+  other PCs are merged in (most visits, newest visit); a page pushed out by the cap, or clearing history on one PC, deletes nothing
+  on the others (no delete markers for history). Tested between two test PCs and two test profiles: encrypted file, the page arrives.
+
+![1.7: Settings with sections and search (made-up)](docs/settings-search.png)
 
 ## What's new in 1.6: profiles, your Hallow apps on the new tab, sites as apps
 
@@ -508,6 +566,8 @@ start:
 | New tab (pre-warmed, until drawn) | median 48.3 ms with tiles (7 tries: 9-79 ms); 56.9 ms in the busier main run. Same day, same script: 1.4 and 1.5 identical (4.4 / 4.5 ms from Ctrl+T to the swap) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
 | Memory | 582 MB private with 14 small pages loaded (17 processes) - 1.4 measured 555 MB that way | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
 
+1.7, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **477 / 476-493 ms** (new profile / warm) vs 1.6 511 / 475-493 ms; pre-warmed new tab swap **median 3.8 ms** vs 1.6 3.7 ms; new tab with tiles until drawn median 46.5 ms in the movein run (44.9 ms in 1.6). The new parts add nothing at start: the translate button is one more WPF button and checks the page's language only once a service is set up; the jump list is written at idle 4 s after start; taskbar previews are off by default; the settings search index is built the first time Ctrl+K is asked for a setting; My filters are read from Shield at most every 10 minutes and only when sync is on.
+
 1.6, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **617 / 616-636 ms** (new profile / warm) vs 1.5 608 / 584-629 ms; pre-warmed new tab swap **median 4.3 ms** vs 1.5 4.2 ms; new tab with tiles until drawn median 44.9 ms in the movein run (48 ms in 1.5). The new parts add nothing at start: the family rows are fetched after the page's first paint and written in the background 1.5 s after start; the profile chip, reading list and notes panels are plain WPF; spell words and the profile list are small files read once; sounds load only when switched on. Startup boost (off by default) draws a window ~130 ms after a new start while boosted.
 
 1.5: the new parts add nothing at start: the login, media and gesture scripts are tiny and only registered with each page; previews are taken 0.7-0.9 s after a tab is shown (never during a game, never for new tab pages); the downloads list is read only when you open it; the private-flyout check is one comparison per element as it appears.
@@ -544,6 +604,10 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   address bar (not addresses, sums or tab searches; never from private windows), as you type. No cookies are sent with it.
 - **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
   (not the pages), instead of your Wi-Fi / internet provider.
+- 1.7: **The translation service you pick - only if you set one up and click Translate** (or said "Always translate" for that
+  language): the text of the page (not the address, cookies or form fields) goes to that one service - your own LibreTranslate
+  server, DeepL or Google with your own key. Nothing is preset. Shield's My filters and (opt-in, encrypted only) history go only to
+  your own sync folder. The jump list and taskbar previews are local.
 - 1.6: **Install this site** reads the site's own manifest and icon from that site (like the page itself would), only when you click
   it. The new tab page's games, clips and Overlay switch, spell check (Windows' own checker), the sounds, the reading list and notes
   are all local - nothing goes out (notes only to your own sync folder, when sync is on).
@@ -635,6 +699,8 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.6: the reading list and notes (Default) | `%APPDATA%\HallowBrowser\reading-list.json`, `notes.json` |
 | 1.6: installed sites (list and icons), their Start menu shortcuts | `%LOCALAPPDATA%\HallowBrowser\apps`, Start menu > Hallow Browser Apps |
 | 1.6: the sounds (written from the app when first played), words you added to the dictionary | `%LOCALAPPDATA%\HallowBrowser\sounds`, the engine profile's `Custom Dictionary.txt` |
+| 1.7: your translation API keys (protected by Windows for your user; never synced) | `%LOCALAPPDATA%\HallowBrowser\translate-keys.bin` (another profile: its own Local folder) |
+| 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
 

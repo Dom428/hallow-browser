@@ -305,6 +305,7 @@ namespace HallowBrowser
         public void ProfileChrome()
         {
             if (snap && Program.Profiles == null) return;
+            if (!snap && JumpListDone && Program.First == this) ScheduleJumpList(300);   // 1.7: the jump list lists the profiles
             var top = (Grid)root.Children[0];
             var logoRow = top.Children.OfType<StackPanel>().FirstOrDefault(); if (logoRow == null) return;
             if (profChip != null) { logoRow.Children.Remove(profChip); top.Children.Remove(profLine); profChip = null; profLine = null; }

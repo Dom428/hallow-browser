@@ -42,6 +42,8 @@ namespace HallowBrowser
         public bool? DarkApplied;             // Chromium's auto dark mode on this tab's WebView (null = never set)
         // 1.6: memory saver - what its page process held before it slept, what sleeping gave back (MB), and the leaf mark
         public long LastMemMb, SavedMb; public Path SleepIcon;
+        // 1.7: translation (the page's language, translated now / to what, a running job, the last problem) and its taskbar preview
+        public bool Translated, TranslateBusy; public string PageLang, TranslatedTo, TranslateNote; public int TranslateRun;
 
         public bool Internal { get { return Omni.IsInternal(Url); } }
         public Microsoft.Web.WebView2.Core.CoreWebView2 Core { get { try { return View == null ? null : View.CoreWebView2; } catch { return null; } } }

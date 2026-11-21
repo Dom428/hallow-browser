@@ -198,7 +198,7 @@ namespace HallowBrowser.Tests
                 Eval(lk, "document.cookie='who=default; path=/';document.cookie");
                 Cmd("test-y-openinprofile gaming " + U1 + "/target.html");
                 var gping = Wait(() => CmdTo("Browser-gaming", "ping", 2000), r => r != null && r.StartsWith("ok"), 30000); lowerAll();
-                Ok(gping != null && gping.Contains("1.6"), "profiles: Gaming starts as its own process (its pipe answers): " + gping);
+                Ok(gping != null && gping.Contains("\"" + Program.Version + "\""), "profiles: Gaming starts as its own process (its pipe answers): " + gping);
                 var gt = Wait(() => L(CmdTo("Browser-gaming", "test-tabs")), t => t.Any(x => ((string)x["url"]) == U1 + "/target.html" && (bool)x["ready"]), 20000);
                 Ok(gt.Any(x => ((string)x["url"]) == U1 + "/target.html"), "profiles: the link opened in the Gaming profile");
                 var ginfo = J(CmdTo("Browser-gaming", "test-y-info"));
@@ -341,7 +341,7 @@ namespace HallowBrowser.Tests
                 Note("spell check after the restart: menu on wrods [" + string.Join(",", m4) + "], on sentance [" + string.Join(",", m5) + "], dictionary file: " + (S(J(Cmd("test-y-spell")), "file") ?? "").Replace("\n", "|"));
                 Ok(!m4.Contains("spellcheck") && m5.Contains("spellcheck"), "spell check: after the restart \"wrods\" is accepted (Add to dictionary worked) while \"sentance\" is still flagged");
                 Ok(File.ReadAllText(Path.Combine(run, "profiles.json")).Contains("gaming") && S(J(Cmd("test-y-info")), "chip") == "Default", "profiles: still two after the restart");
-                var status = Val(Cmd("status")); Ok(status != null && status.Contains("\"version\":\"1.6\"") && status.Contains("\"profiles\":2") && status.Contains("\"memorySaver\":\"balanced\"") && !status.Contains("127.0.0.1"), "status: 1.6 fields, no addresses");
+                var status = Val(Cmd("status")); Ok(status != null && status.Contains("\"version\":\"" + Program.Version + "\"") && status.Contains("\"profiles\":2") && status.Contains("\"memorySaver\":\"balanced\"") && !status.Contains("127.0.0.1"), "status: 1.6 fields, no addresses");
             }
             catch (Exception e) { Ok(false, "integration crashed: " + e); }
             finally
