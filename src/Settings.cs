@@ -28,6 +28,8 @@ namespace HallowBrowser
         public static readonly string LiveTwitchBase = TestDir != null ? Env("HALLOW_BROWSER_LIVE_TWITCH") : null;
         public static readonly string LiveYouTubeBase = TestDir != null ? Env("HALLOW_BROWSER_LIVE_YOUTUBE") : null;
         public static readonly string LiveSeconds = TestDir != null ? Env("HALLOW_BROWSER_LIVE_SECONDS") : null;
+        // 1.3 tests: HALLOW_BROWSER_IMPORT_ROOT = a folder with fake Local and Roaming browser profiles (never the real ones)
+        public static readonly string ImportRoot = TestDir != null ? Env("HALLOW_BROWSER_IMPORT_ROOT") : null;
         public static bool Frozen;   // --snap: never saved
         static string Env(string n) { var v = Environment.GetEnvironmentVariable(n); return string.IsNullOrWhiteSpace(v) ? null : v; }
 
@@ -84,13 +86,25 @@ namespace HallowBrowser
         [DataMember] public int ReaderFontSize = 18;           // reader mode text size (px)
         [DataMember] public string ReaderWidth = "medium";     // narrow | medium | wide
         [DataMember] public bool KeepHistory = true;           // the local history store (Ctrl+K searches it)
+        // 1.3: the bookmarks bar, the new tab page, sync through a folder
+        [DataMember] public bool BookmarksBar;                 // the bookmarks bar under the toolbar (Ctrl+Shift+B)
+        [DataMember] public bool NewTabTopSites = true;        // speed dial: your most visited pages (from the local history) and pinned ones
+        [DataMember] public bool NewTabClock = true;
+        [DataMember] public bool NewTabFamily = true;          // the Hallow strip: Guard score, Shield blocked today, now playing
+        [DataMember] public List<PinnedSite> NewTabPinned;     // pinned speed-dial tiles
+        [DataMember] public List<string> NewTabHidden;         // top sites you took off the new tab page
+        [DataMember] public bool SyncOn;                       // off by default
+        [DataMember] public string SyncFolder;                 // the folder you picked (OneDrive, Dropbox, Syncthing, a NAS share...)
+        [DataMember] public bool SyncEncrypt;                  // the password itself is kept apart (DPAPI, sync-password.bin)
+        [DataMember] public string SyncDevice;                 // this PC's random id in version vectors
+        [DataMember] public string SyncNote;                   // the last round's result, for Settings
 
         [OnDeserializing] void Defaults(StreamingContext c)
         {
             Search = "duckduckgo"; RestoreSession = true; BlockThirdPartyCookies = true; DoNotTrack = true; PageColors = "dark"; UseHallowAccent = true;
             GameLight = true; SleepMinutes = 15; Preconnect = true; KeysOn = true; ShieldAutoUpdate = true; Left = Top = double.NaN; Width = 1280; Height = 820;
             Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;
-            SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
+            SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
         }
 
         public static BrowserSettings Load()
@@ -126,6 +140,12 @@ namespace HallowBrowser
             if (SidebarSide != "left" && SidebarSide != "right") SidebarSide = "auto";
             if (Array.IndexOf(ReaderSizes, ReaderFontSize) < 0) ReaderFontSize = 18;
             if (ReaderWidth != "narrow" && ReaderWidth != "wide") ReaderWidth = "medium";
+            if (NewTabPinned == null) NewTabPinned = new List<PinnedSite>();
+            NewTabPinned.RemoveAll(x => x == null || !Omni.IsWeb(x.Url));
+            if (NewTabPinned.Count > 24) NewTabPinned.RemoveRange(24, NewTabPinned.Count - 24);
+            if (NewTabHidden == null) NewTabHidden = new List<string>();
+            if (NewTabHidden.Count > 200) NewTabHidden.RemoveRange(0, NewTabHidden.Count - 200);
+            if (string.IsNullOrEmpty(SyncDevice)) SyncDevice = Guid.NewGuid().ToString("N").Substring(0, 12);
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
@@ -180,6 +200,7 @@ namespace HallowBrowser
         public static void WriteFile(string path, object o, Type t) { Write(path, o, t); }
     }
 
+    [DataContract] public class PinnedSite { [DataMember] public string Url; [DataMember] public string Title; }
     [DataContract] public class SessionTab { [DataMember] public string Url; [DataMember] public string Title; [DataMember] public string Group; }
     [DataContract] public class SessionGroup { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public string Color; [DataMember] public bool Collapsed; }
     [DataContract]

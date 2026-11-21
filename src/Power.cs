@@ -160,6 +160,36 @@ namespace HallowBrowser
             }
             return res.OrderByDescending(x => x.Value).Take(max).ToList();
         }
+        // 1.3: pages imported from another browser - new addresses are added, known ones keep the most visits and the newest
+        // visit; newest first again, at most Max. Returns how many pages are new.
+        public int Merge(IEnumerable<HistoryEntry> pages)
+        {
+            if (!Loaded) Load();
+            int added = 0;
+            lock (gate)
+            {
+                var by = new Dictionary<string, HistoryEntry>(StringComparer.Ordinal);
+                foreach (var e in items) if (!by.ContainsKey(e.Url)) by[e.Url] = e;
+                foreach (var p in pages.Where(x => x != null && Omni.IsWeb(x.Url)).OrderByDescending(x => x.Last ?? "", StringComparer.Ordinal).Take(Max))
+                {
+                    HistoryEntry e;
+                    if (by.TryGetValue(p.Url, out e))
+                    {
+                        e.Visits = Math.Max(e.Visits, p.Visits);
+                        if (string.CompareOrdinal(p.Last ?? "", e.Last ?? "") > 0) e.Last = p.Last;
+                        if (string.IsNullOrWhiteSpace(e.Title) && !string.IsNullOrWhiteSpace(p.Title)) e.Title = p.Title;
+                        continue;
+                    }
+                    e = new HistoryEntry { Url = p.Url, Title = p.Title != null && p.Title.Length > 300 ? p.Title.Substring(0, 300) : p.Title, Last = p.Last ?? DateTime.Now.ToString("s"), Visits = Math.Max(1, p.Visits) };
+                    by[e.Url] = e; items.Add(e); added++;
+                }
+                items = items.OrderByDescending(x => x.Last ?? "", StringComparer.Ordinal).ToList();
+                if (items.Count > Max) items.RemoveRange(Max, items.Count - Max);
+                dirty = true; loaded = true;
+            }
+            Save();
+            return added;
+        }
         public void Clear()
         {
             lock (gate) { items.Clear(); dirty = false; loaded = true; }
@@ -173,44 +203,7 @@ namespace HallowBrowser
         }
     }
 
-    // ---------------------------------------------------------------- bookmarks (Ctrl+D)
-    [DataContract] public class Bookmark { [DataMember] public string Url; [DataMember] public string Title; [DataMember] public string Added; }
-    [DataContract] class BookmarkFile { [DataMember] public List<Bookmark> Items = new List<Bookmark>(); }
-
-    // simple bookmarks in %APPDATA%\HallowBrowser\bookmarks.json (a bookmarks bar and importing come in 1.3)
-    public class BookmarkStore
-    {
-        readonly string path; readonly object gate = new object(); List<Bookmark> items = new List<Bookmark>(); bool loaded;
-        public BookmarkStore(string file) { path = file; }
-        public static string DefaultPath { get { return Path.Combine(BrowserSettings.Dir, "bookmarks.json"); } }
-        public bool Loaded { get { lock (gate) return loaded; } }
-        public void Load()
-        {
-            var f = BrowserSettings.Read<BookmarkFile>(path);
-            lock (gate)
-            {
-                if (loaded) return; loaded = true;
-                if (f != null && f.Items != null) foreach (var b in f.Items) if (b != null && Omni.IsWeb(b.Url) && !items.Any(x => x.Url == b.Url)) items.Add(b);
-            }
-        }
-        public List<Bookmark> All() { lock (gate) return items.ToList(); }
-        public bool Has(string url) { if (url == null) return false; lock (gate) return items.Any(x => x.Url == url); }
-        // adds or removes; true = bookmarked now
-        public bool Toggle(string url, string title)
-        {
-            if (!Omni.IsWeb(url)) return false;
-            bool now;
-            lock (gate)
-            {
-                var i = items.FindIndex(x => x.Url == url);
-                if (i >= 0) { items.RemoveAt(i); now = false; }
-                else { items.Insert(0, new Bookmark { Url = url, Title = string.IsNullOrWhiteSpace(title) ? Omni.HostOf(url) : title, Added = DateTime.Now.ToString("s") }); now = true; }
-            }
-            Save(); return now;
-        }
-        public void Remove(string url) { lock (gate) items.RemoveAll(x => x.Url == url); Save(); }
-        public void Save() { BookmarkFile f; lock (gate) f = new BookmarkFile { Items = items.ToList() }; BrowserSettings.WriteFile(path, f, typeof(BookmarkFile)); }
-    }
+    // bookmarks (Ctrl+D): 1.3 moved them to Bookmarks13.cs (folders, the bar, sync)
 
     // ---------------------------------------------------------------- workspaces
     public static class WorkspaceRules

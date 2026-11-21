@@ -34,7 +34,7 @@ namespace HallowBrowser
         public string ProbedUrl;              // the address the article check ran for
         public FrameworkElement ReaderView; public ReaderDoc ReaderDoc;
 
-        public bool Internal { get { return Url == Omni.SettingsUrl; } }
+        public bool Internal { get { return Omni.IsInternal(Url); } }
         public Microsoft.Web.WebView2.Core.CoreWebView2 Core { get { try { return View == null ? null : View.CoreWebView2; } catch { return null; } } }
         public TabState State(bool active)
         {

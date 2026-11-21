@@ -41,7 +41,11 @@ namespace HallowBrowser
             var a = new List<string>();
             // speed: a cap on renderer processes (Chromium keeps sites apart anyway - the cap is soft where isolation needs it)
             a.Add("--renderer-process-limit=8");
-            if (BrowserSettings.HostRules != null) a.Add("--host-resolver-rules=\"" + BrowserSettings.HostRules.Replace("\"", "") + "\"");
+            // 1.3: the new tab page's made-up host never goes to DNS - answered "not found" at once. Without this every fresh view waited
+            // for the network's DNS to give up on "newtab.hallow" (~2 s here) before showing the page, and the name went out to DNS
+            var rules = "MAP " + Omni.NewTabHost + " ~NOTFOUND";
+            if (BrowserSettings.HostRules != null) rules += ", " + BrowserSettings.HostRules.Replace("\"", "");
+            a.Add("--host-resolver-rules=\"" + rules + "\"");
             if (BrowserSettings.Offscreen) { a.Add("--disable-features=CalculateNativeWinOcclusion"); a.Add("--disable-backgrounding-occluded-windows"); a.Add("--autoplay-policy=no-user-gesture-required"); }
             return string.Join(" ", a);
         }
@@ -120,23 +124,47 @@ namespace HallowBrowser
             }
             catch { }
         }
+        // 1.3: speed dial (top sites + pinned), an optional clock and the Hallow strip. The page itself is static; what goes in the
+        // tiles and the strip comes from data.json next to it (written by NewTabData, local only) - read with one same-origin fetch,
+        // so the page is drawn at once and the tiles follow a few milliseconds later. Nothing is loaded from the network.
         public static string NewTabHtml(string engine, string accent, bool light = false)
         {
             var name = Omni.EngineName(engine); var url = Omni.SearchUrl(engine, "");
             // 1.1: the light look too (family palette; the accent darkened for text)
             string bg = light ? "#F6F4FA" : "#14101B", glow = light ? "#ECE5F8" : "#221A30", fg = light ? "#1E1A26" : "#ECE8F4", muted = light ? "#6B6478" : "#9790A8",
-                line = light ? "#DAD3E6" : "#3A3248", field = light ? "#FFFFFF" : "#110E17", dim = light ? "#6B6478" : "#5E5670", head = light ? Look.TextAccent(accent) : accent;
+                line = light ? "#DAD3E6" : "#3A3248", field = light ? "#FFFFFF" : "#110E17", dim = light ? "#6B6478" : "#5E5670", head = light ? Look.TextAccent(accent) : accent,
+                tile = light ? "#FFFFFF" : "#1C1626", tileHover = light ? "#F0EAFA" : "#261E33";
             return "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><meta name=color-scheme content=" + (light ? "light" : "dark") + "><title>New tab</title><style>" +
                 "html,body{margin:0;height:100%;background:" + bg + ";color:" + fg + ";font:15px 'Segoe UI',system-ui,sans-serif}" +
                 "body{display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%," + glow + " 0," + bg + " 60%)}" +
                 "h1{font-weight:300;letter-spacing:.32em;font-size:34px;margin:0 0 6px}h1 b{font-weight:700;color:" + head + "}" +
                 "p{color:" + muted + ";margin:0 0 28px;font:12px 'Cascadia Mono',Consolas,monospace;letter-spacing:.08em}" +
+                "#clk{font:200 54px 'Segoe UI',system-ui,sans-serif;letter-spacing:.04em;margin:0 0 4px;color:" + fg + "}#clk:empty{display:none}" +
                 "form{width:min(620px,86vw)}input{width:100%;box-sizing:border-box;padding:14px 18px;border-radius:10px;border:1px solid " + line + ";background:" + field + ";color:" + fg + ";font-size:16px;outline:none}" +
-                "input:focus{border-color:" + head + ";box-shadow:0 0 0 3px " + accent + "33}#t{position:fixed;bottom:18px;color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}" +
-                "</style></head><body><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
-                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=t></div>" +
+                "input:focus{border-color:" + head + ";box-shadow:0 0 0 3px " + accent + "33}" +
+                "#dial{display:grid;grid-template-columns:repeat(auto-fill,104px);gap:12px;justify-content:center;width:min(720px,90vw);margin-top:26px}#dial:empty{display:none}" +
+                ".tl{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 10px;border-radius:12px;background:" + tile + ";border:1px solid " + line + ";color:" + fg + ";text-decoration:none;font-size:12px}" +
+                ".tl:hover,.tl:focus{background:" + tileHover + ";border-color:" + head + ";outline:none}" +
+                ".tl i{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:700 18px 'Segoe UI',sans-serif;font-style:normal;color:#fff}" +
+                ".tl span{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+                ".tl button{position:absolute;top:3px;width:20px;height:20px;border:0;border-radius:6px;background:transparent;color:" + muted + ";font-size:12px;line-height:20px;padding:0;cursor:pointer;opacity:0}" +
+                ".tl:hover button,.tl:focus-within button{opacity:1}.tl button:hover{background:" + line + ";color:" + fg + "}.tl .x{right:3px}.tl .pn{left:3px}.tl.pinned .pn{opacity:1;color:" + head + "}" +
+                "#fam{position:fixed;bottom:40px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}#fam:empty{display:none}" +
+                "#fam div{padding:5px 12px;border-radius:14px;border:1px solid " + line + ";background:" + tile + ";font:11.5px 'Cascadia Mono',Consolas,monospace;color:" + muted + "}#fam b{color:" + head + ";font-weight:600}" +
+                "#t{position:fixed;bottom:18px;color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}" +
+                "</style></head><body><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
+                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=fam></div><div id=t></div>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +
-                "function c(){var d=new Date();document.getElementById('t').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}c();setInterval(c,15000);</script></body></html>";
+                "var D={};function c(){var d=new Date(),s=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);document.getElementById('t').textContent=D.clock?'':s;document.getElementById('clk').textContent=D.clock?s:'';}c();setInterval(c,15000);" +
+                "function post(m){try{chrome.webview.postMessage(m);}catch(e){}}" +
+                "function el(t,k,x){var e=document.createElement(t);if(k)e.className=k;if(x!=null)e.textContent=x;return e;}" +
+                "function draw(){var g=document.getElementById('dial');g.textContent='';(D.tiles||[]).forEach(function(s){var a=el('a','tl'+(s.pin?' pinned':''));a.href=s.u;a.title=s.t+'\\n'+s.u;" +
+                "var i=el('i',null,s.l);i.style.background=s.c;a.appendChild(i);a.appendChild(el('span',null,s.t));" +
+                "var p=el('button','pn','\u2605');p.title=s.pin?'Unpin':'Pin';p.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-pin\\t')+s.u+'\\t'+s.t);};a.appendChild(p);" +
+                "var x=el('button','x','\u00d7');x.title=s.pin?'Unpin':'Remove from this page';x.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-hide\\t')+s.u);};a.appendChild(x);g.appendChild(a);});" +
+                "var f=document.getElementById('fam');f.textContent='';(D.family||[]).forEach(function(s){var d=el('div');var b=el('b',null,s.k+' ');d.appendChild(b);d.appendChild(document.createTextNode(s.v));f.appendChild(d);});c();}" +
+                "window.hallowRefresh=function(){return fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){D=j||{};draw();return (D.tiles||[]).length;}).catch(function(){return -1;});};" +
+                "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden)hallowRefresh();});</script></body></html>";
         }
     }
 }

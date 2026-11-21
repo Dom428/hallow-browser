@@ -13,9 +13,14 @@ namespace HallowBrowser
 {
     public static class Omni
     {
-        public const string NewTabUrl = "https://newtab.hallow/";
+        // 1.3: the page by name - newer WebView2 runtimes answer a folder address ("https://newtab.hallow/") of a mapped folder with
+        // ERR_ACCESS_DENIED instead of its index.html, so 1.2's new tab page showed an error page there
+        public const string NewTabUrl = "https://newtab.hallow/index.html";
+        public static string FixNewTab(string url) { Uri u; return url != null && Uri.TryCreate(url, UriKind.Absolute, out u) && u.Scheme == "https" && u.Host == NewTabHost && u.AbsolutePath == "/" ? NewTabUrl : url; }
         public const string NewTabHost = "newtab.hallow";
         public const string SettingsUrl = "hallow://settings";
+        public const string BookmarksUrl = "hallow://bookmarks";   // 1.3: the bookmarks manager
+        public static bool IsInternal(string url) { return url == SettingsUrl || url == BookmarksUrl; }
 
         public static string EngineName(string e)
         {
@@ -47,6 +52,7 @@ namespace HallowBrowser
             if (s.Length == 0) return null;
             if (s.Equals("about:blank", StringComparison.OrdinalIgnoreCase)) return "about:blank";
             if (s.Equals(SettingsUrl, StringComparison.OrdinalIgnoreCase)) return SettingsUrl;
+            if (s.Equals(BookmarksUrl, StringComparison.OrdinalIgnoreCase)) return BookmarksUrl;
             var m = Regex.Match(s, @"^([a-zA-Z][a-zA-Z0-9+.\-]*):");
             if (m.Success && !LooksLikeHostPort(s))
             {

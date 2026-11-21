@@ -101,10 +101,10 @@ namespace HallowBrowser
             stripHost.Children.Add(sp); stripHost.SizeChanged += (a, b) => FitTabs();
             top.Children.Add(stripHost);
             gameChip = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(9, 2, 10, 2), Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center, BorderThickness = new Thickness(1), Visibility = Visibility.Collapsed };
-            gameChip.SetResourceReference(Border.BackgroundProperty, "AccentSoft"); gameChip.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
+            gameChip.SetResourceReference(Border.BackgroundProperty, "AccentBtnBg"); gameChip.SetResourceReference(Border.BorderBrushProperty, "AccentBtnLine");   // 1.3: filled in light mode
             gameText = new TextBlock { FontSize = 10.5, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, FontFamily = (FontFamily)FindResource("MonoFont") };
-            gameText.SetResourceReference(TextBlock.ForegroundProperty, "AccentLight");
-            var gi = Ui.Icon("gamepad", 12, "AccentLight"); gi.Margin = new Thickness(0, 0, 6, 0);
+            gameText.SetResourceReference(TextBlock.ForegroundProperty, "AccentBtnText");
+            var gi = Ui.Icon("gamepad", 12, "AccentBtnText"); gi.Margin = new Thickness(0, 0, 6, 0);
             gameChip.Child = Ui.Row(gi, gameText);
             gameChip.ToolTip = "Gaming-light mode: background tabs sleep and the browser runs at a lower priority while you play. Tabs playing sound stay awake.";
             Grid.SetColumn(gameChip, 2); top.Children.Add(gameChip);
@@ -151,7 +151,9 @@ namespace HallowBrowser
             menuBtn = Ui.Tool("bars", "Menu", () => Panels.Menu(this, menuBtn), 14);
             right.Children.Add(shieldBtn); right.Children.Add(dlBtn); right.Children.Add(quickBtn); right.Children.Add(menuBtn);
             bar.Children.Add(right);
-            root.Children.Add(bar);
+            // 1.3: the toolbar and, under it, the bookmarks bar (Ctrl+Shift+B)
+            var row1 = new StackPanel(); Grid.SetRow(row1, 1); row1.Children.Add(bar); row1.Children.Add(BuildBookmarksBar());
+            root.Children.Add(row1);
 
             // ---- row 2: find in page (hidden until Ctrl+F)
             findBar = new Grid { Height = 36, Visibility = Visibility.Collapsed }; findBar.SetResourceReference(Panel.BackgroundProperty, "Bar"); Grid.SetRow(findBar, 2);
@@ -216,6 +218,7 @@ namespace HallowBrowser
             try { await (Engine.Starting ?? Engine.Create(S)); }
             catch (Exception e) { Toast("The page engine (Microsoft Edge WebView2) didn't start: " + e.Message, 15); return; }
             Engine.WriteNewTab(S, Program.AccentHex);
+            RefreshNewTabData();   // 1.3: tiles and the Hallow strip (in the background)
             // 1.2: the current workspace's session (session.json is always the current workspace's); its groups and split come back too
             LoadSpaces();
             Session session = null;
@@ -233,7 +236,7 @@ namespace HallowBrowser
         // ================================================================ tabs
         public Tab NewTab(string url, bool activate, int index = -1)
         {
-            if (url == Omni.SettingsUrl) { var ex = Tabs.FirstOrDefault(x => x.Url == Omni.SettingsUrl); if (ex != null) { Activate(ex); return ex; } }
+            if (Omni.IsInternal(url)) { var ex = Tabs.FirstOrDefault(x => x.Url == url); if (ex != null) { Activate(ex); return ex; } }
             var t = new Tab { Url = url ?? Omni.NewTabUrl, Title = url == null || Omni.IsNewTab(url) ? "New tab" : Omni.HostOf(url) ?? "Tab", OpenTimer = Stopwatch.StartNew() };
             int at = index >= 0 ? index : Active != null ? Tabs.IndexOf(Active) + 1 : Tabs.Count;
             at = Math.Max(0, Math.Min(at, Tabs.Count));
@@ -242,7 +245,7 @@ namespace HallowBrowser
             t.Group = GroupRules.Drop(at > 0 ? Tabs[at - 1].Group : null, at + 1 < Tabs.Count ? Tabs[at + 1].Group : null, null, null, false);
             RenderStrip();
             if (t.OpenTimer != null) lock (Engine.Perf) Engine.Perf["newtab-header"] = t.OpenTimer.Elapsed.TotalMilliseconds;
-            if (t.Url == Omni.SettingsUrl) ShowSettingsIn(t);
+            if (Omni.IsInternal(t.Url)) ShowSettingsIn(t);
             else if (!snap)
             {
                 if (prewarmReady && prewarm != null && Omni.IsNewTab(t.Url)) { TakePrewarm(t); }
@@ -268,6 +271,7 @@ namespace HallowBrowser
         }
         void Go(Tab t, string url)
         {
+            url = Omni.FixNewTab(url);   // 1.3: a 1.2 session's "https://newtab.hallow/"
             var c = t.Core; if (c == null) { t.PendingUrl = url; return; }
             try { c.Navigate(url); } catch (Exception e) { Toast("Couldn't open that address: " + e.Message, 6); }
         }
@@ -278,15 +282,16 @@ namespace HallowBrowser
             if (snap || prewarm != null || Engine.Env == null) return;
             var v = new WebView2 { Visibility = Visibility.Hidden };
             try { var c = (Color)FindResource("PageBg"); v.DefaultBackgroundColor = System.Drawing.Color.FromArgb(c.R, c.G, c.B); } catch { }
-            prewarm = v; prewarmReady = false;
+            prewarm = v; prewarmReady = false; lock (Engine.Perf) Engine.Perf["prewarm-made"] = Engine.SinceStart();
             content.Children.Add(v);
             v.CoreWebView2InitializationCompleted += (a, b) =>
             {
                 if (!b.IsSuccess || prewarm != v) return;
+                lock (Engine.Perf) Engine.Perf["prewarm-init"] = Engine.SinceStart();
 
                 Hook(null, v.CoreWebView2, true);
                 EventHandler<CoreWebView2NavigationCompletedEventArgs> done = null;
-                done = (x, y) => { v.CoreWebView2.NavigationCompleted -= done; if (prewarm == v) prewarmReady = true; };
+                done = (x, y) => { v.CoreWebView2.NavigationCompleted -= done; if (prewarm == v) prewarmReady = true; lock (Engine.Perf) Engine.Perf["prewarm-ready"] = Engine.SinceStart(); };
                 v.CoreWebView2.NavigationCompleted += done;
                 v.CoreWebView2.Navigate(Omni.NewTabUrl);
             };
@@ -298,11 +303,14 @@ namespace HallowBrowser
             t.View = v; t.Ready = true; t.Url = Omni.NewTabUrl; t.Discarded = false;
             v.GotFocus += (a, b) => ViewFocused(Tabs.FirstOrDefault(x => x.View == v));
             Rehook(t, v.CoreWebView2);
+            try { var _r = v.CoreWebView2.ExecuteScriptAsync("window.hallowRefresh&&hallowRefresh()"); } catch { }   // 1.3: the tiles as they are now
             if (t.OpenTimer != null) { lock (Engine.Perf) Engine.Perf["newtab-swap"] = t.OpenTimer.Elapsed.TotalMilliseconds; }
             var timer = t.OpenTimer; t.OpenTimer = null;
             // shown = after the next layout and render pass
             if (timer != null) Dispatcher.BeginInvoke(new Action(() => { lock (Engine.Perf) Engine.Perf["newtab-last"] = timer.Elapsed.TotalMilliseconds; }), DispatcherPriority.Loaded);
-            var _ = Dispatcher.BeginInvoke(new Action(async () => { await Task.Delay(600); MakePrewarm(); }), DispatcherPriority.ApplicationIdle);
+            // 1.3: the next one starts at once - now that the new tab page really loads (1.2's showed an error page on newer runtimes, see
+            // Omni.NewTabUrl), a fresh view takes ~2 s to its first document, so waiting 600 ms more left quick second tabs cold
+            var _ = Dispatcher.BeginInvoke(new Action(async () => { await Task.Delay(60); MakePrewarm(); }), DispatcherPriority.Background);
         }
         // warms the connection to an address (the top suggestion) through the hidden WebView - same network stack as the tabs
         void Preconnect(string url)
@@ -377,7 +385,7 @@ namespace HallowBrowser
         {
             if (t.Favicon != null) t.IconHost.Content = new Image { Source = t.Favicon, Width = 16, Height = 16 };
             else if (t.Loading) t.IconHost.Content = Ui.Icon("arrows-rotate", 12, "AccentBrush");
-            else if (t.Internal) t.IconHost.Content = Ui.Icon("gear", 13, "Lilac");
+            else if (t.Internal) t.IconHost.Content = Ui.Icon(t.Url == Omni.BookmarksUrl ? "bookmark" : "gear", 13, "Lilac");
             else if (Omni.IsNewTab(t.Url)) t.IconHost.Content = new Image { Source = Ui.AppIcon(), Width = 16, Height = 16 };
             else t.IconHost.Content = Ui.Icon("globe", 13, "Muted");
             t.Header.Opacity = t.Suspended || t.Discarded ? 0.62 : 1;
@@ -406,6 +414,7 @@ namespace HallowBrowser
             popPlaceholder.Visibility = t.PoppedOut ? Visibility.Visible : Visibility.Collapsed;
             foreach (var x in split ? new[] { SplitL, SplitR } : new[] { t })
             {
+                if (x.Discarded && x.Internal && x.Page == null) { ShowSettingsIn(x); x.Page.Visibility = Visibility.Visible; }   // 1.3: a restored settings / bookmarks tab
                 if (x.Discarded && !x.Internal && !snap) { x.PendingUrl = x.Url; var _ = CreateView(x, null); }
                 if (x.Suspended && x.Core != null) { try { x.Core.Resume(); } catch { } x.Suspended = false; x.SleptByGame = false; }
                 if (x.Crashed && x.Core != null) { x.Crashed = false; try { x.Core.Reload(); } catch { } }
@@ -477,7 +486,7 @@ namespace HallowBrowser
             c.SourceChanged += (a, b) => { var x = T(); if (x == null) return; if (c.Source == "about:blank" && !x.Ready && x.Url != null && x.Url != "about:blank") return; x.Url = c.Source; if (x == Active) UpdateBar(); Changed(); };
             c.DocumentTitleChanged += (a, b) => { var x = T(); if (x == null) return; x.Title = c.DocumentTitle; if (string.IsNullOrWhiteSpace(x.Title)) x.Title = Omni.HostOf(x.Url) ?? "Tab"; if (Omni.IsNewTab(x.Url)) x.Title = "New tab"; x.TitleBlock.Text = x.Title; x.Header.ToolTip = x.Title; if (x == Active) UpdateTitle(); if (History != null && Omni.IsWeb(x.Url)) History.SetTitle(x.Url, x.Title); Changed(); };
             c.NavigationStarting += (a, b) => { var x = T(); if (x == null) return; x.Loading = true; x.KeysItems = null; x.KeysLocked = false; if (!Omni.IsNewTab(b.Uri)) x.Favicon = null; x.Readable = false; x.ProbedUrl = null; if (x.ReaderOn) ReaderOff(x); SetTabIcon(x); if (x == Active) UpdateBar(); };
-            c.WebMessageReceived += (a, b) => { string m = null; try { m = b.TryGetWebMessageAsString(); } catch { } if (m == "hallow:focus") ViewFocused(T()); };
+            c.WebMessageReceived += (a, b) => { string m = null; try { m = b.TryGetWebMessageAsString(); } catch { } if (m == "hallow:focus") ViewFocused(T()); else if (m != null && m.StartsWith("hallow:nt-")) NewTabMessage(m, b.Source); };
             c.NavigationCompleted += (a, b) =>
             {
                 var x = T(); if (x == null) return; x.Loading = false; x.Ready = true; SetTabIcon(x);
@@ -648,7 +657,7 @@ namespace HallowBrowser
         {
             var url = Omni.Interpret(typed, S.Search); if (url == null) return;
             if (Omni.IsWeb(url) && !url.StartsWith(Omni.SearchUrl(S.Search, ""), StringComparison.OrdinalIgnoreCase)) S.Remember(url);
-            if (url == Omni.SettingsUrl) { NewTab(url, true); return; }
+            if (Omni.IsInternal(url)) { NewTab(url, true); return; }
             if (newTab || Active == null || Active.Internal) NewTab(url, true);
             else Go(Active, url);
             suggest.IsOpen = false;
@@ -761,6 +770,8 @@ namespace HallowBrowser
                     case Key.E: act = () => { FocusAddress(); }; break;
                     case Key.K: act = () => Palette.Show(this); break;                                   // 1.2: the command palette
                     case Key.D: if (!shift) act = () => ToggleBookmark(Active); break;                    // 1.2: bookmark
+                    case Key.B: if (shift) act = ToggleBookmarksBar; break;                                // 1.3: the bookmarks bar
+                    case Key.O: if (shift) act = () => NewTab(Omni.BookmarksUrl, true); break;             // 1.3: the bookmarks manager
                     case Key.X: if (shift) act = ShowScreenshot; break;                                    // 1.2: screenshot
                     case Key.R: act = () => { if (Active != null && Active.Core != null) { if (shift) Active.Core.CallDevToolsProtocolMethodAsync("Page.reload", "{\"ignoreCache\":true}"); else Active.Core.Reload(); } }; break;
                     case Key.F: act = ShowFind; break;
@@ -986,6 +997,7 @@ namespace HallowBrowser
             if (snap) return;
             SaveSession();
             if (History != null) History.Save();
+            SyncOnClose();   // 1.3: this PC's last changes to the sync folder (a few seconds at most)
             if (!fullscreen) { S.Maximized = WindowState == WindowState.Maximized; if (WindowState == WindowState.Normal && !BrowserSettings.Offscreen) { S.Left = Left; S.Top = Top; S.Width = Width; S.Height = Height; } }
             S.Save();
             if (S.ClearOnExit && !clearedOnExit && Active != null && Active.Core != null)
@@ -1007,11 +1019,12 @@ namespace HallowBrowser
 
         void ShowSettingsIn(Tab t)
         {
-            t.Url = Omni.SettingsUrl; t.Title = "Settings"; t.TitleBlock.Text = t.Title; t.Discarded = false;
-            t.Page = Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
+            bool bm = t.Url == Omni.BookmarksUrl;   // 1.3: the bookmarks manager is a page of the browser too
+            t.Url = bm ? Omni.BookmarksUrl : Omni.SettingsUrl; t.Title = bm ? "Bookmarks" : "Settings"; t.TitleBlock.Text = t.Title; t.Discarded = false;
+            t.Page = bm ? BookmarksPage() : Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
             content.Children.Add(t.Page); SetTabIcon(t); LayoutSplit();
         }
-        public void ReloadSettings() { var t = Tabs.FirstOrDefault(x => x.Internal); if (t == null) return; content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = IsShown(t) ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); LayoutSplit(); }
+        public void ReloadSettings() { var t = Tabs.FirstOrDefault(x => x.Url == Omni.SettingsUrl); if (t == null) return; content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = IsShown(t) ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); LayoutSplit(); }
         public void ApplyPageColors() { var p = Profile; if (p != null) Engine.ApplyProfile(p, S); Engine.WriteNewTab(S, Program.AccentHex); }
         // 1.1: light / dark changed (theme.json, Windows' setting or the Look choice): title bars, page backgrounds, pages that follow
         public void ThemeChanged()

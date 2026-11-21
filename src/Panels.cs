@@ -51,7 +51,9 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("table-columns", w.SplitOn ? "Close split view" : "Split view with the next tab", "Ctrl+click", () => run(() => { if (w.SplitOn) w.CloseSplit(); else if (w.Active != null && w.Tabs.Count > 1) w.AddToSplit(w.Tabs[(w.Tabs.IndexOf(w.Active) + 1) % w.Tabs.Count]); })));
             sp.Children.Add(Ui.MenuRow("camera", "Screenshot", "Ctrl+Shift+X", () => run(w.ShowScreenshot)));
             var rd = Ui.MenuRow("book-open", w.Active != null && w.Active.ReaderOn ? "Leave reader mode" : "Reader mode", "F9", () => run(() => w.ToggleReader(w.Active))); rd.IsEnabled = w.Active != null && (w.Active.Readable || w.Active.ReaderOn); sp.Children.Add(rd);
-            sp.Children.Add(Ui.MenuRow("bookmark", "Bookmarks", "Ctrl+D adds", () => run(w.ShowBookmarks)));
+            sp.Children.Add(Ui.MenuRow("bookmark", "Bookmarks manager", "Ctrl+Shift+O", () => run(w.ShowBookmarks)));
+            sp.Children.Add(Ui.MenuRow("bookmark", w.S.BookmarksBar ? "Hide the bookmarks bar" : "Show the bookmarks bar", "Ctrl+Shift+B", () => run(w.ToggleBookmarksBar)));
+            sp.Children.Add(Ui.MenuRow("file-import", "Import from another browser...", null, () => run(() => w.ShowImport(at))));
             sp.Children.Add(Ui.MenuRow("briefcase", "Workspaces and saved sessions", null, () => run(() => w.ShowWorkspaces(false))));
             // zoom row
             var zg = new Grid { Margin = new Thickness(12, 4, 8, 4) };
@@ -331,6 +333,10 @@ namespace HallowBrowser
                 Ui.Switch("Open the tabs from last time", "Session restore: tabs you had open come back (each loads when you click it).", S.RestoreSession, on => { S.RestoreSession = on; save(); }) }));
 
             col.Children.Add(card("Tabs and workspaces", TabsSettings(w)));
+
+            col.Children.Add(card("Bookmarks and new tab", w.BookmarkSettings()));   // 1.3
+
+            col.Children.Add(card("Sync", w.SyncSettings()));                         // 1.3
 
             col.Children.Add(card("Privacy", new UIElement[] {
                 Ui.Switch("Block third-party cookies", "Sites can't follow you around with cookies from other sites. Applies after a restart.", S.BlockThirdPartyCookies, on => { S.BlockThirdPartyCookies = on; save(); }),

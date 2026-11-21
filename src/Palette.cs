@@ -118,7 +118,11 @@ namespace HallowBrowser
             C("Screenshot: full page - save", null, "expand", () => { var _ = Shots.Take(w, "full", true, null); });
             C("Screenshot: drag a region - copy", null, "crop-simple", () => { var _ = Shots.Take(w, "region", false, null); });
             C("Screenshot: drag a region - save", null, "crop-simple", () => { var _ = Shots.Take(w, "region", true, null); });
-            C("Bookmarks", null, "bookmark", () => w.ShowBookmarks());
+            C("Bookmarks manager", "Ctrl+Shift+O", "bookmark", () => w.ShowBookmarks());
+            C(w.S.BookmarksBar ? "Hide the bookmarks bar" : "Show the bookmarks bar", "Ctrl+Shift+B", "bookmark", () => w.ToggleBookmarksBar());   // 1.3
+            C("Import bookmarks and history from another browser", null, "file-import", () => w.ShowImport(w.Address));
+            C("Sync now", null, "arrows-rotate", () => { if (w.SyncReady) { var _ = w.SyncNow(true); } else w.Toast("Sync is off - turn it on in Settings > Sync.", 4); });
+            if (w.Active != null && Omni.IsWeb(w.Active.Url)) C("Pin this page to the new tab page", null, "thumbtack", () => w.PinToNewTab(w.Active.Url, w.Active.Title));
             C("Clear history", null, "clock-rotate-left", () => w.ClearHistory());
             C("New workspace", null, "briefcase", () => w.NewWorkspace(null, null));
             C("Save this session...", null, "floppy-disk", () => w.ShowWorkspaces(true));

@@ -393,7 +393,7 @@ namespace HallowBrowser
         async Task OpenSession(Session session, List<string> urls, bool focusAddress)
         {
             var first = new List<SessionTab>();
-            if (session != null && session.Tabs != null) first.AddRange(session.Tabs.Where(t => t != null && t.Url != null && (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || t.Url == Omni.SettingsUrl)));
+            if (session != null && session.Tabs != null) first.AddRange(session.Tabs.Where(t => t != null && t.Url != null && (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || Omni.IsInternal(t.Url))));
             int activeIdx = session != null ? Math.Max(0, Math.Min(session.Active, first.Count - 1)) : 0;
             int sl = -1, sr = -1; bool hasSplit = session != null && WorkspaceRules.ParseSplit(session.Split, first.Count, out sl, out sr);
             foreach (var u in urls) { first.Add(new SessionTab { Url = u }); activeIdx = first.Count - 1; }
@@ -419,7 +419,7 @@ namespace HallowBrowser
             if (act.Group != null) act.Group.Collapsed = false;
             RenderStrip();
             act.PendingUrl = act.Url;
-            if (act.Url == Omni.SettingsUrl) { act.Discarded = false; ShowSettingsIn(act); Activate(act); }
+            if (Omni.IsInternal(act.Url)) { act.Discarded = false; ShowSettingsIn(act); Activate(act); }
             else { await CreateView(act, null); Activate(act); }
             if (focusAddress && Omni.IsNewTab(act.Url) && !BrowserSettings.Offscreen) Address.Focus();
         }
@@ -586,16 +586,17 @@ namespace HallowBrowser
         {
             if (History != null) return;
             History = new HistoryStore(HistoryStore.DefaultPath); Bookmarks = new BookmarkStore(BookmarkStore.DefaultPath);
-            if (snap) return;
+            Bookmarks.Changed += () => Dispatcher.BeginInvoke(new Action(BookmarksChanged));   // 1.3: the bar, the manager, sync
+            if (snap) { Bookmarks.Frozen = true; return; }
             var h = History; var b = Bookmarks;
-            Task.Run(() => { h.Load(); b.Load(); }).ContinueWith(_ => Dispatcher.BeginInvoke(new Action(() => { if (Active != null) UpdateBar(); })));
+            Task.Run(() => { h.Load(); b.Load(); }).ContinueWith(_ => Dispatcher.BeginInvoke(new Action(() => { if (Active != null) UpdateBar(); StoresLoaded(); })));
         }
         void RecordHistory(Tab x)
         {
             if (!S.KeepHistory || snap || x == null) return;
             EnsureStores();
             History.Add(x.Url, x.Title == "New tab" ? null : x.Title, DateTime.Now);
-            if (historyTimer == null) { historyTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) }; historyTimer.Tick += (a, b) => { historyTimer.Stop(); var h = History; Task.Run(() => h.Save()); }; }
+            if (historyTimer == null) { historyTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) }; historyTimer.Tick += (a, b) => { historyTimer.Stop(); var h = History; Task.Run(() => h.Save()); RefreshNewTabData(); }; }
             historyTimer.Stop(); historyTimer.Start();
         }
         public void ClearHistory()
@@ -614,7 +615,8 @@ namespace HallowBrowser
             Toast(on ? "Bookmarked: " + t.Title + " (Ctrl+K finds it)" : "Bookmark removed.", 3);
             if (t == Active) UpdateBar();
         }
-        public void ShowBookmarks()
+        public void ShowBookmarks() { NewTab(Omni.BookmarksUrl, true); }   // 1.3: the bookmarks manager
+        void ShowBookmarksFlyout12()
         {
             EnsureStores(); if (!Bookmarks.Loaded) Bookmarks.Load();
             var sp = new StackPanel(); Popup pop = null;

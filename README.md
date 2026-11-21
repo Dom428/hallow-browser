@@ -3,11 +3,13 @@
 A fast Chromium browser for gamers, in the Hallow style. **Hallow Shield is built in**, a **gamer sidebar** keeps Discord, Twitch,
 YouTube, Spotify and WhatsApp signed in beside the page, **Hallow Keys** fills your logins when you click, and **gaming-light mode**
 puts background tabs (and sidebar panels) to sleep while you play. 1.2 adds the power features: **vertical tabs, tab groups,
-workspaces, split view, a command palette (Ctrl+K), screenshots, reader mode** and saved sessions. It runs on **Microsoft Edge
+workspaces, split view, a command palette (Ctrl+K), screenshots, reader mode** and saved sessions; 1.3 helps you **move in** -
+**bookmarks and history from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox**, a **bookmarks manager and bar**, **sync
+through a folder you pick** (OneDrive, Dropbox, Syncthing, a NAS) and a **speed-dial new tab page**. It runs on **Microsoft Edge
 WebView2** - the Evergreen runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the
 browser itself is small (a ~550 KB app plus Microsoft's WebView2 DLLs).
 
-![Hallow Browser 1.2: vertical tabs with two groups, the Discord panel on the right (made-up pages)](docs/vertical-tabs.png)
+![Hallow Browser 1.3: the bookmarks bar and the bookmarks manager (made-up bookmarks)](docs/bookmarks.png)
 
 Part of the Hallow family (Mixer, Hub, Vault, Overlay, Remote, Clips, Keys, Assist, Guard, Shield, Setup, Toolkit).
 
@@ -23,7 +25,61 @@ choose it yourself in Windows Settings > Apps > Default apps.
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
 
+## What's new in 1.3: moving in and syncing
+
+**Import from another browser** (Bookmarks manager > Import from a browser..., the menu, or Ctrl+K)
+- Finds **Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox** profiles on this PC and lists them with their counts
+  (bookmarks, pages of history). Tick bookmarks and/or history per profile and click Import.
+- **Read-only**: the files are copied to a temp folder first (browsers keep them open) and read there; the copies are deleted
+  afterwards. Hallow Browser never writes to another browser's profile.
+- Bookmarks go into an **"Imported from Chrome"** (etc.) folder under Other bookmarks, with the other browser's folders kept inside.
+  **No duplicates**: a page you already have bookmarked anywhere is skipped, so importing twice adds nothing.
+- History joins the pages Ctrl+K finds (most visits and the newest visit are kept for a page you already had; at most 5,000 pages).
+- **Passwords and cookies are never imported.** Passwords belong in Hallow Keys, which has its own importer.
+- How, with nothing downloaded and no SQLite library: Chromium's `Bookmarks` is JSON; Chromium's `History` and Firefox's
+  `places.sqlite` are SQLite files, read by a small **read-only SQLite reader** written for this (b-tree pages, overflow pages,
+  records, and the `-wal` file next to it, checksums checked - so recent visits are there even while the browser runs). Firefox
+  bookmarks come from its newest `bookmarkbackups\*.jsonlz4` (Mozilla's LZ4 format, decompressed by our own LZ4 decoder). Any
+  browser's exported bookmarks HTML file works too.
+
+**Bookmarks manager** (`hallow://bookmarks`, Ctrl+Shift+O, or the menu)
+- Folders on the left (Bookmarks bar, Other bookmarks and everything inside), the folder's bookmarks on the right, a search box.
+- **New folder**, **rename / edit the address** (the pencil or right-click), **delete** (a folder goes with what's in it),
+  **drag to reorder** or drag onto a folder (in the list or on the left).
+- **Export HTML file** / **Import HTML file** - the Netscape bookmark format every browser reads and writes.
+- **Bookmarks bar** (Ctrl+Shift+B, off by default): under the address bar; folders open as a list, drag to reorder, right-click for
+  edit / delete / new folder, a >> list for what doesn't fit. Ctrl+D adds the page to the end of the bar. 1.2's bookmarks are on it.
+
+**Sync through a folder you choose** (Settings > Sync, **off by default**) - OneDrive, Dropbox, a Syncthing folder or a NAS share
+- Syncs **bookmarks and folders, saved sessions, workspaces** (the one you're in keeps its open tabs), **settings** (not window places
+  or per-PC choices like the RAM and CPU limiters) and **sidebar panels**. The same model as Hallow Keys 2.0's sync, simplified:
+  every item has a version vector; an item changed on two PCs keeps the newer change, and a bookmark or saved session changed on
+  both is kept twice - the other one as "(conflict copy from PC-NAME)", the same on every PC; an edit wins over a delete it hadn't
+  seen; cloud clients' conflict files ("... (1).hbsync", Dropbox's "conflicted copy", Syncthing's ".sync-conflict-") are merged in
+  and moved out of the folder (kept in `sync-merged`). A PC joining a folder takes the folder's settings.
+- **Optional encryption** (recommended for cloud folders - Settings says so when the folder looks like OneDrive / Dropbox / Google
+  Drive): a sync password -> PBKDF2-SHA256 (600,000 rounds) -> AES-256-GCM, like Hallow Keys. Without it the file can't be read.
+  The password is kept on this PC only, protected by Windows (DPAPI).
+- **Not synced**: history (it stays on this PC), cookies, passwords (Hallow Keys syncs its own). Hallow Shield's My filters live inside
+  Shield (the extension), not in the browser - use Export / Import in Shield's settings.
+
+**New tab page**
+- **Speed dial**: your most visited pages (from this PC's history - imported history counts) and pages you **pin** (the star on a
+  tile, or Ctrl+K > Pin this page); the x takes a tile off. A **search box**, an optional **clock**, and the **Hallow strip**: Guard's
+  score, what Shield blocked today and what's playing, from the other Hallow apps' status files. All local - nothing is loaded from
+  the network.
+- **Fixed**: on current WebView2 runtimes 1.2's new tab page showed an error page ("can't reach this page"): the runtime no longer
+  serves a folder address of a mapped folder. 1.3 opens the page by name (`https://newtab.hallow/index.html`) and tells the engine
+  that the made-up host `newtab.hallow` doesn't exist, so it never waits for (or sends) a DNS lookup for it - that wait held every
+  fresh new-tab page for ~2 s.
+
+**Also**: light mode reads better - accent buttons and the GAME MODE chip are a filled accent with white or near-black text (as
+Hallow Toolkit 5.16), the text accent is darkened against the darkest light surface (#EEEAF5) too, lilac text is #7758BF, sync
+status text uses darker green / amber. status.json gains `bookmarksBar` and `sync` (off / synced / waiting / error).
+
 ## What's new in 1.2: power features
+
+![Hallow Browser 1.2: vertical tabs with two groups, the Discord panel on the right (made-up pages)](docs/vertical-tabs.png)
 
 **Vertical tabs** (Settings > Tabs and workspaces, or right-click a tab > Vertical tabs)
 - The tabs move into a column on the left, with each site's icon; the **<<** button folds it to **icons only** (hover for the title).
@@ -196,12 +252,14 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
-| What | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
-|---|---|---|---|
-| Browser UI drawn (first paint of the window) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
-| First page loaded (local test page) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
-| New tab (pre-warmed, until drawn) | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
-| Memory | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+| What | 1.3 (bookmarks, speed dial, Hallow strip on) | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
+|---|---|---|---|---|
+| Browser UI drawn (first paint of the window) | 433-462 ms (warm profile, 14 restored tabs) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
+| First page loaded (local test page) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
+| New tab (pre-warmed, until drawn) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
+| Memory | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+
+1.3: the bookmarks bar is plain WPF and is filled when the bookmarks file has been read in the background; the new tab page's tiles come from a small data.json written in the background (at most once a minute for the Hallow strip) - the page itself stays static. The machine was busier on the day 1.3 was measured: 1.2 measured again the same day gave a 63 ms median for new tabs (46 ms when 1.2 shipped), so compare within a column.
 
 1.2's features cost nothing at start either: the tab column, group labels and the workspace switcher are plain WPF; the history and
 bookmarks files are read in the background ~2.5 s after the first page; the palette, reader, screenshot and split code only runs when
@@ -275,7 +333,9 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 |---|---|
 | The browser | `%LOCALAPPDATA%\Programs\Hallow Browser\` (HallowBrowser.exe, Microsoft's WebView2 DLLs, `shield\`) |
 | Browsing data (profile: cookies, cache, history, Shield's settings; 1.2: `hallow-history.json`, the history Ctrl+K searches) | `%LOCALAPPDATA%\HallowBrowser\Profile` |
-| Settings, open tabs, status, crash reports; 1.2: `workspaces.json`, `saved-sessions.json`, `bookmarks.json` | `%APPDATA%\HallowBrowser` |
+| Settings, open tabs, status, crash reports; 1.2: workspaces.json, saved-sessions.json, bookmarks.json (1.3: with folders); 1.3: sync-state.json (what this PC last synced), sync-merged\ (cloud conflict files merged in) | %APPDATA%\HallowBrowser |
+| 1.3: the new tab page and its tiles (newtab\index.html, newtab\data.json), the sync password (sync-password.bin, protected by Windows for your user) | %LOCALAPPDATA%\HallowBrowser |
+| 1.3: the sync file (Hallow Browser sync.hbsync, encrypted if you set a password) | the folder you picked in Settings > Sync |
 | Screenshots you save | `Pictures\Hallow Browser` |
 | Shield updates | `%LOCALAPPDATA%\HallowBrowser\Shield` |
 

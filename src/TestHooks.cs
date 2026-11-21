@@ -14,7 +14,7 @@ using Microsoft.Web.WebView2.Core;
 
 namespace HallowBrowser
 {
-    public static class TestHooks
+    public static partial class TestHooks
     {
         static readonly JavaScriptSerializer js = new JavaScriptSerializer();
         // runs an async UI job and waits (up to 40 s) for its reply
@@ -152,6 +152,7 @@ namespace HallowBrowser
                     return Program.OnUi(w, () => { string scheme = null; try { var p = w.Profile; if (p != null) scheme = p.PreferredColorScheme.ToString(); } catch { } return "ok " + js.Serialize(new Dictionary<string, object> { { "light", Look.IsLight }, { "scheme", scheme }, { "bg", ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Bg")).Color.ToString() } }); });
             }
             if (cmd.StartsWith("test-p-")) return Power(w, cmd.Substring(7), arg);
+            if (cmd.StartsWith("test-m-")) return MoveIn(w, cmd.Substring(7), arg);   // 1.3
             return "error unknown test command";
         }
 

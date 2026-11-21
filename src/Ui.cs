@@ -60,7 +60,7 @@ namespace HallowBrowser
         }
         public static Button Btn(string label, Action click, bool accent = false, string icon = null, string tip = null)
         {
-            var b = new Button { Content = icon == null ? (object)label : IconText(icon, label, 12, accent ? "AccentLight" : "Text"), Style = S(accent ? "Accent" : "Btn"), Margin = new Thickness(0, 0, 8, 0) };
+            var b = new Button { Content = icon == null ? (object)label : IconText(icon, label, 12, accent ? "AccentBtnText" : "Text"), Style = S(accent ? "Accent" : "Btn"), Margin = new Thickness(0, 0, 8, 0) };
             if (tip != null) b.ToolTip = tip;
             if (click != null) b.Click += (s, e) => click();
             return b;

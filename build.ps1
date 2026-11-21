@@ -13,7 +13,7 @@ $lib = Join-Path $PSScriptRoot 'lib'
 $out = Join-Path $PSScriptRoot 'HallowBrowser.exe'
 $refs = "$wpf\PresentationFramework.dll", "$wpf\PresentationCore.dll", "$wpf\WindowsBase.dll", "$fw\System.Xaml.dll",
     "$fw\System.Windows.Forms.dll", "$fw\System.Drawing.dll", "$fw\System.Runtime.Serialization.dll", "$fw\System.Core.dll",
-    "$fw\System.IO.Compression.dll", "$fw\System.IO.Compression.FileSystem.dll", "$fw\System.Web.Extensions.dll", "$fw\System.Xml.dll",
+    "$fw\System.IO.Compression.dll", "$fw\System.IO.Compression.FileSystem.dll", "$fw\System.Web.Extensions.dll", "$fw\System.Xml.dll", "$fw\System.Security.dll",
     "$lib\Microsoft.Web.WebView2.Core.dll", "$lib\Microsoft.Web.WebView2.Wpf.dll"
 $common = @('/nologo', '/optimize+', '/platform:x64', "/win32icon:$src\hallow.ico", "/resource:$src\Theme.xaml,HallowBrowser.Theme.xaml") + ($refs | ForEach-Object { "/reference:$_" })
 $files = Get-ChildItem $src -Filter *.cs | ForEach-Object FullName

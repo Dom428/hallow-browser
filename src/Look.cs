@@ -19,7 +19,8 @@ namespace HallowBrowser
     {
         public const string Follow = "follow", Light = "light", Dark = "dark";
         // the light palette (spec); dark = each app's own Theme.xaml values, unchanged
-        public const string LBg = "#F6F4FA", LPanel = "#FFFFFF", LPanel2 = "#EEEAF5", LBorder = "#DAD3E6", LText = "#1E1A26", LMuted = "#6B6478", LLilac = "#7A5CC0",
+        public const string LBg = "#F6F4FA", LPanel = "#FFFFFF", LPanel2 = "#EEEAF5", LBorder = "#DAD3E6", LText = "#1E1A26", LMuted = "#6B6478", LLilac = "#7758BF",   // 1.3: was #7A5CC0 (4.30:1 on #EEEAF5)
+            LGreenText = "#1B7A44", LAmberText = "#8F5B00",   // 1.3: green / amber as small text (the icon shades are just under 4.5:1)
             LGreen = "#1E8E4F", LAmber = "#A66A00", LRed = "#C2333F";
 
         public static bool IsLight;   // what the windows use now
@@ -78,13 +79,23 @@ namespace HallowBrowser
         }
         public static double Contrast(string a, string b) { double x = Lum(C(a)), y = Lum(C(b)); return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05); }
 
-        // the accent for TEXT and thin lines on light backgrounds: darkened in HSL until it reaches 4.5:1 on white and on the light
-        // background (default orange -> about #B85410). Unchanged when it already does.
+        // the accent for TEXT and thin lines on light backgrounds: darkened in HSL until it reaches 4.5:1 on white, the light background
+        // and (1.3) the darkest light surface, #EEEAF5 (strip, hover, rail) - default orange -> about #A94E0B. Unchanged when it already does.
         public static string TextAccent(string hex)
         {
             var c = C(hex); double h, s, l; ToHsl(c, out h, out s, out l);
             var cur = hex.ToUpperInvariant();
-            while ((Contrast(cur, LPanel) < 4.5 || Contrast(cur, LBg) < 4.5) && l > 0) { l = Math.Max(0, l - 0.005); cur = H(FromHsl(h, s, l)); }
+            while ((Contrast(cur, LPanel) < 4.5 || Contrast(cur, LBg) < 4.5 || Contrast(cur, LPanel2) < 4.5) && l > 0) { l = Math.Max(0, l - 0.005); cur = H(FromHsl(h, s, l)); }
+            return cur;
+        }
+        // 1.3 (as Hallow Toolkit 5.16): a filled accent in light mode - near-black or white text, whichever reads better; if that text
+        // doesn't reach 4.5:1 on the real accent, the fill is the accent darkened to 4.5:1 (4.7, for hover) on white, with white text
+        public static string TextOnFill(string fill) { return Contrast(LText, fill) >= Contrast("#FFFFFF", fill) ? LText : "#FFFFFF"; }
+        public static string FillOf(string accent)
+        {
+            var a = accent.ToUpperInvariant(); if (Contrast(a, TextOnFill(a)) >= 4.5) return a;
+            var c = C(a); double h, s, l; ToHsl(c, out h, out s, out l); var cur = a;
+            while (Contrast(cur, "#FFFFFF") < 4.7 && l > 0) { l = Math.Max(0, l - 0.005); cur = H(FromHsl(h, s, l)); }   // a little margin: the hover veil (10% accent) still leaves 4.5:1
             return cur;
         }
         static void ToHsl(Color c, out double h, out double s, out double l)
@@ -127,7 +138,7 @@ namespace HallowBrowser
         public static readonly Dictionary<string, string> KeyLight = new Dictionary<string, string> {
             { "Bg", LBg }, { "Strip", LPanel2 }, { "Bar", LPanel }, { "Panel", LPanel }, { "PanelHi", LPanel2 }, { "TabOn", LPanel }, { "TabHover", LBg },
             { "FieldBg", LBg }, { "FieldFocus", LPanel }, { "Line", LBorder }, { "LineDim", LBorder }, { "Text", LText }, { "Muted", LMuted }, { "Lilac", LLilac },
-            { "AccentGlow", "#00F07820" }, { "OnAccent", LText }, { "Green", LGreen }, { "Amber", LAmber }, { "Red", LRed }, { "PageBg", LBg }, { "Rail", LPanel2 }, { "BadgeBg", LRed },
+            { "AccentGlow", "#00F07820" }, { "OnAccent", LText }, { "Green", LGreen }, { "Amber", LAmber }, { "GreenText", LGreenText }, { "AmberText", LAmberText }, { "Red", LRed }, { "PageBg", LBg }, { "Rail", LPanel2 }, { "BadgeBg", LRed },
             // 1.2: tab group colours, dark enough for text on the light strip (4.5:1)
             { "GroupBlue", "#2858A8" }, { "GroupRed", "#B02A38" }, { "GroupYellow", "#7A5600" }, { "GroupGreen", "#1A7442" }, { "GroupPink", "#A42D6C" },
             { "GroupPurple", "#6741B5" }, { "GroupCyan", "#0E6A76" }, { "GroupOrange", "#9C4A0A" }, { "GroupGrey", "#5C5768" } };
@@ -137,7 +148,10 @@ namespace HallowBrowser
         public static string LightXaml(string xaml, string accent)
         {
             var ta = TextAccent(accent);
-            MatchEvaluator byKey = m => { string v; return KeyLight.TryGetValue(m.Groups[2].Value, out v) ? m.Groups[1].Value + v + m.Groups[4].Value : m.Value; };
+            // 1.3: accent buttons and the game chip are a filled accent (8-digit, so the token pass below leaves them alone)
+            var fill = FillOf(accent); var keys = new Dictionary<string, string>(KeyLight);
+            keys["AccentBtnBg"] = "#FF" + fill.TrimStart('#'); keys["AccentBtnLine"] = "#FF" + fill.TrimStart('#'); keys["AccentBtnText"] = "#FF" + TextOnFill(fill).TrimStart('#');
+            MatchEvaluator byKey = m => { string v; return keys.TryGetValue(m.Groups[2].Value, out v) ? m.Groups[1].Value + v + m.Groups[4].Value : m.Value; };
             // named brushes / colours: <SolidColorBrush x:Key="Bg" Color="#..."/> and <Color x:Key="PageBg">#...</Color>
             xaml = Regex.Replace(xaml, "(x:Key=\"(\\w+)\" Color=\")(#[0-9A-Fa-f]{6,8})(\")", byKey);
             xaml = Regex.Replace(xaml, "(<Color x:Key=\"(\\w+)\">)(#[0-9A-Fa-f]{6,8})(</Color>)", byKey);

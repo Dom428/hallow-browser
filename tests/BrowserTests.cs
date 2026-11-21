@@ -21,12 +21,23 @@ namespace HallowBrowser.Tests
         public static int Main(string[] args)
         {
             if (args.Length >= 3 && args[0] == "--integration") return Integration.Main(args[1], args[2], args.Length > 3 ? args[3] : "main");
+            // 1.3 developer checks: a fixture for a real SQLite to check (integrity_check), a dump of a table's row count (for files a real
+            // SQLite wrote, with a -wal), and the one read-only listing of this PC's browsers - names and counts are NOT printed
+            if (args.Length >= 2 && args[0] == "--write-fixture") { File.WriteAllBytes(args[1], TinySqlite.ChromeHistory(Enumerable.Range(0, 600).Select(i => Tuple.Create("https://site" + i + ".example/", i == 3 ? "long " + new string('x', 9000) : "Page " + i, i + 1, DateTime.UtcNow.AddMinutes(-i), false)).ToList())); return 0; }
+            if (args.Length >= 3 && args[0] == "--sqlite-dump") { var r = SqliteReader.Open(args[1]); var rows = r.Read(args[2]).ToList(); Console.WriteLine("rows " + rows.Count + " wal-pages " + r.WalPages + (args.Length > 3 ? " first " + rows.First()[args[3]] + " last " + rows.Last()[args[3]] : "")); return 0; }
+            if (args.Length >= 1 && args[0] == "--found-browsers")
+            {
+                var found = Importer.FindOnThisPC(); int counted = 0, errors = 0;
+                foreach (var p in found) { Importer.Count(p); if (p.Bookmarks >= 0 && p.History >= 0) counted++; else errors++; }
+                Console.WriteLine("found " + found.Count + " profiles; counted " + counted + "; with a note " + errors);
+                return 0;
+            }
             var dir = Path.Combine(Path.GetTempPath(), "HallowBrowserUnit-" + Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(dir);
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);
             try
             {
-                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All();
+                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All(); V13.All();
             }
             catch (Exception e) { fail++; Console.WriteLine("FAIL crashed: " + e); }
             finally { try { Directory.Delete(dir, true); } catch { } }

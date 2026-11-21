@@ -9,6 +9,21 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.3 - MOVING IN AND SYNCING
+- Import from Chrome, Edge, Brave, Opera, Opera GX, Vivaldi and Firefox on this PC:
+  bookmarks (into an "Imported from ..." folder, nothing twice) and history. Read from
+  copies - the other browser is never changed. Passwords and cookies are never imported
+  (Hallow Keys has its own password importer).
+- Bookmarks manager (Ctrl+Shift+O): folders, rename, drag to reorder, HTML export and
+  import. Bookmarks bar (Ctrl+Shift+B).
+- Sync through a folder you pick (OneDrive, Dropbox, Syncthing, a NAS share) - off by
+  default: bookmarks, saved sessions, workspaces, settings and sidebar panels, optionally
+  encrypted with a sync password. History isn't synced.
+- New tab page: speed dial (your top sites and pinned ones), a clock and the Hallow strip
+  (Guard score, Shield blocked today, now playing). Also fixed: on current WebView2
+  versions 1.2's new tab page showed an error page.
+- Light mode reads better (filled accent buttons, darker accent and status text).
+
 WHAT'S NEW IN 1.2 - POWER FEATURES
 - Vertical tabs: tabs in a column on the left with their icons, folding to icons only
   (Settings, or right-click a tab). The sidebar moves to the right beside them.

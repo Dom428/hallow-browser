@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 namespace HallowBrowser
 {
     public static class Program
     {
-        public const string Version = "1.2";
+        public const string Version = "1.3";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static BrowserWindow Win;
@@ -121,7 +121,7 @@ namespace HallowBrowser
             return Family.Json(new Dictionary<string, object> {
                 { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true },
                 { "tabs", w.Tabs.Count }, { "asleep", w.Tabs.Count(t => t.Suspended || t.Discarded) }, { "gameMode", w.Game != null }, { "game", w.Game },
-                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
+                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
 
         // ---- the family pipe
@@ -252,6 +252,8 @@ namespace HallowBrowser
                 shot("reader", w => w.SnapPower("reader"));
                 shot("palette", w => w.SnapPower("palette"));
                 shot("workspaces", w => w.SnapPower("workspaces"));
+                shot("bookmarks", w => w.SnapBookmarks(true));          // 1.3: the bookmarks bar and the manager (made-up bookmarks)
+                shot("bookmarks-bar", w => w.SnapBookmarks(false));
                 var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                 ws.SnapFill("news", false, false);
                 var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);

@@ -25,6 +25,13 @@
     <SolidColorBrush x:Key="Green" Color="#6ED28C"/>
     <SolidColorBrush x:Key="Amber" Color="#F0BE5A"/>
     <SolidColorBrush x:Key="Red" Color="#E05A64"/>
+    <!-- 1.3: accent buttons and the game chip (light: a filled accent with white or near-black text, Look.LightXaml), and green /
+         amber as small text (light: darker than the icon shades) -->
+    <SolidColorBrush x:Key="AccentBtnBg" Color="#33F07820"/>
+    <SolidColorBrush x:Key="AccentBtnLine" Color="#F07820"/>
+    <SolidColorBrush x:Key="AccentBtnText" Color="#F59A50"/>
+    <SolidColorBrush x:Key="GreenText" Color="#6ED28C"/>
+    <SolidColorBrush x:Key="AmberText" Color="#F0BE5A"/>
     <SolidColorBrush x:Key="CloseHover" Color="#C42B1C"/>
     <SolidColorBrush x:Key="Rail" Color="#110E17"/>
     <SolidColorBrush x:Key="BadgeBg" Color="#D13C48"/>
@@ -78,9 +85,9 @@
         </Setter>
     </Style>
     <Style x:Key="Accent" TargetType="Button" BasedOn="{StaticResource Btn}">
-        <Setter Property="Background" Value="#33F07820"/>
-        <Setter Property="BorderBrush" Value="#F07820"/>
-        <Setter Property="Foreground" Value="#F59A50"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBtnBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBtnLine}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBtnText}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="Chip" TargetType="ToggleButton" BasedOn="{StaticResource Btn}">
