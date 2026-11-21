@@ -126,7 +126,7 @@ namespace HallowBrowser
                 if (ms.Length == 0) return false;
                 ms.Position = 0;
                 var img = new BitmapImage(); img.BeginInit(); img.CacheOption = BitmapCacheOption.OnLoad; img.StreamSource = ms; img.DecodePixelWidth = 240; img.EndInit(); img.Freeze();
-                t.Preview = img; t.PreviewAt = DateTime.Now; PreviewsTaken++;
+                t.Preview = Speed19.Detach(img); t.PreviewAt = DateTime.Now; PreviewsTaken++;   // 1.9: without the JPEG it came from
                 return true;
             }
             catch { return false; }

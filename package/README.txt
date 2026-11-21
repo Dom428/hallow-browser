@@ -9,6 +9,24 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.9 - SPEED AND ACCESSIBILITY
+- Every button, tab, menu item, sidebar entry and setting has a name and help text for
+  screen readers (Windows UI Automation - what Narrator reads), and works from the keyboard:
+  F6 / Shift+F6 move between the address bar, the tabs, the page and the sidebar; Tab moves
+  within; the arrow keys move between tabs; Esc closes a menu; Shift+F10 opens a tab's menu.
+- A visible focus outline; the toolbar's buttons are keyboard stops now.
+- Bigger text and controls: Settings > Appearance > Accessibility, 100-200 %, separate from
+  page zoom. By default it follows Windows' Text size.
+- Windows' high-contrast themes switch the browser to their colours; Windows' "Animation
+  effects" off means nothing in the browser moves.
+- Starts a little sooner (window drawn ~15-35 ms earlier, the engine ready ~30 ms earlier);
+  a benchmark for later comparisons. See README.md (Speed) for the numbers.
+- Fixes from real use: the new tab's "Overlay: on/off" label shows Overlay's real state;
+  the + button is centred on the tabs; the bookmarks bar turns on once you have bookmarks
+  (unless you hid it with Ctrl+Shift+B); tab groups are easy to find (right-click a tab,
+  Menu > Group tabs, Ctrl+K, Auto-group by site); the game-mode chip is a small controller
+  icon, only while game mode is on (Settings can hide it), and game mode turns off properly.
+
 WHAT'S NEW IN 1.8 - GAMING EXTRAS
 - Skip sponsors and intros on YouTube (OFF by default - it contacts SponsorBlock, the
   community list at sponsor.ajay.app). Only a 4-character hash prefix of each video goes

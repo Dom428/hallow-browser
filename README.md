@@ -18,7 +18,11 @@ sections and search** (Ctrl+K finds settings too), a **taskbar jump list** and o
 in sync** and opt-in **encrypted history sync** - and says honestly that WebView2 can't cast ("Open in Edge to cast" instead). 1.8 brings **gaming
 extras**: opt-in **YouTube sponsor / intro skipping** with SponsorBlock (only a 4-character hash prefix goes out), the **Twitch chat in the
 sidebar** beside a full-screen or theatre-mode stream, **theatre mode**, **Clip it** (Hallow Clips saves the last 30 s of a stream on your
-screen) and **game mode at once** when you start a game from the new tab page. It runs on **Microsoft Edge WebView2** - the Evergreen
+screen) and **game mode at once** when you start a game from the new tab page. 1.9 is a **speed and accessibility pass**: every control
+has a screen-reader name and keyboard access (F6 moves between the address bar, tabs, page and sidebar), a **100-200 % UI size** that
+follows Windows' text size, **high contrast** and **reduced motion** from Windows, a measured start-up gain - plus fixes from
+real use (the Overlay switch's label, the bookmarks bar showing once you have bookmarks, tab groups easier to find, a smaller game-mode
+icon). It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -37,6 +41,52 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.9: speed and accessibility
+
+**Accessibility**
+- **Screen readers**: every toolbar button, tab, menu item, sidebar entry and setting has a UI Automation name, help text (the tool
+  tip) and role; shortcuts are announced as accelerator keys ("New tab", Ctrl+T). Tabs are real TabItems (selectable, "playing",
+  "muted" and "asleep" in their names). Tested by a UI Automation walk of the window, Settings, the sidebar and every flyout - the tree
+  Narrator reads. **Narrator itself wasn't run** in the tests (it needs a real, focused desktop and speaks out loud).
+- **Keyboard**: a visible focus outline; the toolbar's icon buttons are keyboard stops now (a mouse click still leaves the focus where
+  it was); **F6 / Shift+F6** cycle address bar -> tabs -> page -> sidebar; on a tab, the arrow keys move, Enter shows, Delete closes,
+  Shift+F10 opens its menu (also on sidebar entries); flyouts take the keyboard when opened with it, Tab cycles inside and **Esc**
+  closes them and goes back to their button (no traps); in Settings Tab goes top to bottom, a section link moves the keyboard into
+  that section and Enter in the search box jumps to the first match.
+- **Bigger text and controls**: Settings > Appearance > Accessibility - **Like Windows** (Settings > Accessibility > Text size, the
+  default) or 100 / 125 / 150 / 175 / 200 %. It scales the browser's own UI (title bar, toolbar, tab column, sidebar, menus, tool tips,
+  Settings and the other built-in pages, dialogs) and never the pages: **page zoom stays separate** (Ctrl + / Ctrl -).
+- **High contrast**: with a Windows contrast theme the browser uses its system colours only (window, text, highlight), lines drawn in
+  the text colour, a thicker focus outline and the shown tab outlined - switched live, including controls already on screen. Pages get
+  Chromium's own forced colours.
+- **Reduced motion**: Windows' "Animation effects" off = no motion in the browser (it has no animations of its own beyond flyouts,
+  which then open without one), and pages are told through prefers-reduced-motion.
+
+![Hallow Browser 1.9: Settings > Appearance > Accessibility (made-up page)](docs/accessibility.png)
+
+**Speed** - see [the speed table](#speed-measured-on-this-pc) for the before / after numbers.
+- Start-up: the engine's preference files are written on another core while the window is built, and the theme reuses the settings
+  already read; your own extensions load after the first page (Hallow Shield never waits).
+- Measured and dropped (no gain): a low memory target for pages off screen, and extra game-mode measures (a sleeping pre-warmed tab,
+  slowing background players) - see the speed section. Hover and taskbar previews no longer keep the encoded picture they came from.
+- Site isolation is **not** weakened: the renderer cap stays at 8 and only shares processes between tabs of the same site; different
+  sites always keep their own processes (fewer processes would save memory but let one site's crash or exploit reach another).
+- **Benchmark** (`tests\Bench19.cs`, reusable for a Brave comparison): start-up (new profile and warm), new tab, scrolling frame times,
+  memory with 14 pages on 14 sites and after 10 minutes in the background, CPU / GPU with a background video while a fake game runs.
+  **Speedometer 3 isn't run**: it isn't on this PC and nothing is downloaded - for 2.0, if you agree to run it on browserbench.org.
+
+**Fixes from real use**
+- **Overlay: on / off** on the new tab page now shows Overlay's real state - asked over Overlay's pipe (its status.json can lag behind
+  a toggle), on load and after each click.
+- The **+** (new tab) button sits centred on the tabs (it was 2 px high).
+- The **bookmarks bar** turns itself on once you have a bookmark (yours or imported) - unless you hid it (Ctrl+Shift+B), then it stays
+  hidden. Installs from before with bookmarks get it once.
+- **Tab groups** are easier to find: right-click a tab > **Add tab to new group** / **Add to group** (a list) / **Auto-group tabs by
+  site**; Menu > **Group tabs**; Ctrl+K "Group tabs"; and a one-time tip once you have 6 tabs.
+- The **game-mode chip** is now a small controller icon (tool tip "Game mode ...") shown only while game mode is on, and Settings >
+  Gaming > Speed and gaming > "Show the game mode icon" hides it. Game mode also turns off properly: Hallow Hub's "playing" counts only
+  while Hub runs, and never for a game (Delta Force, Discovery) whose process is gone - a status file left behind kept it on.
 
 ## What's new in 1.8: gaming extras
 
@@ -613,6 +663,57 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 
 ## Speed (measured on this PC)
 
+**1.9 - the benchmark** (`tests\Bench19.cs`, run by `bench19.ps1`; the installed 1.8 and the new 1.9 back to back on the same day, each in
+a throw-away test profile, off-screen, below-normal priority, local pages only). **Note:** Delta Force was running on the PC the whole
+time (the tests were asked to go ahead), so every number is higher and noisier than on an idle PC - compare 1.8 and 1.9 with each other,
+not with older versions.
+
+| What | 1.8 | 1.9 |
+|---|---|---|
+| Reaching `Main` (CLR start, warm) | 82 ms (70 in a second run) | 63 ms (62-65) |
+| Page engine ready (warm) | 273 ms (282) | 231 ms (227-236) |
+| Browser UI drawn - new profile / warm median | 1035 / 710 ms (635 / 697) | 931 / 632 ms (587-638 / 634-650) |
+| First page loaded (warm median) | 1024 ms (933) | 875 ms (880-929) |
+| New tab, pre-warmed, until drawn (median of 7) | 5.0 ms | 6.1 ms (same within the spread) |
+| Scrolling a long local page (rAF deltas, 4 runs alternating) | median 4.2 ms, p95 4.3-16.7 ms | median 4.2 ms, p95 4.3-12.5 ms |
+| Memory, 14 pages on 14 different sites (private bytes: engine + browser) | 754 + 109 = 857 MB, 22 processes | 763 + 112 = 867 MB, 22 processes |
+| ... the same after 10 min in the background (14 tabs asleep) | 740 + 112 = 842 MB | 748 + 114 = 856 MB |
+| CPU / GPU, background video tab + 3 pages, normal / game mode | 0.2 / 0.2 % of one core, GPU 0.01 / 0.00 % | 0.1 / 0.2 %, GPU 0.01 / 0.00 % |
+
+Where start-up goes now (1.9, warm): ~63 ms to `Main` (the CLR; multicore JIT has been on since 1.0), ~85 ms settings and profile,
+~35 ms the theme, the WPF window ~165 ms (most of it the first-time JIT of building the title bar and toolbar - the sidebar is ~2 ms),
+then the first frame ~200 ms later; the engine is ready at ~230 ms in parallel, the first page loads at ~850-930 ms, Hallow Shield is
+loaded at ~820-930 ms. Measured A/B in the same build (`HALLOW_BROWSER_SPEEDOFF`): writing the engine's preference files on another
+core and reusing the start settings for the theme draw the window 15-35 ms sooner and have the engine ready ~30 ms sooner.
+
+- **Kept** (measured better): the two start-up changes above; your own extensions load after the first page (Shield never waits).
+- **Tried and dropped** (no measurable gain): a low memory target for pages off screen a minute, and in game mode a sleeping pre-warmed
+  tab plus slowing background players - the browser already sat at ~0.2 % of one core with the game running.
+- **NGen / ReadyToRun**: ReadyToRun is .NET Core only; `ngen.exe install` needs administrator rights, so the installer (no admin) can't
+  do it - not done.
+- **Memory - why not below 1.8's ~580 MB**: that figure was 14 small pages on one site. The benchmark uses 14 different sites with real
+  content, and site isolation gives every site its own renderer (~35-45 MB each) - that is the safety you want and is **not**
+  weakened (`--renderer-process-limit=8` only makes tabs of the same site share). A sleeping tab (Chromium freezes it) keeps most of its
+  memory; only unloading frees it, which memory saver Max / the RAM limiter do. Hover previews no longer keep their encoded picture.
+- **Hardware acceleration** is on and nothing in the browser forces software rendering (the main window isn't a layered window; only
+  small flyouts are); the frame times above come from the page's own `requestAnimationFrame`.
+- **Speedometer 3** wasn't run: it isn't on this PC and nothing is downloaded - for 2.0, if you agree to run it on browserbench.org.
+
+History (each version's own numbers, measured the way the README said then):
+
+| Version | UI drawn: new profile / warm | First page | New tab (until drawn) | Memory |
+|---|---|---|---|---|
+| 1.0 | ~610-770 / 550-660 ms | 740-910 ms | median 60-75 ms | ~450 MB, 14 small pages |
+| 1.1 | 715 / 546-624 ms | 733-842 ms | median 54 ms | 451 MB |
+| 1.2 | 531 / 548-591 ms | 732-763 ms | median 46 ms | 458 MB |
+| 1.3 | - / 433-462 ms | 631-653 ms | median 62 ms | 223-233 MB after a restart, 14 tabs |
+| 1.4 | 465 / 456-515 ms | 681-801 ms | median 48 ms | 555 MB, 14 small pages |
+| 1.5 | 514 / 569-614 ms | about 1.4's | median 48.3 ms | 582 MB, 14 small pages |
+| 1.6 | 617 / 616-636 ms | - | 44.9 ms (swap 4.3 ms) | - |
+| 1.7 | 477 / 476-493 ms | - | 46.5 ms (swap 3.8 ms) | - |
+| 1.8 | 484 / 472-478 ms | - | 48.1 ms (swap 3.8 ms) | - |
+| 1.9 (game running, see above) | 931 / 632 ms (1.8 the same day: 1035 / 710) | 875 ms (1.8: 1024) | 6.1 ms (1.8: 5.0) | 867 MB, 14 sites; 856 MB after 10 min |
+
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
@@ -777,7 +878,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe (1.6: runs tools\gen-sounds.ps1 first - the sounds are synthesised, then embedded)
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18|v19|bench
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256

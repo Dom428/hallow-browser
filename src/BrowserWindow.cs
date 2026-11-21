@@ -45,7 +45,7 @@ namespace HallowBrowser
         bool snap;
 
         // UI
-        Grid root, content; StackPanel strip; Grid stripHost; Border addressBox; public TextBox Address;
+        Grid root, content, topRow; StackPanel strip, toolbarRow; Grid stripHost; Border addressBox; public TextBox Address;
         Button back, fwd, reload, keyBtn, zoomChip, shieldBtn, dlBtn, quickBtn, menuBtn, maxBtn, newBtn;
         Border gameChip; TextBlock gameText; Grid findBar; TextBox findBox; TextBlock findCount; Border popPlaceholder;
         Popup toast, suggest; TextBlock toastText; StackPanel suggestList; Border dlBadge; System.Windows.Shapes.Path lockIcon;
@@ -67,12 +67,13 @@ namespace HallowBrowser
             WindowChrome.SetWindowChrome(this, new WindowChrome { CaptionHeight = 38, ResizeBorderThickness = new Thickness(6), GlassFrameThickness = new Thickness(0), CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false });
             Ui.DarkTitle(this);
             Games = BrowserSettings.FakeGameFile != null ? (IGameSource)new FileGames(BrowserSettings.FakeGameFile) : new WindowsGames();
-            Build();
+            Engine.Mark("build-start"); Build(); ApplyUiScale(); Engine.Mark("build-done");
             if (priv) PrivateChrome();
             ProfileChrome();   // 1.6: the profile's colour and name (when there's more than one profile)
             StateChanged += (a, b) => FitMaximized();
             PreviewKeyDown += OnKey;
             ContentRendered += (a, b) => Engine.Mark("chrome-first-paint");
+            LayoutUpdated += (a, b) => A11y.Schedule(Dispatcher);   // 1.9: names, help text, keyboard and scale for what was just laid out
             Closing += OnClosing;
             tick = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(5) }; tick.Tick += (a, b) => Tick(false);
             saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) }; saveTimer.Tick += (a, b) => { saveTimer.Stop(); SaveSession(); };
@@ -88,14 +89,14 @@ namespace HallowBrowser
         void Build()
         {
             root = new Grid();
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(38) });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });   // 1.9: 38 px, scaled with the UI
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition());
             Content = root;
 
             // ---- row 0: the tab strip (it's the title bar too)
-            var top = new Grid(); top.SetResourceReference(Panel.BackgroundProperty, "Strip");
+            var top = new Grid { Height = 38 }; top.SetResourceReference(Panel.BackgroundProperty, "Strip"); topRow = top; A11y.Scaled(top);   // 1.9: the UI scale
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // logo / quick panel
             top.ColumnDefinitions.Add(new ColumnDefinition());                             // tabs + new tab + drag space
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // game chip
@@ -106,16 +107,16 @@ namespace HallowBrowser
             stripHost = new Grid { ClipToBounds = true }; Grid.SetColumn(stripHost, 1);
             var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
             strip = new StackPanel { Orientation = Orientation.Horizontal };
-            newBtn = Ui.Tool("plus", "New tab (Ctrl+T)", () => NewTab(Omni.NewTabUrl, true), 12); newBtn.Margin = new Thickness(4, 0, 0, 3); Chrome(newBtn);
+            newBtn = Ui.Tool("plus", "New tab (Ctrl+T)", () => NewTab(Omni.NewTabUrl, true), 12); newBtn.Margin = new Thickness(4, 6, 0, 0); newBtn.VerticalAlignment = VerticalAlignment.Center; Chrome(newBtn);   // 1.9: centred on the tabs (they start 6 px down; it sat 2 px high)
             sp.Children.Add(strip); sp.Children.Add(newBtn);
             stripHost.Children.Add(sp); stripHost.SizeChanged += (a, b) => FitTabs();
             top.Children.Add(stripHost);
-            gameChip = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(9, 2, 10, 2), Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center, BorderThickness = new Thickness(1), Visibility = Visibility.Collapsed };
-            gameChip.SetResourceReference(Border.BackgroundProperty, "AccentBtnBg"); gameChip.SetResourceReference(Border.BorderBrushProperty, "AccentBtnLine");   // 1.3: filled in light mode
-            gameText = new TextBlock { FontSize = 10.5, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, FontFamily = (FontFamily)FindResource("MonoFont") };
-            gameText.SetResourceReference(TextBlock.ForegroundProperty, "AccentBtnText");
-            var gi = Ui.Icon("gamepad", 12, "AccentBtnText"); gi.Margin = new Thickness(0, 0, 6, 0);
-            gameChip.Child = Ui.Row(gi, gameText);
+            // 1.9: a small controller icon (no pill, no text) - only while game mode is really on, and it can be hidden (Settings > Gaming)
+            gameChip = new Border { Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(6, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center, Background = Brushes.Transparent, Visibility = Visibility.Collapsed };
+            gameText = new TextBlock { Visibility = Visibility.Collapsed };   // kept for the status text ("GAME MODE"), not drawn
+            var gi = Ui.Icon("gamepad", 13, "AccentBrush"); gi.Opacity = 0.85;
+            gameChip.Child = gi;
+            System.Windows.Automation.AutomationProperties.SetName(gameChip, "Game mode on");
             gameChip.ToolTip = "Gaming-light mode: background tabs sleep and the browser runs at a lower priority while you play. Tabs playing sound stay awake.";
             Grid.SetColumn(gameChip, 2); top.Children.Add(gameChip);
             var caps = new StackPanel { Orientation = Orientation.Horizontal }; Grid.SetColumn(caps, 3);
@@ -138,6 +139,7 @@ namespace HallowBrowser
             var ag = new Grid(); ag.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); ag.ColumnDefinitions.Add(new ColumnDefinition()); ag.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             lockIcon = Ui.Icon("magnifying-glass", 12, "Muted"); ag.Children.Add(LockButton(lockIcon));   // 1.4: the padlock is a button (site info and permissions)
             Address = new TextBox { Style = Ui.S("Address") }; Grid.SetColumn(Address, 1); ag.Children.Add(Address);
+            System.Windows.Automation.AutomationProperties.SetName(Address, "Address and search bar"); System.Windows.Automation.AutomationProperties.SetHelpText(Address, "Type an address or words to search for, then Enter. Ctrl+L or F6 comes here."); System.Windows.Automation.AutomationProperties.SetAcceleratorKey(Address, "Ctrl+L");   // 1.9
             Address.GotKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "AccentBrush"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldFocus"); Dispatcher.BeginInvoke(new Action(Address.SelectAll), DispatcherPriority.Input); };
             Address.LostKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "LineDim"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldBg"); if (!suggestList.IsKeyboardFocusWithin) suggest.IsOpen = false; };
             Address.PreviewMouseLeftButtonDown += (a, b) => { if (!Address.IsKeyboardFocusWithin) { Address.Focus(); b.Handled = true; } };
@@ -166,7 +168,7 @@ namespace HallowBrowser
             right.Children.Add(shieldBtn); right.Children.Add(dlBtn); right.Children.Add(quickBtn); right.Children.Add(menuBtn);
             bar.Children.Add(right);
             // 1.3: the toolbar and, under it, the bookmarks bar (Ctrl+Shift+B)
-            var row1 = new StackPanel(); Grid.SetRow(row1, 1); row1.Children.Add(bar); row1.Children.Add(BuildBookmarksBar());
+            var row1 = new StackPanel(); Grid.SetRow(row1, 1); toolbarRow = row1; A11y.Scaled(row1); row1.Children.Add(bar); row1.Children.Add(BuildBookmarksBar());
             root.Children.Add(row1);
 
             // ---- row 2: find in page (hidden until Ctrl+F)
@@ -178,14 +180,14 @@ namespace HallowBrowser
             var fr = Ui.Row(Ui.Icon("magnifying-glass", 12, "Muted"), new Border { Width = 8 }, findBox, findCount, Ui.Tool("chevron-up", "Previous (Shift+Enter)", () => FindNext(false), 11), Ui.Tool("chevron-down", "Next (Enter)", () => FindNext(true), 11), Ui.Tool("xmark", "Close (Esc)", HideFind, 11));
             fr.HorizontalAlignment = HorizontalAlignment.Right; fr.Margin = new Thickness(0, 0, 12, 0); fr.VerticalAlignment = VerticalAlignment.Center;
             findBar.Children.Add(fr);
-            var row2 = new StackPanel(); Grid.SetRow(row2, 2); BuildInfoBar(row2); row2.Children.Add(findBar); root.Children.Add(row2);   // 1.5: an info bar (e.g. "Restore your tabs") above the find bar
+            var row2 = new StackPanel(); Grid.SetRow(row2, 2); A11y.Scaled(row2); BuildInfoBar(row2); row2.Children.Add(findBar); root.Children.Add(row2);   // 1.5: an info bar (e.g. "Restore your tabs") above the find bar
 
             // ---- row 3: pages
             // 1.1: the body is the sidebar (rail | panel | splitter) and the pages
             // 1.2: vertical tabs | sidebar on the left (rail | panel | splitter) | pages (split view inside) | sidebar on the right
             var body = new Grid(); Grid.SetRow(body, 3);
             for (int i = 0; i < 8; i++) body.ColumnDefinitions.Add(new ColumnDefinition { Width = i == 4 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
-            content = new Grid(); content.SetResourceReference(Panel.BackgroundProperty, "Bg"); Grid.SetColumn(content, 4); body.Children.Add(content);
+            content = new Grid(); content.SetResourceReference(Panel.BackgroundProperty, "Bg"); A11y.SetScaleHost(content, true); Grid.SetColumn(content, 4); body.Children.Add(content);   // 1.9: internal pages scale, pages (WebView2) never
             BuildSplit(); BuildVerticalTabs(body);
             var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top }; line.SetResourceReference(Border.BackgroundProperty, "LineDim"); Grid.SetRow(line, 3);
             popPlaceholder = new Border { Visibility = Visibility.Collapsed };
@@ -195,7 +197,7 @@ namespace HallowBrowser
             var ppM = Ui.Muted("It stays on top of your other windows - and of games in borderless or windowed mode.", 12, 16); ppM.HorizontalAlignment = HorizontalAlignment.Center; ppSp.Children.Add(ppM);
             var ppB = Ui.Btn("Bring it back here", () => { if (Active != null) Pip.Return(this, Active); }, true, "rotate-left"); ppB.HorizontalAlignment = HorizontalAlignment.Center; ppSp.Children.Add(ppB);
             popPlaceholder.Child = ppSp; content.Children.Add(popPlaceholder);
-            Side = new Sidebar(this, body);
+            Engine.Mark("sidebar-start"); Side = new Sidebar(this, body); Engine.Mark("sidebar-done");
             root.Children.Add(body); root.Children.Add(line);
             ApplyTabLayout();
 
@@ -273,7 +275,7 @@ namespace HallowBrowser
                 else { t.PendingUrl = t.Url; var _ = CreateView(t, null); }
             }
             if (activate) Activate(t);
-            Changed();
+            Changed(); GroupTip();   // 1.9: the one-time tip about tab groups
             Vibe.Play("open", this);   // 1.6 (when sounds are on)
             return t;
         }
@@ -359,7 +361,7 @@ namespace HallowBrowser
             t.RightBox = Ui.Row(t.SplitMark, t.SoundBtn); t.RightBox.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(t.RightBox, 2); g.Children.Add(t.RightBox);
             t.CloseBtn = new Button { Style = Ui.S("Tool"), Width = 20, Height = 20, Margin = new Thickness(2, 0, 6, 0), Content = Ui.Icon("xmark", 9, "Muted"), ToolTip = "Close tab (Ctrl+W)" };
             t.CloseBtn.Click += (a, b) => CloseTab(t); Grid.SetColumn(t.CloseBtn, 3); g.Children.Add(t.CloseBtn);
-            t.Header = new Border { Child = g, CornerRadius = new CornerRadius(8, 8, 0, 0), Margin = new Thickness(0, 6, 1, 0), Width = 200, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = S.TabPreviews ? null : t.Title, HorizontalAlignment = HorizontalAlignment.Left };   // 1.5: the hover preview replaces the tooltip
+            t.Header = new TabHeader(t, this) { Child = g, CornerRadius = new CornerRadius(8, 8, 0, 0), Margin = new Thickness(0, 6, 1, 0), Width = 200, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = S.TabPreviews ? null : t.Title, HorizontalAlignment = HorizontalAlignment.Left };   // 1.5: the hover preview replaces the tooltip
             Chrome(t.Header);
             Point down = new Point(); bool dragging = false, outside = false;
             t.Header.MouseLeftButtonDown += (a, b) =>
@@ -432,6 +434,7 @@ namespace HallowBrowser
             foreach (var x in Tabs)
             {
                 bool on = x == t, shown = on || (split && (x == SplitL || x == SplitR));
+                HighContrastTab(x, on);   // 1.9
                 if (on) { x.Header.SetResourceReference(Border.BackgroundProperty, "TabOn"); x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Text"); }
                 else if (shown) { x.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Text"); }
                 else { x.Header.Background = Brushes.Transparent; x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); }
@@ -812,7 +815,7 @@ namespace HallowBrowser
             else if (!ctrl && !alt)
             {
                 if (k == Key.F5) act = () => { if (Active != null && Active.Core != null) Active.Core.Reload(); };
-                else if (k == Key.F6) act = FocusAddress;
+                else if (k == Key.F6) act = () => CycleRegion(shift ? -1 : 1);   // 1.9: address bar / tabs / page / sidebar
                 else if (k == Key.F3) act = () => { if (findBar.Visibility != Visibility.Visible) ShowFind(); else FindNext(!shift); };
                 else if (k == Key.F11) act = () => SetFullscreen(!fullscreen);
                 else if (k == Key.F9) act = () => ToggleReader(Active);                                    // 1.2: reader mode
@@ -858,8 +861,8 @@ namespace HallowBrowser
                     S.ShieldLoaded = want; S.Save();
                 }
                 ShieldCounts = !string.Equals(load, folder, StringComparison.OrdinalIgnoreCase);
-                ShieldId = ext.Id; ShieldState = "extension"; ShieldNote = null;
-                var _x = LoadUserExtensions(profile);   // 1.4: your own extensions
+                ShieldId = ext.Id; ShieldState = "extension"; ShieldNote = null; Engine.Mark("shield-ready");
+                var _x = LoadUserExtensionsLater(profile);   // 1.4: your own extensions (1.9: after the first page)
                 StartShieldRelay();
                 ShieldHost.Tidy(folder.StartsWith(ShieldHost.UpdatesDir, StringComparison.OrdinalIgnoreCase) ? folder : null);
             }
@@ -890,7 +893,7 @@ namespace HallowBrowser
             var g = GameNow();   // 1.8: also a game just started from the new tab page (until it closes)
             bool changed = g != Game;
             Game = g;
-            gameChip.Visibility = Game != null ? Visibility.Visible : Visibility.Collapsed;
+            gameChip.Visibility = GameChipVisible(Game, S.GameChip) ? Visibility.Visible : Visibility.Collapsed;   // 1.9: a setting hides it
             gameText.Text = Game != null ? "GAME MODE" : "";
             if (Game != null) gameChip.ToolTip = "Game mode (" + Game + (Launched.Active && !Launched.Seen ? ", starting" : "") + "): background tabs sleep and the browser runs at a lower priority. Tabs playing sound stay awake.";
             var now = DateTime.Now;
@@ -1063,6 +1066,7 @@ namespace HallowBrowser
         public void ThemeChanged()
         {
             Look.TitleBars();
+            foreach (var x in Tabs) HighContrastTab(x, x == Active);   // 1.9: high contrast outlines the shown tab
             try
             {
                 var c = (Color)FindResource("PageBg"); var dc = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
@@ -1088,7 +1092,7 @@ namespace HallowBrowser
             var act = Tabs[0]; act.Url = "https://news.example.com/patch-notes"; act.KeysItems = keys ? new List<KeysItem> { new KeysItem { Id = "x", Title = "Hallow News", Username = "player@example.com" } } : null;
             Activate(act);
             ShieldState = "extension"; ShieldVersion = "1.7"; ShieldId = "snap"; if (Engine.RuntimeVersion == null) Engine.RuntimeVersion = Engine.FindRuntime();
-            if (gameOn) { Game = "Delta Force"; gameChip.Visibility = Visibility.Visible; gameText.Text = "GAME MODE"; }
+            if (gameOn) { Game = "Delta Force"; gameChip.Visibility = GameChipVisible(Game, S.GameChip) ? Visibility.Visible : Visibility.Collapsed; gameText.Text = "GAME MODE"; }
             var mock = Panels.MockPage(page); mock.Tag = "mock"; content.Children.Add(mock);
             dlBadge.Visibility = Visibility.Visible;
         }

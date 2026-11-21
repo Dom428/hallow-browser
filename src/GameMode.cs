@@ -23,6 +23,8 @@ namespace HallowBrowser
         // process name -> the name shown on the chip
         public static readonly Dictionary<string, string> Known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
             { "DeltaForceClient-Win64-Shipping", "Delta Force" }, { "Discovery-d", "Discovery" } };
+        // 1.9: Hub's status.json counts only while Hub runs (its pipe answers); tests: HALLOW_BROWSER_HUB_STRICT=1 checks that too
+        public static bool HubMustRun = BrowserSettings.TestDir == null || Environment.GetEnvironmentVariable("HALLOW_BROWSER_HUB_STRICT") == "1";
         public string Game()
         {
             foreach (var g in Known)
@@ -40,12 +42,10 @@ namespace HallowBrowser
                 if (d != null && d.TryGetValue("running", out running) && running is bool && (bool)running && d.TryGetValue("playing", out playing))
                 {
                     var list = (playing as System.Collections.IEnumerable ?? new object[0]).Cast<object>().ToList();
-                    if (list.Count > 0)
-                    {
-                        var first = list[0]; var dd = first as Dictionary<string, object>; object n;
-                        if (dd != null && dd.TryGetValue("name", out n) && n != null) return n.ToString();
-                        return first as string ?? "a game";
-                    }
+                    // 1.9: names (Hub writes plain names or {id, name}); only while Hub runs, and never a known game whose process is gone
+                    var names = list.Select(o => { var dd = o as Dictionary<string, object>; object n; return dd != null ? (dd.TryGetValue("name", out n) && n != null ? n.ToString() : "a game") : (o as string ?? "a game"); }).ToList();
+                    bool alive = !HubMustRun || Family.Running("Hub");
+                    return Rules19.FromHub(names, alive, n => Known.Where(k => string.Equals(k.Value, n, StringComparison.OrdinalIgnoreCase)).Any(k => { var ps = Process.GetProcessesByName(k.Key); var any = ps.Length > 0; foreach (var p in ps) p.Dispose(); return any; }));
                 }
             }
             catch { }

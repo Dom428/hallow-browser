@@ -25,7 +25,7 @@ namespace HallowBrowser
             { "Privacy", "Privacy & security" }, { "Security", "Privacy & security" }, { "Sites, extensions and windows", "Privacy & security" }, { "Hallow Keys", "Privacy & security" },
             { "Hallow Shield", "Shield" },
             { "Speed and gaming", "Gaming" }, { "Memory saver and battery", "Gaming" }, { "Game corner", "Gaming" }, { "Hallow apps on the new tab page", "Gaming" }, { "Live notifications", "Gaming" }, { "YouTube and Twitch", "Gaming" },
-            { "Look", "Appearance" }, { "Sounds and ambience", "Appearance" }, { "Taskbar", "Appearance" },
+            { "Look", "Appearance" }, { "Accessibility", "Appearance" }, { "Sounds and ambience", "Appearance" }, { "Taskbar", "Appearance" },
             { "Sync", "Sync" }, { "Profiles", "Profiles" }, { "About", "Advanced" } };
         public static string SectionOf(string card) { string s; return sectionOf.TryGetValue(card ?? "", out s) ? s : "Advanced"; }
 
@@ -117,14 +117,14 @@ namespace HallowBrowser
                 col.Children.Add(head); pg.Heads[sec] = head;
                 foreach (var c in mine) col.Children.Add(c.Card);
                 var s2 = sec; var link = new Button { Content = sec, Style = Ui.S("Btn"), Margin = new Thickness(0, 0, 6, 6), Padding = new Thickness(10, 3, 10, 3), ToolTip = "Go to " + sec };
-                link.Click += (a, b) => { box.Text = ""; ScrollTo(pg, pg.Heads[s2]); };
+                link.Click += (a, b) => { box.Text = ""; ScrollTo(pg, pg.Heads[s2]); var first = mine[0].Card; link.Dispatcher.BeginInvoke(new Action(() => A11y.FocusFirst(first)), DispatcherPriority.Loaded); };   // 1.9: the keyboard goes to the section too
                 nav.Children.Add(link);
             }
             var empty = Ui.Muted("No settings match.", 13, 0); empty.Visibility = Visibility.Collapsed; empty.Margin = new Thickness(0, 12, 0, 0); col.Children.Add(empty); pg.Empty = empty;
             var sv = new ScrollViewer { Content = col, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
             sv.SetResourceReference(Control.BackgroundProperty, "Bg"); pg.Scroll = sv;
             box.TextChanged += (a, b) => { hint.Visibility = box.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; Filter(pg, box.Text); w.SettingsQuery = box.Text; if (box.Text.Length > 0) sv.ScrollToTop(); };
-            box.PreviewKeyDown += (a, b) => { if (b.Key == Key.Enter) { JumpFirst(pg); b.Handled = true; } else if (b.Key == Key.Escape) { box.Text = ""; b.Handled = true; } };
+            box.PreviewKeyDown += (a, b) => { if (b.Key == Key.Enter) { var tg = JumpFirst(pg); if (tg != null) box.Dispatcher.BeginInvoke(new Action(() => A11y.FocusFirst(tg)), DispatcherPriority.Loaded); b.Handled = true; } else if (b.Key == Key.Escape) { box.Text = ""; b.Handled = true; } };
             return pg;
         }
         public static void Filter(Page pg, string q)

@@ -52,7 +52,7 @@
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Rectangle Margin="-2" Stroke="#F07820" StrokeThickness="1.5" RadiusX="3" RadiusY="3" SnapsToDevicePixels="True"/>
+                    <Rectangle Margin="-2" Stroke="#F07820" StrokeThickness="2" RadiusX="3" RadiusY="3" SnapsToDevicePixels="True"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -102,7 +102,8 @@
         <Setter Property="Width" Value="32"/>
         <Setter Property="Height" Value="30"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Focusable" Value="False"/>
+        <!-- 1.9: keyboard stops (Tab, Enter / Space); a mouse click still leaves the focus where it was (A11y.NoFocusClick) -->
+        <Setter Property="Focusable" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -247,6 +248,7 @@
         </Setter>
     </Style>
     <Style TargetType="ToolTip">
+        <Setter Property="LayoutTransform" Value="{DynamicResource UiScaleTransform}"/>
         <Setter Property="Background" Value="#221C2E"/>
         <Setter Property="Foreground" Value="#ECE8F4"/>
         <Setter Property="BorderBrush" Value="#3A3248"/>

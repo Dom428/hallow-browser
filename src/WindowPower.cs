@@ -58,7 +58,7 @@ namespace HallowBrowser
             sv.MouseRightButtonUp += (a, b) => { if (!b.Handled) { StripMenu(sv); b.Handled = true; } };
             Grid.SetRow(sv, 1); g.Children.Add(sv);
             vNewHost = new ContentControl { Focusable = false, IsTabStop = false, Margin = new Thickness(4, 0, 4, 6) }; Grid.SetRow(vNewHost, 2); g.Children.Add(vNewHost);
-            vtabs.Child = g;
+            vtabs.Child = g; A11y.Scaled(vtabs);   // 1.9: the UI scale
             Grid.SetColumn(vtabs, 0); body.Children.Add(vtabs);
         }
         void BuildSplit()

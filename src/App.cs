@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.8.0.0")]
-[assembly: AssemblyFileVersion("1.8.0.0")]
+[assembly: AssemblyVersion("1.9.0.0")]
+[assembly: AssemblyFileVersion("1.9.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.8";
+        public const string Version = "1.9";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -40,7 +40,7 @@ namespace HallowBrowser
             if (ci >= 0) return Family.RunCmd(ci + 1 < args.Length ? args[ci + 1] : "");
             try { SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }
             int si = Array.IndexOf(args, "--snap");
-            if (si >= 0 && si + 1 < args.Length) { BrowserSettings.Frozen = true; var sa = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; LoadTheme(sa); SnapAll(args[si + 1]); return 0; }
+            if (si >= 0 && si + 1 < args.Length) { BrowserSettings.Frozen = true; A11y.ForceTextScale = 100; A11y.ForceHighContrast = false; var sa = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; LoadTheme(sa); SnapAll(args[si + 1]); return 0; }
 
             // 1.6: --profile <id or name> (a profile's own process), --app <url> (an installed site in its own window)
             // 1.7: --jump new-tab | private-window | reading-list (the taskbar / Start jump list)
@@ -72,10 +72,16 @@ namespace HallowBrowser
                 return 1;
             }
             Crash.Install();
-            var st0 = BrowserSettings.Load(); MarkRunning(st0);   // 1.5: did it close properly last time?
+            var st0 = BrowserSettings.Load(); MarkRunning(st0); Engine.Mark("settings");   // 1.5: did it close properly last time?
+            // 1.9: the engine's preference files are written on another core while the theme and the window are made (they used to be
+            // written on the UI thread just before the engine started); the theme reuses these settings instead of reading them again
+            if (!Speed19.Off("prefs")) Engine.PrefsTask = Task.Run(() => { Engine.WritePrefs(st0); Engine.Mark("prefs-written"); });
+            if (!Speed19.Off("theme")) StartSettings = st0;
             // speed: the JIT compiles start-up code on spare cores, guided by a profile of the last start (no admin, no install step)
+            if (BrowserSettings.TestDir == null || Environment.GetEnvironmentVariable("HALLOW_BROWSER_NOMCJ") != "1")   // 1.9 tests: the benchmark measures it off too
             try { Directory.CreateDirectory(BrowserSettings.LocalDir); System.Runtime.ProfileOptimization.SetProfileRoot(BrowserSettings.LocalDir); System.Runtime.ProfileOptimization.StartProfile("startup.jit"); } catch { }
             var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };   // 1.4: more than one window - the last one closing quits
+            A11y.Install();   // 1.9: names, help text and keyboard for every control; high contrast and "Show animations" followed live
             LoadTheme(app); Engine.Mark("theme");
             HookPrivateFlyouts();   // 1.5: pop-ups of private windows in the private palette
             app.DispatcherUnhandledException += (s, e) => { Crash.Write(e.Exception); e.Handled = true; try { if (Win != null) Win.SaveSession(); } catch { } Environment.Exit(1); };
@@ -84,7 +90,8 @@ namespace HallowBrowser
             if (runtime == null) { NoRuntime(app); GC.KeepAlive(mutex); return 2; }
             var st = st0;
             Engine.Starting = Engine.Create(st);   // the page engine starts while the window is being built
-            var w = new BrowserWindow(st, false); Register(w);
+            Engine.Mark("engine-started");
+            var w = new BrowserWindow(st, false); Register(w); Engine.Mark("window-built");
             var app0 = appUrl == null ? null : SiteApps.ForUrl(appUrl);   // 1.6: an installed site opens as its app window
             if (appUrl != null) w.MakeAppWindow(app0 ?? SiteApps.Adhoc(appUrl));
             Family.Serve(PipeApp(prof.Id), line => Command(Win ?? w, line));
@@ -102,13 +109,29 @@ namespace HallowBrowser
         public static bool? SnapLight;   // --snap renders both
         public static void LoadTheme(Application app)
         {
-            var s = BrowserSettings.Load();
+            var s = Win != null ? Win.S : StartSettings ?? BrowserSettings.Load(); StartSettings = null;
             AccentHex = Accent.Current(s.UseHallowAccent);
-            Look.IsLight = SnapLight ?? Look.Resolve(Win != null ? Win.S.Look : s.Look, Accent.FilePath);
+            Look.IsLight = SnapLight ?? Look.Resolve(s.Look, Accent.FilePath);
             var x = Res("HallowBrowser.Theme.xaml");
-            if (Look.IsLight) x = Look.LightXaml(x, AccentHex);
+            // 1.9: Windows' high-contrast theme = the system colours (nothing of the Hallow palette), else light or dark as before
+            ThemeIsHighContrast = A11y.HighContrast && SnapLight == null;
+            if (ThemeIsHighContrast) x = A11y.HighContrastXaml(x); else if (Look.IsLight) x = Look.LightXaml(x, AccentHex);
+            var old = app.Resources.MergedDictionaries.Count > 0 ? app.Resources.MergedDictionaries[0] : null;
+            var nw = (ResourceDictionary)XamlReader.Parse(Accent.ApplyTo(x, AccentHex));
             app.Resources.MergedDictionaries.Clear();
-            app.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Parse(Accent.ApplyTo(x, AccentHex)));
+            app.Resources.MergedDictionaries.Add(nw);
+            ApplyScale(s);   // 1.9: the UI scale (Windows' text size unless set)
+            if (old != null) A11y.Restyle(old, nw, app.Windows.Cast<Window>());
+        }
+        static BrowserSettings StartSettings;
+        public static bool ThemeIsHighContrast; static int lastTextScale = -1, lastUiScale = -1;
+        public static void ApplyScale(BrowserSettings s)
+        {
+            int wts = A11y.WindowsTextScale(); lastTextScale = wts; lastUiScale = s.UiScale;
+            var sc = A11y.ScaleFor(s.UiScale, wts);
+            if (Math.Abs(sc - A11y.Scale) < 0.001 && Application.Current.Resources.Contains(A11y.ScaleKey)) return;
+            A11y.SetScale(sc);
+            foreach (var x in Windows.ToList()) x.ApplyUiScale();
         }
         public static void ReloadTheme()
         {
@@ -123,7 +146,8 @@ namespace HallowBrowser
             {
                 if (Win == null) return;
                 bool light; try { light = Look.Resolve(Win.S.Look, Accent.FilePath); } catch { return; }
-                if (light != Look.IsLight) ReloadTheme();
+                if (light != Look.IsLight || A11y.HighContrast != ThemeIsHighContrast) ReloadTheme();
+                if (A11y.WindowsTextScale() != lastTextScale || Win.S.UiScale != lastUiScale) ApplyScale(Win.S);   // 1.9: Windows' text size changed (a registry value)
                 if (accentWatch == null && Directory.Exists(Accent.Folder)) accentWatch = Accent.Watch(() => app.Dispatcher.BeginInvoke(new Action(ReloadTheme)));
             };
             t.Start();
@@ -324,6 +348,13 @@ namespace HallowBrowser
                 ws3.ContentGrid.Children.Add(Panels.SettingsPage(ws3));
                 Snap.Save(ws3, Path.Combine(dir, "stream-settings" + sfx + ".png"), 1280, 800); ws3.Close();
                 s.SponsorSkip = false; s.TwitchChat = false;
+                // 1.9: Settings > Accessibility, and the browser at a 150 % UI scale (made-up page; pages keep their own zoom)
+                var ws4 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws4.SnapFill("news", false, false); ws4.SettingsQuery = "Accessibility";
+                ws4.ContentGrid.Children.Add(Panels.SettingsPage(ws4));
+                Snap.Save(ws4, Path.Combine(dir, "accessibility" + sfx + ".png"), 1280, 800); ws4.Close();
+                A11y.SetScale(1.5);
+                shot("ui-scale-150", null);
+                A11y.SetScale(1.0);
             }
         }
     }

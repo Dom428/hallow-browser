@@ -90,7 +90,7 @@ namespace HallowBrowser.Tests
                 Ok(pal != null && pal.Contains("chist17.example"), "Ctrl+K finds an imported history page");
 
                 // ---- the bookmarks bar
-                Ok(!B(st, "barShown"), "bookmarks bar off by default");
+                Ok(B(st, "barShown") == (I(st, "count") > 0), "bookmarks bar: on by itself once there are bookmarks (1.9; imported ones count), off without");
                 Ok(Cmd("test-m-bm-bar on") == "ok True", "Ctrl+Shift+B's action shows the bar");
                 var ids = new List<string>();
                 foreach (var n in new[] { "alpha", "bravo", "charlie" }) ids.Add(Val(Cmd("test-m-bm-add bar " + Lh + "/" + n + ".html " + n + " page")));

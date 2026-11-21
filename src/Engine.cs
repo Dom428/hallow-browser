@@ -18,6 +18,7 @@ namespace HallowBrowser
     {
         public static CoreWebView2Environment Env;
         public static Task<CoreWebView2Environment> Starting;
+        public static Task PrefsTask;   // 1.9: the first start writes the preference files in the background
         public static string RuntimeVersion;
         public static readonly Stopwatch Clock = Stopwatch.StartNew();   // since the process started (about)
         public static readonly Dictionary<string, double> Perf = new Dictionary<string, double>();
@@ -85,7 +86,8 @@ namespace HallowBrowser
         {
             if (Env != null) return Env;
             Directory.CreateDirectory(BrowserSettings.ProfileDir);
-            WritePrefs(s);
+            var pt = PrefsTask; PrefsTask = null;
+            if (pt != null) { try { pt.Wait(); } catch { WritePrefs(s); } } else { WritePrefs(s); Mark("prefs-written"); }   // 1.9: usually done already, on another core
             SecureDnsApplied = s.SecureDns;
             var o = new CoreWebView2EnvironmentOptions(ExtraArgs(s));
             o.AreBrowserExtensionsEnabled = true;          // Hallow Shield

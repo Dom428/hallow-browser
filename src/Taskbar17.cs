@@ -347,7 +347,7 @@ namespace HallowBrowser
             {
                 var ms = new MemoryStream(); await t.Core.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, ms); ms.Position = 0;
                 var img = new BitmapImage(); img.BeginInit(); img.CacheOption = BitmapCacheOption.OnLoad; img.StreamSource = ms; img.DecodePixelWidth = 320; img.EndInit(); img.Freeze();
-                t.Preview = img; t.PreviewAt = DateTime.Now;
+                t.Preview = Speed19.Detach(img); t.PreviewAt = DateTime.Now;
             }
             catch { }
         }

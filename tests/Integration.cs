@@ -76,7 +76,9 @@ namespace HallowBrowser.Tests
             if (mode == "v18") return Integration18.Main(exe, dir);       // 1.8: SponsorBlock (stand-in), Twitch chat / theatre (test page), Clip it (stand-in Clips), game launch handoff
             if (mode == "v17") return Integration17.Main(exe, dir);       // 1.7: translate (stand-ins), settings search, jump list (test id), taskbar tabs, cast, My filters / history sync
             if (mode == "v16") return Integration16.Main(exe, dir);       // 1.6: profiles, family rows, apps, spell check, memory saver / battery / boost, sounds, reading list and notes
-            if (mode == "power") return Integration12.Main(exe, dir);     // 1.2: vertical tabs, groups, workspaces, split, Ctrl+K, screenshots, reader, mute
+            if (mode.StartsWith("bench")) return Bench19.Main(exe, dir, mode);   // 1.9: the speed benchmark (start-up, new tab, memory, scrolling, game impact)
+            if (mode == "v19") return Integration19.Main(exe, dir);       // 1.9: accessibility (UIA walk, F6, UI scale, high contrast, reduced motion) and the speed changes
+            if (mode == "power") return Integration12.Main(exe, dir);    // 1.2: vertical tabs, groups, workspaces, split, Ctrl+K, screenshots, reader, mute
             // everything goes to the test folder: settings, profile, pipes (".test-<leaf>"), the Keys stand-in's pipe
             Directory.CreateDirectory(dir);
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);

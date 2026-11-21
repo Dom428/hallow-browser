@@ -137,7 +137,7 @@ namespace HallowBrowser
             var add = Ui.Tool("plus", "Add a site to the sidebar", null, 12); add.Width = 34; add.Height = 34; add.Margin = new Thickness(0, 4, 0, 8); add.HorizontalAlignment = HorizontalAlignment.Center;
             add.Click += (a, b) => AddFlyout(add);
             Grid.SetRow(add, 1); rg.Children.Add(add);
-            rail.Child = rg; Grid.SetColumn(rail, 1); body.Children.Add(rail);
+            rail.Child = rg; Grid.SetColumn(rail, 1); body.Children.Add(rail); A11y.Scaled(rail);   // 1.9: the UI scale
 
             host = new Grid { Visibility = Visibility.Collapsed };
             host.SetResourceReference(Panel.BackgroundProperty, "Bg");
@@ -155,6 +155,7 @@ namespace HallowBrowser
             var hl = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom }; hl.SetResourceReference(Border.BackgroundProperty, "LineDim"); Grid.SetColumnSpan(hl, 2); head.Children.Add(hl);
             host.Children.Add(head);
             viewBox = new Grid(); Grid.SetRow(viewBox, 1); host.Children.Add(viewBox);
+            A11y.SetScaleHost(host, true); A11y.SetNoScale(viewBox, true); A11y.SetScaleHost(viewBox, true);   // 1.9: the header and the browser's own panels scale, web panels never
             Grid.SetColumn(host, 2); body.Children.Add(host);
 
             splitter = new GridSplitter { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch, ResizeBehavior = GridResizeBehavior.PreviousAndNext, ResizeDirection = GridResizeDirection.Columns, Visibility = Visibility.Collapsed, ToolTip = "Drag to resize the panel" };
@@ -178,6 +179,22 @@ namespace HallowBrowser
             if (Open != null) { hostCol.Width = new GridLength(SidebarRules.ClampWidth(Open.Site.Width)); splitCol.Width = GridLength.Auto; }
         }
         PlacementMode Side { get { return Right ? PlacementMode.Left : PlacementMode.Right; } }
+        // 1.9: F6 - is the keyboard in the sidebar, and where it goes (the open panel, else the first entry of the rail)
+        public bool Contains(DependencyObject f)
+        {
+            for (int i = 0; f != null && i < 200; i++) { if (f == rail || f == host) return true; f = (f is Visual ? VisualTreeHelper.GetParent(f) : null) ?? LogicalTreeHelper.GetParent(f); }
+            return false;
+        }
+        public UIElement KeyboardTarget()
+        {
+            if (rail.Visibility != Visibility.Visible && host.Visibility != Visibility.Visible) return null;
+            if (host.Visibility == Visibility.Visible)
+            {
+                if (Open != null && Open.View != null) return Open.View;
+                var f = A11y.FirstFocusable(viewBox); if (f != null) return f;
+            }
+            return rail.Visibility == Visibility.Visible ? A11y.FirstFocusable(rail) : null;
+        }
         static Button Small(string icon, string tip, Action click) { var b = Ui.Tool(icon, tip, click, 11); b.Width = 28; b.Height = 26; return b; }
 
         // ---- the rail
@@ -225,7 +242,7 @@ namespace HallowBrowser
             p.AudioDot.Visibility = p.Audible && !p.Shown ? Visibility.Visible : Visibility.Collapsed;
             p.RailBtn.Opacity = p.Asleep ? 0.6 : 1;
             if (p.Shown) p.RailBtn.SetResourceReference(Control.BackgroundProperty, "AccentSoft"); else p.RailBtn.ClearValue(Control.BackgroundProperty);
-            p.RailBtn.ToolTip = p.Site.Name + (p.Unread != null ? " (" + p.Unread + " new)" : "") + (p.Asleep ? " - asleep" : p.Audible ? " - playing" : "") + "\nRight-click: phone/desktop, reload, remove";
+            p.RailBtn.ToolTip = p.Site.Name + (p.Unread != null ? " (" + p.Unread + " new)" : "") + (p.Asleep ? " - asleep" : p.Audible ? " - playing" : "") + "\nRight-click (or Shift+F10): phone/desktop, reload, remove";
         }
         static FrameworkElement Letter(SidePanel p)
         {

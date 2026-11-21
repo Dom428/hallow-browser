@@ -54,6 +54,7 @@ namespace HallowBrowser
             sp.Children.Add(Sep());
             // 1.2: the power features
             sp.Children.Add(Ui.MenuRow("terminal", "Command palette", "Ctrl+K", () => run(() => Palette.Show(w))));
+            sp.Children.Add(Ui.MenuRow("layer-group", "Group tabs", null, () => run(() => w.GroupTabsFlyout(at))));   // 1.9
             sp.Children.Add(Ui.MenuRow("table-list", w.S.VerticalTabs ? "Tabs in the title bar" : "Vertical tabs", null, () => run(w.ToggleVerticalTabs)));
             sp.Children.Add(Ui.MenuRow("table-columns", w.SplitOn ? "Close split view" : "Split view with the next tab", "Ctrl+click", () => run(() => { if (w.SplitOn) w.CloseSplit(); else if (w.Active != null && w.Tabs.Count > 1) w.AddToSplit(w.Tabs[(w.Tabs.IndexOf(w.Active) + 1) % w.Tabs.Count]); })));
             sp.Children.Add(Ui.MenuRow("camera", "Screenshot", "Ctrl+Shift+X", () => run(w.ShowScreenshot)));
@@ -111,8 +112,10 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("moon", "Put to sleep", null, () => run(() => w.Discard(t))));
             // 1.2: groups, split view, workspaces, vertical tabs
             sp.Children.Add(Sep());
-            sp.Children.Add(Ui.MenuRow("layer-group", "Add to a new group", null, () => run(() => w.NewGroup(t, null))));
-            foreach (var g in w.Groups.ToList()) { var gg = g; if (t.Group != g) sp.Children.Add(Ui.MenuRow("layer-group", "Add to " + g.Name, null, () => run(() => w.AddToGroup(t, gg)))); }
+            // 1.9: easier to find - "Add tab to new group", and "Add to group" opens the list of groups
+            sp.Children.Add(Ui.MenuRow("layer-group", "Add tab to new group", null, () => run(() => w.GroupFromMenu(t))));
+            if (w.Groups.Any(g => g != t.Group)) sp.Children.Add(Ui.MenuRow("layer-group", "Add to group \u25B8", null, () => run(() => w.AddToGroupFlyout(t))));
+            sp.Children.Add(Ui.MenuRow("layer-group", "Auto-group tabs by site", null, () => run(() => w.AutoGroupBySite())));
             if (t.Group != null) sp.Children.Add(Ui.MenuRow("layer-group", "Remove from " + t.Group.Name, null, () => run(() => w.RemoveFromGroup(t))));
             if (w.SplitOn && (t == w.SplitL || t == w.SplitR)) { sp.Children.Add(Ui.MenuRow("right-left", "Swap the split sides", null, () => run(w.SwapSplit))); sp.Children.Add(Ui.MenuRow("xmark", "Close split view", null, () => run(w.CloseSplit))); }
             else if (t != w.Active) sp.Children.Add(Ui.MenuRow("table-columns", "Split view with this tab", "Ctrl+click", () => run(() => w.AddToSplit(t))));
@@ -375,9 +378,12 @@ namespace HallowBrowser
                 Ui.Switch("Make pages dark", "Even sites without a dark look of their own (Chromium's own automatic dark mode). Choose per site with the padlock, or in Site settings.", S.ForceDark, on => { if (on != S.ForceDark) w.ToggleForceDark(); }),   // 1.5
                 Ui.Switch("Use the Hallow accent", "The colour picked in Hallow Toolkit (theme.json), live.", S.UseHallowAccent, on => { S.UseHallowAccent = on; save(); Program.ReloadTheme(); }) }));
 
+            col.Children.Add(card("Accessibility", w.AccessibilitySettings()));   // 1.9: UI scale, high contrast, animations, keyboard
+
             col.Children.Add(card("Speed and gaming", new UIElement[] {
                 Ui.Switch("Gaming-light mode", "While a game runs: background tabs sleep, the browser drops to a lower priority. Tabs playing sound stay awake.", S.GameLight, on => { S.GameLight = on; save(); w.Tick(true); }),
                 Ui.Switch("CPU limiter", "The browser always runs below normal priority, so games and other apps come first.", S.CpuLimiter, on => { S.CpuLimiter = on; save(); w.Tick(true); }),
+                Ui.Switch("Show the game mode icon", "A small controller in the title bar, only while game mode is on.", S.GameChip, on => { S.GameChip = on; save(); foreach (var x in Program.Windows) x.Tick(true); }),   // 1.9
 
                 Ui.Muted("RAM limiter: above this, the least recently used tabs sleep, then unload (they reload when you click them)", 12, 6),
                 Ui.Chips(BrowserSettings.RamChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Off" : m / 1024 + " GB")).ToList(), S.RamLimitMb, v => { S.RamLimitMb = v; save(); w.Tick(true); }),

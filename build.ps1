@@ -14,7 +14,8 @@ $out = Join-Path $PSScriptRoot 'HallowBrowser.exe'
 $refs = "$wpf\PresentationFramework.dll", "$wpf\PresentationCore.dll", "$wpf\WindowsBase.dll", "$fw\System.Xaml.dll",
     "$fw\System.Windows.Forms.dll", "$fw\System.Drawing.dll", "$fw\System.Runtime.Serialization.dll", "$fw\System.Core.dll",
     "$fw\System.IO.Compression.dll", "$fw\System.IO.Compression.FileSystem.dll", "$fw\System.Web.Extensions.dll", "$fw\System.Xml.dll", "$fw\System.Security.dll",
-    "$lib\Microsoft.Web.WebView2.Core.dll", "$lib\Microsoft.Web.WebView2.Wpf.dll"
+    "$lib\Microsoft.Web.WebView2.Core.dll", "$lib\Microsoft.Web.WebView2.Wpf.dll",
+    "$wpf\UIAutomationProvider.dll", "$wpf\UIAutomationTypes.dll", "$wpf\UIAutomationClient.dll"   # 1.9: the tab strip's UI Automation peers; the tests' UIA tree walk
 # 1.6: the optional UI sounds and the ambience loop are synthesised here (tools\gen-sounds.ps1 - no recorded or downloaded sounds) and embedded
 $snd = Join-Path $PSScriptRoot 'obj\sounds'
 & (Join-Path $PSScriptRoot 'tools\gen-sounds.ps1') -Out $snd | Out-Null

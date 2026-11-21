@@ -103,7 +103,9 @@ namespace HallowBrowser
                 C("Reload", "F5", "arrow-rotate-right", () => { if (a.Core != null) a.Core.Reload(); });
                 C(w.IsBookmarked(a) ? "Remove bookmark" : "Bookmark this page", "Ctrl+D", "bookmark", () => w.ToggleBookmark(a));
                 C(a.ReaderOn ? "Leave reader mode" : "Reader mode", "F9", "book-open", () => w.ToggleReader(a));
-                C("Add tab to a new group", null, "layer-group", () => w.NewGroup(a, null));
+                C("Add tab to a new group", null, "layer-group", () => w.GroupFromMenu(a));
+            C("Group tabs: auto-group by site", null, "layer-group", () => w.AutoGroupBySite());   // 1.9
+            C("Group tabs...", null, "layer-group", () => w.GroupTabsFlyout(null));
                 if (a.Group != null) C("Remove tab from its group", null, "layer-group", () => w.RemoveFromGroup(a));
                 foreach (var g in w.Groups.ToList()) { var gg = g; if (a.Group != g) C("Add tab to group " + g.Name, null, "layer-group", () => w.AddToGroup(a, gg)); C((g.Collapsed ? "Expand" : "Collapse") + " group " + g.Name, null, "layer-group", () => w.ToggleCollapse(gg)); C("Put group " + g.Name + " to sleep", null, "moon", () => w.SleepGroup(gg)); }
             }

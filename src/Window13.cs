@@ -22,13 +22,13 @@ namespace HallowBrowser
 
         void StoresLoaded()
         {
-            RenderBookmarksBar(); RefreshNewTabData(); StartSync();
+            AutoBookmarksBar(); RenderBookmarksBar(); RefreshNewTabData(); StartSync();
             if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => RefreshNewTabData(); ntTimer.Start(); }
         }
         DispatcherTimer ntTimer;
         void BookmarksChanged()
         {
-            RenderBookmarksBar(); RefreshBookmarksPage();
+            AutoBookmarksBar(); RenderBookmarksBar(); RefreshBookmarksPage();
             if (Active != null) UpdateBar();
             SyncSoon(8);
         }
@@ -53,7 +53,7 @@ namespace HallowBrowser
             bmBar.Drop += (a, b) => { var id = b.Data.GetData(DragFormat) as string; if (id != null && Bookmarks != null) Bookmarks.Move(id, BookmarkStore.BarId, -1); b.Handled = true; };
             return bmBar;
         }
-        public void ToggleBookmarksBar() { if (Private) { Toast("The bookmarks bar can't be changed from a private window.", 3); return; } S.BookmarksBar = !S.BookmarksBar; S.Save(); ApplyBookmarksBar(); ApplyBookmarksBarAll(); Toast(S.BookmarksBar ? "Bookmarks bar on (Ctrl+Shift+B hides it)." : "Bookmarks bar off (Ctrl+Shift+B shows it).", 3); SyncSoon(8); }
+        public void ToggleBookmarksBar() { if (Private) { Toast("The bookmarks bar can't be changed from a private window.", 3); return; } S.BookmarksBar = !S.BookmarksBar; S.BookmarksBarHidden = !S.BookmarksBar; /* 1.9: hidden on purpose = never shown by itself again */ S.Save(); ApplyBookmarksBar(); ApplyBookmarksBarAll(); Toast(S.BookmarksBar ? "Bookmarks bar on (Ctrl+Shift+B hides it)." : "Bookmarks bar off (Ctrl+Shift+B shows it).", 3); SyncSoon(8); }
         public void ApplyBookmarksBar() { if (bmBar == null) return; bmBar.Visibility = (S.BookmarksBar || snapBar) && !fullscreen && !Private ? Visibility.Visible : Visibility.Collapsed; RenderBookmarksBar(); }
         public void ApplyBookmarksBarAll() { foreach (var w in Program.Windows) if (w != this) w.ApplyBookmarksBar(); }
         public bool BookmarksBarShown { get { return bmBar != null && bmBar.Visibility == Visibility.Visible; } }

@@ -128,8 +128,12 @@ namespace HallowBrowser
             }
             if (Installed("Overlay"))
             {
-                var v = OverlayVisible(Read(Path.Combine(Family.DataDir("Overlay"), "status.json")));
-                overlay = new Dictionary<string, object> { { "visible", v ?? false }, { "running", Family.Running("Overlay") } };
+                // 1.9: Overlay's own answer over its pipe first (its status.json can lag behind a toggle - the label stayed "off"), the file if it
+                // doesn't answer
+                bool running = Family.Running("Overlay"); bool? v = null;
+                if (running) { var r = OverlayPipe(); v = OverlayVisible(r != null && r.StartsWith("ok ") ? r.Substring(3) : null); }
+                if (v == null) v = OverlayVisible(Read(Path.Combine(Family.DataDir("Overlay"), "status.json")));
+                overlay = new Dictionary<string, object> { { "visible", v ?? false }, { "running", running } };
             }
             return js.Serialize(new Dictionary<string, object> { { "on", true }, { "games", games }, { "clips", clips }, { "overlay", overlay } });
         }
@@ -175,6 +179,7 @@ namespace HallowBrowser
             ClipOpens++; Launch(c.File);
             return "opened";
         }
+        public static Func<string> OverlayPipe = () => Family.Send("Overlay", "status", 1500);
         public static string ToggleOverlay()
         {
             if (!Installed("Overlay")) return "not installed";
@@ -210,12 +215,13 @@ namespace HallowBrowser
 
     public partial class BrowserWindow
     {
-        static readonly object famLock = new object(); static bool famBusy;
+        static readonly object famLock = new object(); static bool famBusy, famAgain;
         public static int FamilyWrites;
         // family.json in the background; at start a little after the first page is on its way
         public void RefreshFamily(int delayMs)
         {
-            if (snap || Private || famBusy) return;
+            if (snap || Private) return;
+            if (famBusy) { famAgain = true; return; }   // 1.9: asked again while busy (e.g. right after the Overlay switch) = once more after, not dropped
             famBusy = true; var s = S;
             Task.Run(async () =>
             {
@@ -224,6 +230,7 @@ namespace HallowBrowser
                 finally { famBusy = false; }
             }).ContinueWith(_ => Dispatcher.BeginInvoke(new Action(() =>
             {
+                if (famAgain) { famAgain = false; RefreshFamily(0); }
                 foreach (var t in Tabs) if (Omni.IsNewTab(t.Url) && t.Core != null) try { var __ = t.Core.ExecuteScriptAsync("window.hallowFamily&&hallowFamily()"); } catch { }
             })));
         }
