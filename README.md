@@ -2,11 +2,12 @@
 
 A fast Chromium browser for gamers, in the Hallow style. **Hallow Shield is built in**, a **gamer sidebar** keeps Discord, Twitch,
 YouTube, Spotify and WhatsApp signed in beside the page, **Hallow Keys** fills your logins when you click, and **gaming-light mode**
-puts background tabs (and sidebar panels) to sleep while you play. It runs on **Microsoft Edge WebView2** - the Evergreen
-runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small
-(a ~300 KB app plus Microsoft's WebView2 DLLs).
+puts background tabs (and sidebar panels) to sleep while you play. 1.2 adds the power features: **vertical tabs, tab groups,
+workspaces, split view, a command palette (Ctrl+K), screenshots, reader mode** and saved sessions. It runs on **Microsoft Edge
+WebView2** - the Evergreen runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the
+browser itself is small (a ~550 KB app plus Microsoft's WebView2 DLLs).
 
-![Hallow Browser in game mode (made-up page)](docs/browser.png)
+![Hallow Browser 1.2: vertical tabs with two groups, the Discord panel on the right (made-up pages)](docs/vertical-tabs.png)
 
 Part of the Hallow family (Mixer, Hub, Vault, Overlay, Remote, Clips, Keys, Assist, Guard, Shield, Setup, Toolkit).
 
@@ -21,6 +22,64 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.2: power features
+
+**Vertical tabs** (Settings > Tabs and workspaces, or right-click a tab > Vertical tabs)
+- The tabs move into a column on the left, with each site's icon; the **<<** button folds it to **icons only** (hover for the title).
+- The gamer sidebar moves to the **right** so the two sit side by side (Settings > Sidebar > Side: away from vertical tabs / left / right).
+
+**Tab groups** (right-click a tab > Add to a new group)
+- Named, **coloured** groups (nine colours, each with its own light-mode value that reads at 4.5:1). The group's label sits before
+  its tabs; its tabs get a coloured line.
+- **Click the label to collapse** the group (its tabs fold away, the label shows how many); right-click it to rename, recolour,
+  open a new tab in it, **put the whole group to sleep** (its tabs unload and load again when you click them - not the one you're on,
+  not one playing sound), ungroup or close it.
+- **Drag a tab onto the label** (or between two of its tabs) to add it; drag it away to take it out. Groups (name, colour, collapsed)
+  are **saved with the session**.
+
+**Workspaces** (the switcher at the **top left**)
+- Separate sets of tabs and groups - "Gaming", "Work" - each with **its own session** (restored at start, kept in
+  `workspaces.json`). They share **one profile**, so you're signed in everywhere. Right-click a tab > Move to *workspace*.
+- Honestly: switching closes this workspace's pages and opens the other's, like a restart (fast: only the tab you look at loads).
+  A page playing sound in the workspace you leave stops.
+
+**Saved sessions** - in the same switcher: **Save this session...** with a name; **restore** it later - it opens as its own workspace,
+so the tabs you have now stay where they are.
+
+**Split view** - **Ctrl+click a tab** to show it beside the one you're on, with a **draggable divider**. Swap the sides or close the
+split from the tab's right-click menu (or Ctrl+K). Click into a side and the address bar follows it. Clicking another tab shows that
+tab alone; going back to either split tab brings the split back. It's saved with the session.
+
+![Split view: a page and a reader view side by side (made-up pages)](docs/split.png)
+
+**Command palette (Ctrl+K)** - one box, fuzzy search ("hbr" finds Hallow Browser) over your **open tabs, history, bookmarks,
+commands** (every menu action and every setting - "gaming light", "search with google", "ram limiter 4 gb"...), **sidebar panels**,
+workspaces and saved sessions. Enter runs the top one; arrows pick.
+- **History** is new: a local store of the pages you visit (address, title, last visit, visits; at most 5,000) in the profile folder
+  (`%LOCALAPPDATA%\HallowBrowser\Profile\hallow-history.json`). **Settings > Privacy > Clear history** (or Ctrl+K "clear history")
+  empties it; "Clear browsing data" clears it too; you can switch it off.
+- **Bookmarks** are new too: **Ctrl+D** (or the star in the address bar) bookmarks the page; Menu > Bookmarks lists them; Ctrl+K finds
+  them. (A bookmarks bar and importing come in 1.3.)
+
+![Ctrl+K finding history entries for "raid" (made-up pages)](docs/palette.png)
+
+**Screenshots (Ctrl+Shift+X)** - the **visible area**, the **full page** (DevTools `Page.captureScreenshot` with
+`captureBeyondViewport`, up to 16,000 px tall) or a **region you drag** over a still of the page (Esc cancels). **Copy** to the
+clipboard or **save** as PNG to `Pictures\Hallow Browser`.
+
+**Reader mode (F9, or the book in the address bar)** - the book shows on pages that look like articles. Reader mode is our own small
+readability-style extractor (no outside library): it scores the page's paragraphs, takes the block holding most of the text with the
+fewest links, and leaves out navigation, sidebars, comments, ads and footers. The clean view is drawn by the browser itself in Hallow
+typography and **follows light / dark**; **text size** (14-28 px) and **width** (narrow / medium / wide) on its bar. Honestly: it's
+text-first - pictures aren't fetched, their captions show - and unusual pages may not split cleanly.
+
+![Reader mode in light (made-up article)](docs/reader-light.png)
+
+**Mute tab** - the speaker on a tab playing sound is a **button** (mute / unmute); right-click > **Mute all other tabs**.
+
+**Also**: status.json gains `verticalTabs`, `workspaces`, `groups`, `split` (counts only - never names, addresses or titles); the pipe
+menu gains "Vertical tabs".
 
 ## What's new in 1.1: the gamer sidebar
 
@@ -91,7 +150,7 @@ liveNotifications, liveChannels, andwidthCapKBps (still never addresses or titl
   you type (Settings can turn that off).
 - Back / forward / reload, downloads list (Ctrl+J), find in page (Ctrl+F, F3), zoom (Ctrl +/-/0, Ctrl+wheel; a zoom chip shows when
   it isn't 100%), print, fullscreen video (and F11), links that open new windows open new tabs (sign-in pop-ups keep working).
-- Keyboard shortcuts like Chrome: Ctrl+T / N / W / Shift+T / Tab / Shift+Tab / PgUp / PgDn / 1-8 / 9 / L / K / R / Shift+R / F / G / J / P / , ,
+- Keyboard shortcuts like Chrome: Ctrl+T / N / W / Shift+T / Tab / Shift+Tab / PgUp / PgDn / 1-8 / 9 / L / E / R / Shift+R / F / G / J / P / , ,
   Alt+Left / Right / D / Home, F5, F6, F11, F12, Esc, Ctrl+Shift+M (mute), Ctrl+Shift+Del (clear data).
 - **Session restore**: the tabs from last time come back; background tabs load when you click them (fast start).
 - **Dark pages**: pages get `prefers-color-scheme: dark` where they support it (Settings: dark / like Windows / light).
@@ -137,12 +196,16 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
-| What | 1.1 (measured again, sidebar on) | 1.0 |
-|---|---|---|
-| Browser UI drawn (first paint of the window) | 546-624 ms (warm profile, 14 restored tabs); 715 ms on a brand-new profile | 550-660 ms; ~610-770 ms new profile |
-| First page loaded (local test page) | 733-842 ms (warm), 1.05 s (new profile) | 740-910 ms, ~1.0-1.15 s |
-| New tab (pre-warmed, until drawn) | median 54 ms (6 tries: 44-75 ms) | median 60-75 ms |
-| Memory | 224-229 MB private after a restart with 14 tabs (13 asleep); 451 MB with 14 small pages loaded (13 processes) | ~215-230 MB; ~450 MB |
+| What | 1.2 (measured again: workspaces, groups, history on) | 1.1 | 1.0 |
+|---|---|---|---|
+| Browser UI drawn (first paint of the window) | 548-591 ms (warm profile, 14 restored tabs); 531 ms on a brand-new profile | 546-624 ms; 715 ms new profile | 550-660 ms; ~610-770 ms new profile |
+| First page loaded (local test page) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
+| New tab (pre-warmed, until drawn) | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
+| Memory | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+
+1.2's features cost nothing at start either: the tab column, group labels and the workspace switcher are plain WPF; the history and
+bookmarks files are read in the background ~2.5 s after the first page; the palette, reader, screenshot and split code only runs when
+you use it.
 
 The sidebar costs nothing at start: its rail is plain WPF and panels load only when opened (an open panel comes back ~2 s after
 the first page, when the browser is idle).
@@ -197,10 +260,10 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 ## Family link
 
 - Pipe `HallowFamily.Browser.<user>`: `ping`, `status`, `open` (focus), `open <url>` (http/https only), `menu` (New tab, Reopen
-  closed tab, Gaming-light mode, CPU limiter, Sidebar), `invoke <id>`, `quit`. `HallowBrowser.exe --cmd "<line>"` for scripts.
+  closed tab, Gaming-light mode, CPU limiter, Sidebar, Vertical tabs), `invoke <id>`, `quit`. `HallowBrowser.exe --cmd "<line>"` for scripts.
 - `%APPDATA%\HallowBrowser\status.json`: `tabs`, `asleep`, `gameMode`, `game`, `shield` (extension / fallback / missing), `shieldVersion`,
-  `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps` -
-  never addresses, titles or history.
+  `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps`;
+  1.2: `verticalTabs`, `workspaces`, `groups`, `split` - never addresses, titles, history or workspace / group names.
 - Live notifications go through Hub's `notify Browser<TAB>title<TAB>text` when Hub runs (Hallow Browser has no tray icon of its own;
   without Hub a short-lived tray icon shows the balloon).
 - Hallow Hub's generic host lists it while it runs. The Hallow accent (theme.json), crash reports (`%APPDATA%\HallowBrowser\crashes`,
@@ -211,8 +274,9 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | What | Where |
 |---|---|
 | The browser | `%LOCALAPPDATA%\Programs\Hallow Browser\` (HallowBrowser.exe, Microsoft's WebView2 DLLs, `shield\`) |
-| Browsing data (profile: cookies, cache, history, Shield's settings) | `%LOCALAPPDATA%\HallowBrowser\Profile` |
-| Settings, open tabs, status, crash reports | `%APPDATA%\HallowBrowser` |
+| Browsing data (profile: cookies, cache, history, Shield's settings; 1.2: `hallow-history.json`, the history Ctrl+K searches) | `%LOCALAPPDATA%\HallowBrowser\Profile` |
+| Settings, open tabs, status, crash reports; 1.2: `workspaces.json`, `saved-sessions.json`, `bookmarks.json` | `%APPDATA%\HallowBrowser` |
+| Screenshots you save | `Pictures\Hallow Browser` |
 | Shield updates | `%LOCALAPPDATA%\HallowBrowser\Shield` |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
@@ -225,7 +289,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -244,7 +308,16 @@ the cap, light/dark resolution, the light theme with contrast checks for every p
 "sidebar", local panel pages, fake Twitch/YouTube pages, a stand-in Hub) a panel's sign-in cookie surviving a restart, badges, phone /
 desktop user agents, sleeping after the time / at once in game mode / not while playing sound, the hot tabs list and its buttons, the
 cap slowing a 2 MB transfer, live notifications via the tray path and via Hub, light/dark switched live from theme.json and pages
-following. Page pictures come from `CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>`.
+following. 1.2 adds (unit) group order and drops, group colours at 4.5:1 in both looks, fuzzy search, the history store (one entry per
+address, newest first, 5,000 cap, nothing written before the file was read, clear), bookmarks, workspace names and splits, 1.1
+sessions still loading and 1.2 sessions keeping groups / split, the new settings, the reader document, screenshot crops and file
+names; and (integration "power", local pages) vertical tabs and groups (new, drag in / out / onto a label, colour, collapse) surviving
+a restart, sleeping a whole group, workspaces keeping separate sessions (also across a restart), saving and restoring a named session,
+split view loading two pages side by side (swap, saved with the session), Ctrl+K finding a tab, a history entry, a command, a setting
+and a panel and running them, history in the profile folder and Clear history, Ctrl+D, screenshots as PNGs (the full page taller than
+the viewport, a region at half size; "copy" in a test folder never touches the clipboard), reader mode extracting a test article
+without its nav / ads / sidebar / comments / footer, and mute (the speaker button, Mute all other tabs). Page pictures come from
+`CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>` (every picture in light and dark).
 
 ## Credits
 

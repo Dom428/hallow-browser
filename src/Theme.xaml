@@ -28,6 +28,16 @@
     <SolidColorBrush x:Key="CloseHover" Color="#C42B1C"/>
     <SolidColorBrush x:Key="Rail" Color="#110E17"/>
     <SolidColorBrush x:Key="BadgeBg" Color="#D13C48"/>
+    <!-- 1.2: tab group colours (labels, stripes); light values in Look.KeyLight -->
+    <SolidColorBrush x:Key="GroupBlue" Color="#7DB2FF"/>
+    <SolidColorBrush x:Key="GroupRed" Color="#FF8089"/>
+    <SolidColorBrush x:Key="GroupYellow" Color="#F2CF62"/>
+    <SolidColorBrush x:Key="GroupGreen" Color="#74D894"/>
+    <SolidColorBrush x:Key="GroupPink" Color="#F795CC"/>
+    <SolidColorBrush x:Key="GroupPurple" Color="#BCA2FF"/>
+    <SolidColorBrush x:Key="GroupCyan" Color="#66D6E2"/>
+    <SolidColorBrush x:Key="GroupOrange" Color="#FFAA66"/>
+    <SolidColorBrush x:Key="GroupGrey" Color="#ABA6B8"/>
     <Color x:Key="PageBg">#14101B</Color>
     <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Courier New</FontFamily>
 

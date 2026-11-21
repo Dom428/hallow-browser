@@ -113,15 +113,21 @@ namespace HallowBrowser
         public readonly List<SidePanel> Panels = new List<SidePanel>();
         public SidePanel Open;
         readonly Border rail; readonly StackPanel railList; readonly Grid host, viewBox; readonly GridSplitter splitter;
-        readonly ColumnDefinition railCol, hostCol, splitCol;
+        ColumnDefinition railCol, hostCol, splitCol;
+        readonly ColumnDefinition[] leftCols, rightCols;   // 1.2: rail | panel | splitter on the left, or splitter | panel | rail on the right
+        public bool Right;
         readonly TextBlock headTitle; readonly Button uaBtn;
         static string IconDir { get { return Path.Combine(BrowserSettings.LocalDir, "sidebar"); } }
 
-        // builds into the body grid's first three columns: rail | panel | splitter (the pages are in the fourth)
+        // builds into the body grid: columns 1-3 (left: rail | panel | splitter) or 5-7 (right: splitter | panel | rail); the pages are in 4
         public Sidebar(BrowserWindow win, Grid body)
         {
             w = win;
-            railCol = body.ColumnDefinitions[0]; hostCol = body.ColumnDefinitions[1]; splitCol = body.ColumnDefinitions[2];
+            leftCols = new[] { body.ColumnDefinitions[1], body.ColumnDefinitions[2], body.ColumnDefinitions[3] };
+            rightCols = new[] { body.ColumnDefinitions[7], body.ColumnDefinitions[6], body.ColumnDefinitions[5] };
+            railCol = leftCols[0]; hostCol = leftCols[1]; splitCol = leftCols[2];
+            foreach (var c in leftCols.Concat(rightCols)) c.Width = new GridLength(0);
+            leftCols[1].MaxWidth = rightCols[1].MaxWidth = SidebarRules.MaxWidth;
             rail = new Border { Width = 46, BorderThickness = new Thickness(0, 0, 1, 0) };
             rail.SetResourceReference(Border.BackgroundProperty, "Rail"); rail.SetResourceReference(Border.BorderBrushProperty, "LineDim");
             var rg = new Grid(); rg.RowDefinitions.Add(new RowDefinition()); rg.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -131,7 +137,7 @@ namespace HallowBrowser
             var add = Ui.Tool("plus", "Add a site to the sidebar", null, 12); add.Width = 34; add.Height = 34; add.Margin = new Thickness(0, 4, 0, 8); add.HorizontalAlignment = HorizontalAlignment.Center;
             add.Click += (a, b) => AddFlyout(add);
             Grid.SetRow(add, 1); rg.Children.Add(add);
-            rail.Child = rg; Grid.SetColumn(rail, 0); body.Children.Add(rail);
+            rail.Child = rg; Grid.SetColumn(rail, 1); body.Children.Add(rail);
 
             host = new Grid { Visibility = Visibility.Collapsed };
             host.SetResourceReference(Panel.BackgroundProperty, "Bg");
@@ -149,17 +155,29 @@ namespace HallowBrowser
             var hl = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom }; hl.SetResourceReference(Border.BackgroundProperty, "LineDim"); Grid.SetColumnSpan(hl, 2); head.Children.Add(hl);
             host.Children.Add(head);
             viewBox = new Grid(); Grid.SetRow(viewBox, 1); host.Children.Add(viewBox);
-            Grid.SetColumn(host, 1); body.Children.Add(host);
+            Grid.SetColumn(host, 2); body.Children.Add(host);
 
             splitter = new GridSplitter { Width = 5, HorizontalAlignment = HorizontalAlignment.Stretch, ResizeBehavior = GridResizeBehavior.PreviousAndNext, ResizeDirection = GridResizeDirection.Columns, Visibility = Visibility.Collapsed, ToolTip = "Drag to resize the panel" };
             splitter.SetResourceReference(Control.BackgroundProperty, "LineDim");
             splitter.DragCompleted += (a, b) => { if (Open != null) { Open.Site.Width = SidebarRules.ClampWidth(hostCol.ActualWidth); hostCol.Width = new GridLength(Open.Site.Width); w.S.Save(); } };
-            Grid.SetColumn(splitter, 2); body.Children.Add(splitter);
-            hostCol.Width = new GridLength(0); splitCol.Width = new GridLength(0);
-            hostCol.MaxWidth = SidebarRules.MaxWidth;
+            Grid.SetColumn(splitter, 3); body.Children.Add(splitter);
             Rebuild();
             ApplyOn();
         }
+        // 1.2: the sidebar on the left or the right (next to vertical tabs it moves to the right)
+        public void Dock(bool right)
+        {
+            if (right == Right) return;
+            Right = right;
+            var cols = right ? rightCols : leftCols;
+            foreach (var c in leftCols.Concat(rightCols)) c.Width = new GridLength(0);
+            railCol = cols[0]; hostCol = cols[1]; splitCol = cols[2];
+            Grid.SetColumn(rail, right ? 7 : 1); Grid.SetColumn(host, right ? 6 : 2); Grid.SetColumn(splitter, right ? 5 : 3);
+            rail.BorderThickness = right ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
+            ApplyOn();
+            if (Open != null) { hostCol.Width = new GridLength(SidebarRules.ClampWidth(Open.Site.Width)); splitCol.Width = GridLength.Auto; }
+        }
+        PlacementMode Side { get { return Right ? PlacementMode.Left : PlacementMode.Right; } }
         static Button Small(string icon, string tip, Action click) { var b = Ui.Tool(icon, tip, click, 11); b.Width = 28; b.Height = 26; return b; }
 
         // ---- the rail
@@ -395,7 +413,7 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("up-right-from-square", "Open in a tab", null, () => run(() => w.NewTab(p.Core != null ? p.Core.Source : p.Site.Url, true))));
             sp.Children.Add(Ui.MenuRow("trash-can", "Remove from the sidebar", null, () => run(() => Remove(p))));
             Panels_CloseOpen();
-            pop = new Popup { Child = Ui.Flyout(sp, 240), PlacementTarget = p.RailBtn, Placement = PlacementMode.Right, StaysOpen = false, AllowsTransparency = true };
+            pop = new Popup { Child = Ui.Flyout(sp, 240), PlacementTarget = p.RailBtn, Placement = Side, StaysOpen = false, AllowsTransparency = true };
             pop.IsOpen = true;
         }
         static void Panels_CloseOpen() { HallowBrowser.Panels.CloseFlyouts(); }
@@ -419,7 +437,7 @@ namespace HallowBrowser
             box.KeyDown += (a, b) => { if (b.Key == Key.Enter) { go(); b.Handled = true; } };
             sp.Children.Add(Ui.Row(Ui.Btn("Add", go, true, "plus")));
             Panels_CloseOpen();
-            pop = new Popup { Child = Ui.Flyout(sp, 300), PlacementTarget = at, Placement = PlacementMode.Right, StaysOpen = false, AllowsTransparency = true };
+            pop = new Popup { Child = Ui.Flyout(sp, 300), PlacementTarget = at, Placement = Side, StaysOpen = false, AllowsTransparency = true };
             pop.Opened += (a, b) => box.Focus();
             pop.IsOpen = true;
         }

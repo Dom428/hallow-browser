@@ -27,6 +27,12 @@ namespace HallowBrowser
 
         // the tab's look in the strip
         public Border Header; public TextBlock TitleBlock; public ContentControl IconHost; public Button CloseBtn; public Path Sound;
+        // 1.2: the group stripe, the speaker button (mute), the split-view mark and the box holding them
+        public Border GroupLine; public Button SoundBtn; public Path SplitMark; public StackPanel RightBox;
+        public TabGroup Group;                // its tab group, or null
+        public bool ReaderOn, Readable;       // reader mode shown / the page looks like an article
+        public string ProbedUrl;              // the address the article check ran for
+        public FrameworkElement ReaderView; public ReaderDoc ReaderDoc;
 
         public bool Internal { get { return Url == Omni.SettingsUrl; } }
         public Microsoft.Web.WebView2.Core.CoreWebView2 Core { get { try { return View == null ? null : View.CoreWebView2; } catch { return null; } } }

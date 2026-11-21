@@ -127,7 +127,10 @@ namespace HallowBrowser
         public static readonly Dictionary<string, string> KeyLight = new Dictionary<string, string> {
             { "Bg", LBg }, { "Strip", LPanel2 }, { "Bar", LPanel }, { "Panel", LPanel }, { "PanelHi", LPanel2 }, { "TabOn", LPanel }, { "TabHover", LBg },
             { "FieldBg", LBg }, { "FieldFocus", LPanel }, { "Line", LBorder }, { "LineDim", LBorder }, { "Text", LText }, { "Muted", LMuted }, { "Lilac", LLilac },
-            { "AccentGlow", "#00F07820" }, { "OnAccent", LText }, { "Green", LGreen }, { "Amber", LAmber }, { "Red", LRed }, { "PageBg", LBg }, { "Rail", LPanel2 }, { "BadgeBg", LRed } };
+            { "AccentGlow", "#00F07820" }, { "OnAccent", LText }, { "Green", LGreen }, { "Amber", LAmber }, { "Red", LRed }, { "PageBg", LBg }, { "Rail", LPanel2 }, { "BadgeBg", LRed },
+            // 1.2: tab group colours, dark enough for text on the light strip (4.5:1)
+            { "GroupBlue", "#2858A8" }, { "GroupRed", "#B02A38" }, { "GroupYellow", "#7A5600" }, { "GroupGreen", "#1A7442" }, { "GroupPink", "#A42D6C" },
+            { "GroupPurple", "#6741B5" }, { "GroupCyan", "#0E6A76" }, { "GroupOrange", "#9C4A0A" }, { "GroupGrey", "#5C5768" } };
         public static readonly Dictionary<string, string> TemplateLight = new Dictionary<string, string> {
             { "#1E1829", LPanel }, { "#463C58", "#CFC6DE" }, { "#221C2E", LPanel }, { "#2A2336", LPanel2 }, { "#9790A8", LMuted }, { "#3A3248", "#CFC6DE" },
             { "#ECE8F4", LText }, { "#14101B", LBg }, { "#110E17", LPanel2 }, { "#1C1726", LPanel } };

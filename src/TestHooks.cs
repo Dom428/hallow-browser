@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Web.WebView2.Core;
 
 namespace HallowBrowser
@@ -150,7 +151,86 @@ namespace HallowBrowser
                 case "test-look":
                     return Program.OnUi(w, () => { string scheme = null; try { var p = w.Profile; if (p != null) scheme = p.PreferredColorScheme.ToString(); } catch { } return "ok " + js.Serialize(new Dictionary<string, object> { { "light", Look.IsLight }, { "scheme", scheme }, { "bg", ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Bg")).Color.ToString() } }); });
             }
+            if (cmd.StartsWith("test-p-")) return Power(w, cmd.Substring(7), arg);
             return "error unknown test command";
+        }
+
+        // ---- 1.2: vertical tabs, groups, workspaces, sessions, split, Ctrl+K, history, screenshots, reader, mute
+        static Dictionary<string, object> Layout(BrowserWindow w)
+        {
+            Func<FrameworkElement, double> width = e => e == null ? -1 : e.ActualWidth;
+            return new Dictionary<string, object> {
+                { "vertical", w.S.VerticalTabs }, { "collapsed", w.S.VTabsCollapsed }, { "sidebarRight", w.Side.Right }, { "workspace", w.CurrentSpace == null ? null : w.CurrentSpace.Name },
+                { "workspaces", w.Spaces == null ? new List<object>() : w.Spaces.Items.Select(x => (object)new Dictionary<string, object> { { "name", x.Name }, { "tabs", x.Id == w.SpaceId ? w.Tabs.Count : WorkspaceRules.TabCount(x.Session) } }).ToList() },
+                { "groups", w.Groups.Select(g => (object)new Dictionary<string, object> { { "name", g.Name }, { "color", g.Color }, { "collapsed", g.Collapsed }, { "tabs", w.Tabs.Select((t, i) => t.Group == g ? i : -1).Where(i => i >= 0).ToList() }, { "chipShown", g.Chip != null && g.Chip.Parent != null } }).ToList() },
+                { "tabs", w.Tabs.Select((t, i) => (object)new Dictionary<string, object> { { "i", i }, { "url", t.Url }, { "title", t.Title }, { "group", t.Group == null ? null : t.Group.Name }, { "headerShown", t.Header.Visibility == Visibility.Visible && t.Header.Parent != null },
+                    { "discarded", t.Discarded }, { "muted", t.Muted }, { "audible", t.Audible }, { "soundButton", t.SoundBtn.Visibility == Visibility.Visible },
+                    { "readable", t.Readable }, { "reader", t.ReaderOn }, { "viewVisible", t.View != null && t.View.Visibility == Visibility.Visible }, { "viewWidth", t.View == null ? -1 : t.View.ActualWidth }, { "column", t.View == null ? -1 : Grid.GetColumn(t.View) }, { "active", t == w.Active } }).ToList() },
+                { "split", w.SplitOn }, { "splitL", w.SplitOn ? w.Tabs.IndexOf(w.SplitL) : -1 }, { "splitR", w.SplitOn ? w.Tabs.IndexOf(w.SplitR) : -1 },
+                { "contentWidth", w.ContentGrid.ActualWidth } };
+        }
+        static string Power(BrowserWindow w, string cmd, string arg)
+        {
+            string rest;
+            switch (cmd)
+            {
+                case "layout": return Program.OnUi(w, () => "ok " + js.Serialize(Layout(w)));
+                case "vertical": return Program.OnUi(w, () => { if ((arg == "on") != w.S.VerticalTabs) w.ToggleVerticalTabs(); return "ok"; });
+                case "icons": return Program.OnUi(w, () => { if ((arg == "on") != w.S.VTabsCollapsed) w.ToggleVTabsCollapsed(); return "ok"; });
+                case "group-new": { var t = TabAt(w, Split(arg, out rest)); if (t == null) return "error no tab"; return Program.OnUi(w, () => { var g = w.NewGroup(t, rest); return "ok " + w.Groups.IndexOf(g); }); }
+                case "group-add": { var t = TabAt(w, Split(arg, out rest)); int g; if (t == null || !int.TryParse(rest, out g)) return "error"; return Program.OnUi(w, () => { if (g < 0 || g >= w.Groups.Count) return "error no group"; w.AddToGroup(t, w.Groups[g]); return "ok"; }); }
+                case "group-color": { int g; var c = Split(arg, out rest); if (!int.TryParse(c, out g)) return "error"; return Program.OnUi(w, () => { w.Groups[g].Color = GroupRules.Normalize(rest); w.RenderStrip(); w.SaveSession(); return "ok"; }); }
+                case "group-collapse": { int g; if (!int.TryParse(arg, out g)) return "error"; return Program.OnUi(w, () => { if (g < 0 || g >= w.Groups.Count) return "error no group"; w.ToggleCollapse(w.Groups[g]); return "ok " + w.Groups[g].Collapsed; }); }
+                case "group-sleep": { int g; if (!int.TryParse(arg, out g)) return "error"; return Program.OnUi(w, () => { if (g < 0 || g >= w.Groups.Count) return "error no group"; return "ok " + w.SleepGroup(w.Groups[g]); }); }
+                // a drag as the mouse does it: the tab moves to <index> (or onto group <g>'s label: "chip <g>"), then the drop
+                case "drag":
+                {
+                    var t = TabAt(w, Split(arg, out rest)); if (t == null) return "error no tab";
+                    return Program.OnUi(w, () =>
+                    {
+                        var dt = typeof(BrowserWindow).GetField("dropChip", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var da = typeof(BrowserWindow).GetField("dragActive", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        da.SetValue(w, true);
+                        if (rest.StartsWith("chip ")) dt.SetValue(w, w.Groups[int.Parse(rest.Substring(5))]);
+                        else { int to = int.Parse(rest); w.Tabs.Remove(t); w.Tabs.Insert(Math.Max(0, Math.Min(to, w.Tabs.Count)), t); }
+                        w.DropTab(t); return "ok " + w.Tabs.IndexOf(t);
+                    });
+                }
+                case "ws-new": return Async(w, async () => { var ws = w.NewWorkspace(arg, null); for (int i = 0; i < 100 && w.SpaceId != ws.Id; i++) await Task.Delay(50); await Task.Delay(300); return "ok " + ws.Name; });
+                case "ws-switch": return Async(w, async () => { var ws = w.Spaces.Items.FirstOrDefault(x => x.Name == arg); if (ws == null) return "error no workspace"; await w.SwitchWorkspace(ws.Id); return "ok " + w.Tabs.Count; });
+                case "session-save": return Program.OnUi(w, () => "ok " + w.SaveNamed(arg));
+                case "session-restore": return Async(w, async () => { await w.RestoreSaved(arg); return "ok " + (w.CurrentSpace == null ? "" : w.CurrentSpace.Name); });
+                case "split": { var t = TabAt(w, arg); if (t == null) return "error no tab"; return Program.OnUi(w, () => { w.AddToSplit(t); return "ok " + w.SplitOn; }); }
+                case "split-swap": return Program.OnUi(w, () => { w.SwapSplit(); return "ok"; });
+                case "split-close": return Program.OnUi(w, () => { w.CloseSplit(); return "ok"; });
+                case "palette": return Program.OnUi(w, () => "ok " + js.Serialize(Palette.Search(w, arg, 12).Select(x => new Dictionary<string, object> { { "kind", x.Kind }, { "title", x.Title }, { "sub", x.Sub } }).ToList()));
+                case "palette-run": { int n; if (!int.TryParse(Split(arg, out rest), out n)) return "error"; return Program.OnUi(w, () => { var r = Palette.Search(w, rest, 12); if (n >= r.Count) return "error no item"; r[n].Run(); return "ok " + r[n].Kind + ": " + r[n].Title; }); }
+                case "history": return Program.OnUi(w, () => w.History == null ? "ok {\"count\":-1}" : "ok " + js.Serialize(new Dictionary<string, object> { { "count", w.History.Count }, { "loaded", w.History.Loaded }, { "first", w.History.All().Take(5).Select(h => h.Url + "|" + h.Title + "|" + h.Visits).ToList() } }));
+                case "history-clear": return Program.OnUi(w, () => { w.ClearHistory(); return "ok"; });
+                case "history-save": return Program.OnUi(w, () => { if (w.History != null) w.History.Save(); return "ok"; });
+                case "bookmark": return Program.OnUi(w, () => { w.ToggleBookmark(w.Active); return "ok " + w.IsBookmarked(w.Active); });
+                // shot <visible|full|region> <save|copy> [x y w h in fractions]
+                case "shot":
+                {
+                    var p = arg.Split(' ');
+                    Rect? r = null; if (p.Length >= 6) r = new Rect(double.Parse(p[2], System.Globalization.CultureInfo.InvariantCulture), double.Parse(p[3], System.Globalization.CultureInfo.InvariantCulture), double.Parse(p[4], System.Globalization.CultureInfo.InvariantCulture), double.Parse(p[5], System.Globalization.CultureInfo.InvariantCulture));
+                    return Async(w, async () => "ok " + await Shots.Take(w, p[0], p.Length > 1 && p[1] == "save", r) + "|" + Shots.LastCopiedBytes);
+                }
+                case "reader":
+                {
+                    var t = TabAt(w, arg); if (t == null) return "error no tab";
+                    return Async(w, async () =>
+                    {
+                        var d = await w.ToggleReaderAsync(t);
+                        if (d == null) return "error no doc";
+                        return "ok " + js.Serialize(new Dictionary<string, object> { { "ok", d.Ok }, { "on", t.ReaderOn }, { "title", d.Title }, { "site", d.Site }, { "words", d.Words }, { "blocks", d.Blocks.Count }, { "kinds", d.Blocks.Select(b => b.T).Distinct().ToList() }, { "text", Reader.Text(d) }, { "viewShown", t.ReaderView != null && t.ReaderView.Visibility == Visibility.Visible } });
+                    });
+                }
+                case "reader-font": return Program.OnUi(w, () => { var t = w.Active; if (t == null || t.ReaderView == null) return "error"; var v = (FlowDocumentScrollViewer)t.ReaderView.Tag; return "ok " + v.Document.FontSize + " " + v.Document.Tag + " " + (v.Document.Foreground is System.Windows.Media.SolidColorBrush ? ((System.Windows.Media.SolidColorBrush)v.Document.Foreground).Color.ToString() : ""); });
+                case "mute-others": { var t = TabAt(w, arg); if (t == null) return "error no tab"; return Program.OnUi(w, () => "ok " + w.MuteOthers(t)); }
+                case "sound-click": { var t = TabAt(w, arg); if (t == null) return "error no tab"; return Program.OnUi(w, () => { if (t.SoundBtn.Visibility != Visibility.Visible) return "error no speaker"; t.SoundBtn.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)); return "ok"; }); }
+            }
+            return "error unknown power test command";
         }
         static List<HotRow> lastHot;
         static int ProcessCount() { try { return Engine.Env.GetProcessInfos().Count; } catch { return -1; } }

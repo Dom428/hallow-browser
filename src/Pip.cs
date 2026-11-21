@@ -26,6 +26,7 @@ namespace HallowBrowser
             if (t == null || t.PoppedOut || t.View == null || t.Core == null) { if (t != null && t.Core == null) bw.Toast("Open the tab first, then pop out its video.", 4); return; }
             string has; try { has = await t.Core.ExecuteScriptAsync("document.querySelectorAll('video').length"); } catch { has = "0"; }
             if (has == "0") { bw.Toast("There's no video on this page to pop out.", 4); return; }
+            if (t == bw.SplitL || t == bw.SplitR) bw.CloseSplit();   // 1.2: a popped-out tab leaves the split view
             var view = t.View;
             bw.ContentGrid.Children.Remove(view);
             var w = new Window { Title = t.Title + " - Hallow Browser", WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.CanResizeWithGrip, Topmost = true, ShowInTaskbar = true, Width = 480, Height = 300, Icon = Ui.AppIcon() };

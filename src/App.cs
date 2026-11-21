@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 namespace HallowBrowser
 {
     public static class Program
     {
-        public const string Version = "1.1";
+        public const string Version = "1.2";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static BrowserWindow Win;
@@ -121,7 +121,7 @@ namespace HallowBrowser
             return Family.Json(new Dictionary<string, object> {
                 { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true },
                 { "tabs", w.Tabs.Count }, { "asleep", w.Tabs.Count(t => t.Suspended || t.Discarded) }, { "gameMode", w.Game != null }, { "game", w.Game },
-                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
+                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
 
         // ---- the family pipe
@@ -144,7 +144,8 @@ namespace HallowBrowser
                         new Dictionary<string, object> { { "id", "-" } },
                         new Dictionary<string, object> { { "id", "game-light" }, { "label", "Gaming-light mode" }, { "checked", w.S.GameLight } },
                         new Dictionary<string, object> { { "id", "cpu-limiter" }, { "label", "CPU limiter" }, { "checked", w.S.CpuLimiter } },
-                        new Dictionary<string, object> { { "id", "sidebar" }, { "label", "Sidebar" }, { "checked", w.S.SidebarOn } } } } }));
+                        new Dictionary<string, object> { { "id", "sidebar" }, { "label", "Sidebar" }, { "checked", w.S.SidebarOn } },
+                        new Dictionary<string, object> { { "id", "vertical-tabs" }, { "label", "Vertical tabs" }, { "checked", w.S.VerticalTabs } } } } }));
                 case "invoke":
                     return OnUi(w, () =>
                     {
@@ -155,6 +156,7 @@ namespace HallowBrowser
                             case "game-light": w.S.GameLight = !w.S.GameLight; w.S.Save(); w.Tick(true); return "ok";
                             case "cpu-limiter": w.S.CpuLimiter = !w.S.CpuLimiter; w.S.Save(); w.Tick(true); return "ok";
                             case "sidebar": w.Side.Toggle(); return "ok";
+                            case "vertical-tabs": w.ToggleVerticalTabs(); return "ok";
                         }
                         return "error unknown item";
                     });
@@ -184,6 +186,7 @@ namespace HallowBrowser
                 CoreWebView2BrowsingDataKinds.DiskCache | CoreWebView2BrowsingDataKinds.AllDomStorage | CoreWebView2BrowsingDataKinds.GeneralAutofill | CoreWebView2BrowsingDataKinds.PasswordAutosave;
             try { await Task.WhenAny(p.ClearBrowsingDataAsync(kinds), Task.Delay(8000)); } catch { }
             lock (w.S.Typed) w.S.Typed.Clear();
+            if (w.History != null) w.History.Clear(); else try { File.Delete(HistoryStore.DefaultPath); } catch { }   // 1.2: the local history store
             w.Downloads.Clear(); w.S.Save();
         }
 
@@ -229,6 +232,7 @@ namespace HallowBrowser
                 var sfx = light ? "-light" : "";
                 Action<string, Action<BrowserWindow>> shot = (name, setup) =>
                 {
+                    s.VerticalTabs = false; s.VTabsCollapsed = false;
                     var w = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                     w.SnapFill("news", name.Contains("game"), name.Contains("keys"));
                     if (setup != null) setup(w);
@@ -240,10 +244,18 @@ namespace HallowBrowser
                 shot("browser-keys", null);
                 shot("sidebar", w => w.Side.SnapShow("discord", Panels.MockChat(), new Dictionary<string, string> { { "discord", "3" }, { "whatsapp", "12" } }));
                 shot("hot-tabs", w => w.ContentGrid.Children.Add(HotTabs.SnapPanel()));
+                // 1.2: groups, vertical tabs (and icons only, beside the sidebar on the right), split view, reader, Ctrl+K, workspaces
+                shot("groups", w => w.SnapPower("groups"));
+                shot("vertical-tabs", w => { w.SnapPower("vertical"); w.Side.SnapShow("discord", Panels.MockChat(), new Dictionary<string, string> { { "discord", "3" } }); });
+                shot("vertical-icons", w => w.SnapPower("vertical-icons"));
+                shot("split", w => w.SnapPower("split"));
+                shot("reader", w => w.SnapPower("reader"));
+                shot("palette", w => w.SnapPower("palette"));
+                shot("workspaces", w => w.SnapPower("workspaces"));
                 var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                 ws.SnapFill("news", false, false);
                 var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);
-                Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 2300);
+                Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 2750);
                 ws.Close();
             }
         }

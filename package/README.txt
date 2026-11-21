@@ -9,6 +9,25 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.2 - POWER FEATURES
+- Vertical tabs: tabs in a column on the left with their icons, folding to icons only
+  (Settings, or right-click a tab). The sidebar moves to the right beside them.
+- Tab groups: right-click a tab > Add to a new group. Named and coloured; click the name
+  to fold a group away, right-click it to rename, recolour or put the whole group to
+  sleep; drag a tab onto it to add it. Saved with your tabs.
+- Workspaces (top left): separate sets of tabs and groups, like Gaming and Work, each with
+  its own tabs next time - all on the same sign-ins. Save a session with a name and
+  restore it later.
+- Split view: Ctrl+click a tab to show it beside the one you're on; drag the divider,
+  swap the sides.
+- Ctrl+K: one box that finds your tabs, history, bookmarks (new: Ctrl+D), every command
+  and setting, and sidebar panels. History stays on this PC; Settings > Clear history.
+- Screenshots (Ctrl+Shift+X): the visible area, the whole page or a region you drag -
+  copy it or save it to Pictures\Hallow Browser.
+- Reader mode (F9): a clean, text-first view of articles in light or dark, with text size
+  and width.
+- Mute: click the speaker on a tab; right-click > Mute all other tabs.
+
 WHAT'S NEW IN 1.1 - THE GAMER SIDEBAR
 - Sidebar (Ctrl+Shift+S): Discord, Twitch, YouTube, Spotify and WhatsApp beside the page,
   or any site you add. Each panel stays signed in like a tab, has a phone/desktop version

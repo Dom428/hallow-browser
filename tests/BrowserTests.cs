@@ -26,7 +26,7 @@ namespace HallowBrowser.Tests
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);
             try
             {
-                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All();
+                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All();
             }
             catch (Exception e) { fail++; Console.WriteLine("FAIL crashed: " + e); }
             finally { try { Directory.Delete(dir, true); } catch { } }

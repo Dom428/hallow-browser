@@ -41,6 +41,7 @@ namespace HallowBrowser
         public static readonly int[] SleepChoices = { 0, 5, 15, 30, 60 };
         public static readonly int[] RamChoices = { 0, 2048, 4096, 8192 };
         public static readonly int[] PanelSleepChoices = { 0, 1, 5, 10, 30 };
+        public static readonly int[] ReaderSizes = { 14, 16, 18, 20, 22, 24, 28 };
         public static readonly int[] BandwidthChoices = { 0, 256, 1024, 4096, 10240 };   // KB/s per tab, 0 = off
 
         [DataMember] public string Search = "duckduckgo";
@@ -76,12 +77,20 @@ namespace HallowBrowser
         [DataMember] public List<string> LiveChannels;         // "twitch:<name>" / "youtube:@<handle>"
         [DataMember] public int BandwidthKBps;                 // per-tab download cap (DevTools network emulation), 0 = off
         [DataMember] public bool BandwidthGameOnly = true;     // only while a game runs
+        // 1.2: power features
+        [DataMember] public bool VerticalTabs;                 // tabs in a column on the left instead of the title bar
+        [DataMember] public bool VTabsCollapsed;               // that column shows icons only
+        [DataMember] public string SidebarSide = "auto";       // auto (right with vertical tabs, else left) | left | right
+        [DataMember] public int ReaderFontSize = 18;           // reader mode text size (px)
+        [DataMember] public string ReaderWidth = "medium";     // narrow | medium | wide
+        [DataMember] public bool KeepHistory = true;           // the local history store (Ctrl+K searches it)
 
         [OnDeserializing] void Defaults(StreamingContext c)
         {
             Search = "duckduckgo"; RestoreSession = true; BlockThirdPartyCookies = true; DoNotTrack = true; PageColors = "dark"; UseHallowAccent = true;
             GameLight = true; SleepMinutes = 15; Preconnect = true; KeysOn = true; ShieldAutoUpdate = true; Left = Top = double.NaN; Width = 1280; Height = 820;
-            Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
+            Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;
+            SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
         }
 
         public static BrowserSettings Load()
@@ -114,6 +123,9 @@ namespace HallowBrowser
             if (Array.IndexOf(BandwidthChoices, BandwidthKBps) < 0) BandwidthKBps = 0;
             if (Array.IndexOf(SleepChoices, SleepMinutes) < 0) SleepMinutes = 15;
             if (Array.IndexOf(RamChoices, RamLimitMb) < 0) RamLimitMb = 0;
+            if (SidebarSide != "left" && SidebarSide != "right") SidebarSide = "auto";
+            if (Array.IndexOf(ReaderSizes, ReaderFontSize) < 0) ReaderFontSize = 18;
+            if (ReaderWidth != "narrow" && ReaderWidth != "wide") ReaderWidth = "medium";
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
@@ -153,8 +165,33 @@ namespace HallowBrowser
         }
         public static void SaveSession(Session s) { Write(SessionPath, s, typeof(Session)); }
         public static void DeleteSession() { try { File.Delete(SessionPath); } catch { } }
+        // 1.2: workspaces (each with its own session) and named saved sessions, next to session.json
+        static string WorkspacesPath { get { return Path.Combine(Dir, "workspaces.json"); } }
+        static string SavedPath { get { return Path.Combine(Dir, "saved-sessions.json"); } }
+        public static WorkspaceStore LoadWorkspaces() { return Read<WorkspaceStore>(WorkspacesPath) ?? new WorkspaceStore(); }
+        public static void SaveWorkspaces(WorkspaceStore s) { Write(WorkspacesPath, s, typeof(WorkspaceStore)); }
+        public static List<SavedSession> LoadSaved() { var l = Read<SavedList>(SavedPath); return l == null || l.Items == null ? new List<SavedSession>() : l.Items.Where(x => x != null && x.Session != null).ToList(); }
+        public static void SaveSaved(List<SavedSession> items) { Write(SavedPath, new SavedList { Items = items }, typeof(SavedList)); }
+        public static T Read<T>(string path) where T : class
+        {
+            try { if (File.Exists(path)) using (var f = File.OpenRead(path)) return (T)new DataContractJsonSerializer(typeof(T)).ReadObject(f); } catch { }
+            return null;
+        }
+        public static void WriteFile(string path, object o, Type t) { Write(path, o, t); }
     }
 
-    [DataContract] public class SessionTab { [DataMember] public string Url; [DataMember] public string Title; }
-    [DataContract] public class Session { [DataMember] public List<SessionTab> Tabs = new List<SessionTab>(); [DataMember] public int Active; }
+    [DataContract] public class SessionTab { [DataMember] public string Url; [DataMember] public string Title; [DataMember] public string Group; }
+    [DataContract] public class SessionGroup { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public string Color; [DataMember] public bool Collapsed; }
+    [DataContract]
+    public class Session
+    {
+        [DataMember] public List<SessionTab> Tabs = new List<SessionTab>(); [DataMember] public int Active;
+        [DataMember] public List<SessionGroup> Groups;   // 1.2: tab groups (tabs name theirs by Id)
+        [DataMember] public string Split;                // 1.2: "left,right" tab indexes of the split view, or null
+    }
+    // 1.2: workspaces - separate sets of tabs and groups on the same profile (same sign-ins)
+    [DataContract] public class Workspace { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public Session Session; }
+    [DataContract] public class WorkspaceStore { [DataMember] public string Current; [DataMember] public List<Workspace> Items = new List<Workspace>(); }
+    [DataContract] public class SavedSession { [DataMember] public string Name; [DataMember] public string Saved; [DataMember] public Session Session; }
+    [DataContract] public class SavedList { [DataMember] public List<SavedSession> Items = new List<SavedSession>(); }
 }

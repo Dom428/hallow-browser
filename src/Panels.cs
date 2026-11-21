@@ -44,6 +44,15 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("up-right-from-square", "Pop out video", null, () => run(() => { if (w.Active != null) Pip.PopOut(w, w.Active); })));
             sp.Children.Add(Ui.MenuRow("table-columns", w.S.SidebarOn ? "Hide the sidebar" : "Show the sidebar", "Ctrl+Shift+S", () => run(() => w.Side.Toggle())));
             sp.Children.Add(Ui.MenuRow("fire", "Hot tabs (CPU and memory)", "Shift+Esc", () => run(() => HotTabs.Flyout(w, at))));
+            sp.Children.Add(Sep());
+            // 1.2: the power features
+            sp.Children.Add(Ui.MenuRow("terminal", "Command palette", "Ctrl+K", () => run(() => Palette.Show(w))));
+            sp.Children.Add(Ui.MenuRow("table-list", w.S.VerticalTabs ? "Tabs in the title bar" : "Vertical tabs", null, () => run(w.ToggleVerticalTabs)));
+            sp.Children.Add(Ui.MenuRow("table-columns", w.SplitOn ? "Close split view" : "Split view with the next tab", "Ctrl+click", () => run(() => { if (w.SplitOn) w.CloseSplit(); else if (w.Active != null && w.Tabs.Count > 1) w.AddToSplit(w.Tabs[(w.Tabs.IndexOf(w.Active) + 1) % w.Tabs.Count]); })));
+            sp.Children.Add(Ui.MenuRow("camera", "Screenshot", "Ctrl+Shift+X", () => run(w.ShowScreenshot)));
+            var rd = Ui.MenuRow("book-open", w.Active != null && w.Active.ReaderOn ? "Leave reader mode" : "Reader mode", "F9", () => run(() => w.ToggleReader(w.Active))); rd.IsEnabled = w.Active != null && (w.Active.Readable || w.Active.ReaderOn); sp.Children.Add(rd);
+            sp.Children.Add(Ui.MenuRow("bookmark", "Bookmarks", "Ctrl+D adds", () => run(w.ShowBookmarks)));
+            sp.Children.Add(Ui.MenuRow("briefcase", "Workspaces and saved sessions", null, () => run(() => w.ShowWorkspaces(false))));
             // zoom row
             var zg = new Grid { Margin = new Thickness(12, 4, 8, 4) };
             zg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); zg.ColumnDefinitions.Add(new ColumnDefinition()); zg.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -77,8 +86,18 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("arrow-rotate-right", "Reload", null, () => run(() => { if (t.Core != null) t.Core.Reload(); })));
             sp.Children.Add(Ui.MenuRow("plus", "Duplicate", null, () => run(() => w.Duplicate(t))));
             sp.Children.Add(Ui.MenuRow(t.Muted ? "volume-high" : "volume-xmark", t.Muted ? "Unmute site" : "Mute tab", "Ctrl+Shift+M", () => run(() => w.ToggleMute(t))));
+            sp.Children.Add(Ui.MenuRow("volume-xmark", "Mute all other tabs", null, () => run(() => w.MuteOthers(t))));
             sp.Children.Add(Ui.MenuRow("up-right-from-square", t.PoppedOut ? "Bring video back" : "Pop out video", null, () => run(() => { if (t.PoppedOut) Pip.Return(w, t); else Pip.PopOut(w, t); })));
             sp.Children.Add(Ui.MenuRow("moon", "Put to sleep", null, () => run(() => w.Discard(t))));
+            // 1.2: groups, split view, workspaces, vertical tabs
+            sp.Children.Add(Sep());
+            sp.Children.Add(Ui.MenuRow("layer-group", "Add to a new group", null, () => run(() => w.NewGroup(t, null))));
+            foreach (var g in w.Groups.ToList()) { var gg = g; if (t.Group != g) sp.Children.Add(Ui.MenuRow("layer-group", "Add to " + g.Name, null, () => run(() => w.AddToGroup(t, gg)))); }
+            if (t.Group != null) sp.Children.Add(Ui.MenuRow("layer-group", "Remove from " + t.Group.Name, null, () => run(() => w.RemoveFromGroup(t))));
+            if (w.SplitOn && (t == w.SplitL || t == w.SplitR)) { sp.Children.Add(Ui.MenuRow("right-left", "Swap the split sides", null, () => run(w.SwapSplit))); sp.Children.Add(Ui.MenuRow("xmark", "Close split view", null, () => run(w.CloseSplit))); }
+            else if (t != w.Active) sp.Children.Add(Ui.MenuRow("table-columns", "Split view with this tab", "Ctrl+click", () => run(() => w.AddToSplit(t))));
+            if (w.Spaces != null) foreach (var ws in w.Spaces.Items.Where(x => x.Id != w.SpaceId).ToList()) { var id = ws.Id; sp.Children.Add(Ui.MenuRow("briefcase", "Move to " + ws.Name, null, () => run(() => w.MoveToWorkspace(t, id)))); }
+            sp.Children.Add(Ui.MenuRow("table-list", w.S.VerticalTabs ? "Tabs in the title bar" : "Vertical tabs", null, () => run(w.ToggleVerticalTabs)));
             sp.Children.Add(Sep());
             sp.Children.Add(Ui.MenuRow("xmark", "Close tab", "Ctrl+W", () => run(() => w.CloseTab(t))));
             sp.Children.Add(Ui.MenuRow("xmark", "Close other tabs", null, () => run(() => w.CloseOthers(t))));
@@ -311,12 +330,15 @@ namespace HallowBrowser
             col.Children.Add(card("Start-up", new UIElement[] {
                 Ui.Switch("Open the tabs from last time", "Session restore: tabs you had open come back (each loads when you click it).", S.RestoreSession, on => { S.RestoreSession = on; save(); }) }));
 
+            col.Children.Add(card("Tabs and workspaces", TabsSettings(w)));
+
             col.Children.Add(card("Privacy", new UIElement[] {
                 Ui.Switch("Block third-party cookies", "Sites can't follow you around with cookies from other sites. Applies after a restart.", S.BlockThirdPartyCookies, on => { S.BlockThirdPartyCookies = on; save(); }),
                 Ui.Switch("Ask sites not to track or sell my data", "Sends Global Privacy Control (Sec-GPC) and Do Not Track.", S.DoNotTrack, on => { S.DoNotTrack = on; save(); }),
                 Ui.Switch("Strict tracking prevention", "Microsoft's tracking prevention on Strict instead of Balanced (may break some sites).", S.StrictTracking, on => { S.StrictTracking = on; save(); w.ApplyPageColors(); }),
                 Ui.Switch("Clear browsing data when I close the browser", null, S.ClearOnExit, on => { S.ClearOnExit = on; save(); }),
-                Ui.Row(Ui.Btn("Clear browsing data now...", () => ClearData(w), false, "broom")),
+                Ui.Switch("Keep a history of the pages I visit", "Only on this PC (in the profile folder), so Ctrl+K can find them again. At most 5,000 pages.", S.KeepHistory, on => { S.KeepHistory = on; save(); }),
+                Ui.Row(Ui.Btn("Clear browsing data now...", () => ClearData(w), false, "broom"), Ui.Btn("Clear history", () => w.ClearHistory(), false, "clock-rotate-left")),
                 Ui.Muted("The page engine is Microsoft's WebView2 runtime, which has its own diagnostic data settings (Windows Settings > Privacy > Diagnostics). Hallow Browser has no server and sends nothing anywhere.", 11.5, 0) }));
 
             col.Children.Add(card("Look", new UIElement[] {
@@ -367,6 +389,28 @@ namespace HallowBrowser
             return sv;
         }
 
+        // ---------------------------------------------------------------- 1.2: Settings > Tabs and workspaces
+        static UIElement[] TabsSettings(BrowserWindow w)
+        {
+            var S = w.S; var items = new List<UIElement>();
+            items.Add(Ui.Switch("Vertical tabs", "Tabs in a column on the left (with their site icons) instead of the title bar. Also in the tab's right-click menu.", S.VerticalTabs, on => { if (on != S.VerticalTabs) w.ToggleVerticalTabs(); }));
+            items.Add(Ui.Switch("Icons only", "The tab column shows just the site icons (hover for the title).", S.VTabsCollapsed, on => { if (on != S.VTabsCollapsed) w.ToggleVTabsCollapsed(); }));
+            items.Add(Ui.Muted("Tab groups: right-click a tab > Add to a new group. Click a group's name to fold it away, right-click it to rename, recolour, put the whole group to sleep or ungroup; drag a tab onto it to add the tab. Groups are saved with the session.", 11.5, 10));
+            var names = w.Spaces == null ? "Default" : string.Join(", ", w.Spaces.Items.Select(x => x.Name + (x.Id == w.SpaceId ? " (here)" : "")));
+            items.Add(Ui.Muted("Workspaces: " + names, 12, 4));
+            items.Add(Ui.Muted("Separate sets of tabs and groups (e.g. Gaming, Work) on the same profile, so you stay signed in everywhere. Switch, add, rename and save sessions with the switcher at the top left.", 11.5, 6));
+            items.Add(Ui.Row(Ui.Btn("Workspaces and saved sessions...", () => w.ShowWorkspaces(false), false, "briefcase")));
+            items.Add(new Border { Height = 10 });
+            items.Add(Ui.Muted("Reader mode (F9): text size", 12, 6));
+            items.Add(Ui.Chips(BrowserSettings.ReaderSizes.Select(x => new KeyValuePair<int, string>(x, x + " px")).ToList(), S.ReaderFontSize, v => { S.ReaderFontSize = v; S.Save(); }));
+            items.Add(Ui.Muted("Reader mode: text width", 12, 6));
+            items.Add(Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("narrow", "Narrow"), new KeyValuePair<string, string>("medium", "Medium"), new KeyValuePair<string, string>("wide", "Wide") }, S.ReaderWidth, v => { S.ReaderWidth = v; S.Save(); }));
+            items.Add(new Border { Height = 10 });
+            items.Add(Ui.Muted("Screenshots (Ctrl+Shift+X) you save go to Pictures\\Hallow Browser.", 12, 6));
+            items.Add(Ui.Row(Ui.Btn("Open the screenshots folder", () => { try { System.IO.Directory.CreateDirectory(Shots.Folder); Process.Start(Shots.Folder); } catch { } }, false, "folder-open")));
+            return items.ToArray();
+        }
+
         // ---------------------------------------------------------------- 1.1: Settings > Sidebar
         static UIElement[] SidebarSettings(BrowserWindow w)
         {
@@ -401,6 +445,8 @@ namespace HallowBrowser
             box.KeyDown += (a, b) => { if (b.Key == Key.Enter) { add(); b.Handled = true; } };
             items.Add(Ui.Row(box, Ui.Btn("Add a site", add, true, "plus"), Ui.Btn("Put the usual ones back", () => { foreach (var d in SidebarRules.Defaults()) if (!S.SidebarSites.Any(x => x.Id == d.Id)) S.SidebarSites.Add(d); S.Save(); w.Side.Rebuild(); fill(); }, false, "rotate-left")));
             items.Add(msg);
+            items.Add(Ui.Muted("Side", 12, 6));
+            items.Add(Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("auto", "Away from vertical tabs"), new KeyValuePair<string, string>("left", "Left"), new KeyValuePair<string, string>("right", "Right") }, S.SidebarSide, v => { S.SidebarSide = v; S.Save(); w.ApplyTabLayout(); }));
             items.Add(Ui.Muted("Hidden panels go to sleep after", 12, 6));
             items.Add(Ui.Chips(BrowserSettings.PanelSleepChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Never" : m + " min")).ToList(), S.SidebarSleepMinutes, v => { S.SidebarSleepMinutes = v; S.Save(); }));
             items.Add(Ui.Muted("In game mode hidden panels sleep at once. A panel playing sound (Spotify, a stream) stays awake. Badges show counts from the page title, like \"(3) Discord\".", 11.5, 0));

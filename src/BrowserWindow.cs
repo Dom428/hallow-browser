@@ -91,7 +91,8 @@ namespace HallowBrowser
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // game chip
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // caption buttons
             var logo = new Button { Style = Ui.S("Tool"), Width = 38, Height = 38, ToolTip = "Hallow quick panel", Content = new Image { Source = Ui.AppIcon(), Width = 20, Height = 20 } };
-            logo.Click += (a, b) => Panels.Quick(this, logo); Chrome(logo); top.Children.Add(logo);
+            logo.Click += (a, b) => Panels.Quick(this, logo); Chrome(logo);
+            top.Children.Add(Ui.Row(logo, BuildWorkspaceButton()));   // 1.2: the workspace switcher, top left
             stripHost = new Grid { ClipToBounds = true }; Grid.SetColumn(stripHost, 1);
             var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
             strip = new StackPanel { Orientation = Orientation.Horizontal };
@@ -136,6 +137,7 @@ namespace HallowBrowser
             zoomChip.Click += (a, b) => SetZoom(1.0);
             keyBtn = Ui.Tool("key", "Fill a login from Hallow Keys", () => Panels.Keys(this, keyBtn), 13); keyBtn.Height = 24; keyBtn.Width = 28; keyBtn.Visibility = Visibility.Collapsed;
             inBar.Children.Add(zoomChip); inBar.Children.Add(keyBtn);
+            BuildAddressExtras(inBar);   // 1.2: reader mode, bookmark star
             ag.Children.Add(inBar);
             addressBox.Child = ag; bar.Children.Add(addressBox);
             var right = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(right, 2);
@@ -163,9 +165,11 @@ namespace HallowBrowser
 
             // ---- row 3: pages
             // 1.1: the body is the sidebar (rail | panel | splitter) and the pages
+            // 1.2: vertical tabs | sidebar on the left (rail | panel | splitter) | pages (split view inside) | sidebar on the right
             var body = new Grid(); Grid.SetRow(body, 3);
-            for (int i = 0; i < 4; i++) body.ColumnDefinitions.Add(new ColumnDefinition { Width = i == 3 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
-            content = new Grid(); content.SetResourceReference(Panel.BackgroundProperty, "Bg"); Grid.SetColumn(content, 3); body.Children.Add(content);
+            for (int i = 0; i < 8; i++) body.ColumnDefinitions.Add(new ColumnDefinition { Width = i == 4 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
+            content = new Grid(); content.SetResourceReference(Panel.BackgroundProperty, "Bg"); Grid.SetColumn(content, 4); body.Children.Add(content);
+            BuildSplit(); BuildVerticalTabs(body);
             var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top }; line.SetResourceReference(Border.BackgroundProperty, "LineDim"); Grid.SetRow(line, 3);
             popPlaceholder = new Border { Visibility = Visibility.Collapsed };
             var ppSp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -176,6 +180,7 @@ namespace HallowBrowser
             popPlaceholder.Child = ppSp; content.Children.Add(popPlaceholder);
             Side = new Sidebar(this, body);
             root.Children.Add(body); root.Children.Add(line);
+            ApplyTabLayout();
 
             // ---- toast and suggestions
             toastText = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 420 };
@@ -211,27 +216,15 @@ namespace HallowBrowser
             try { await (Engine.Starting ?? Engine.Create(S)); }
             catch (Exception e) { Toast("The page engine (Microsoft Edge WebView2) didn't start: " + e.Message, 15); return; }
             Engine.WriteNewTab(S, Program.AccentHex);
-            var session = S.RestoreSession ? BrowserSettings.LoadSession() : null;
-            var first = new List<SessionTab>();
-            if (session != null && session.Tabs != null) first.AddRange(session.Tabs.Where(t => t != null && t.Url != null && (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || t.Url == Omni.SettingsUrl)));
-            int activeIdx = session != null ? Math.Max(0, Math.Min(session.Active, first.Count - 1)) : 0;
-            foreach (var u in urls) { first.Add(new SessionTab { Url = u }); activeIdx = first.Count - 1; }
-            if (first.Count == 0) first.Add(new SessionTab { Url = Omni.NewTabUrl });
+            // 1.2: the current workspace's session (session.json is always the current workspace's); its groups and split come back too
+            LoadSpaces();
+            Session session = null;
+            if (S.RestoreSession) { session = BrowserSettings.LoadSession(); if (session == null && CurrentSpace != null) session = CurrentSpace.Session; }
             // the tab you'll see first is made first; the others wait (as discarded tabs) until you click them
-            for (int i = 0; i < first.Count; i++)
-            {
-                var t = new Tab { Url = first[i].Url, Title = first[i].Title ?? (Omni.IsNewTab(first[i].Url) ? "New tab" : Omni.HostOf(first[i].Url) ?? "Tab") };
-                AddHeader(t, Tabs.Count); Tabs.Add(t);
-                if (i != activeIdx) { t.Discarded = true; t.LastActive = DateTime.Now.AddSeconds(-i); }
-            }
-            var act = Tabs[activeIdx];
-            act.PendingUrl = act.Url;
-            if (act.Url == Omni.SettingsUrl) { act.Discarded = false; ShowSettingsIn(act); Activate(act); }
-            else { await CreateView(act, null); Activate(act); }
-            if (Omni.IsNewTab(act.Url) && !BrowserSettings.Offscreen) Address.Focus();
+            await OpenSession(session, urls, true);
             tick.Start(); Tick(true);
             // background work after the first page is on its way
-            var _ = Dispatcher.BeginInvoke(new Action(async () => { await Task.Delay(1200); MakePrewarm(); await Task.Delay(800); Side.ReopenLast(); }), DispatcherPriority.ApplicationIdle);
+            var _ = Dispatcher.BeginInvoke(new Action(async () => { await Task.Delay(1200); MakePrewarm(); await Task.Delay(800); Side.ReopenLast(); await Task.Delay(500); EnsureStores(); }), DispatcherPriority.ApplicationIdle);
             Live = new LiveWatcher(this); Live.Start();
             BackgroundChecks();
             WriteStatus();
@@ -245,6 +238,9 @@ namespace HallowBrowser
             int at = index >= 0 ? index : Active != null ? Tabs.IndexOf(Active) + 1 : Tabs.Count;
             at = Math.Max(0, Math.Min(at, Tabs.Count));
             AddHeader(t, at); Tabs.Insert(at, t);
+            // 1.2: opened between two tabs of a group = in that group
+            t.Group = GroupRules.Drop(at > 0 ? Tabs[at - 1].Group : null, at + 1 < Tabs.Count ? Tabs[at + 1].Group : null, null, null, false);
+            RenderStrip();
             if (t.OpenTimer != null) lock (Engine.Perf) Engine.Perf["newtab-header"] = t.OpenTimer.Elapsed.TotalMilliseconds;
             if (t.Url == Omni.SettingsUrl) ShowSettingsIn(t);
             else if (!snap)
@@ -259,10 +255,11 @@ namespace HallowBrowser
         }
         async Task CreateView(Tab t, CoreWebView2NewWindowRequestedEventArgs nw)
         {
-            var v = new WebView2 { Visibility = Active == t ? Visibility.Visible : Visibility.Hidden };
+            var v = new WebView2 { Visibility = IsShown(t) && !t.ReaderOn ? Visibility.Visible : Visibility.Hidden };
             try { var c = (Color)FindResource("PageBg"); v.DefaultBackgroundColor = System.Drawing.Color.FromArgb(c.R, c.G, c.B); } catch { }
             t.View = v; t.Discarded = false; t.Ready = false;
-            content.Children.Add(v);
+            content.Children.Add(v); LayoutSplit();
+            v.GotFocus += (a, b) => ViewFocused(Tabs.FirstOrDefault(x => x.View == v));
             try { await v.EnsureCoreWebView2Async(Engine.Env); }
             catch (Exception e) { Toast("A page couldn't start: " + e.Message, 8); return; }
             if (t.View != v) return;
@@ -299,6 +296,7 @@ namespace HallowBrowser
         {
             var v = prewarm; prewarm = null; prewarmReady = false;
             t.View = v; t.Ready = true; t.Url = Omni.NewTabUrl; t.Discarded = false;
+            v.GotFocus += (a, b) => ViewFocused(Tabs.FirstOrDefault(x => x.View == v));
             Rehook(t, v.CoreWebView2);
             if (t.OpenTimer != null) { lock (Engine.Perf) Engine.Perf["newtab-swap"] = t.OpenTimer.Elapsed.TotalMilliseconds; }
             var timer = t.OpenTimer; t.OpenTimer = null;
@@ -314,55 +312,65 @@ namespace HallowBrowser
             try { var _ = prewarm.CoreWebView2.ExecuteScriptAsync("(function(){var l=document.createElement('link');l.rel='preconnect';l.href=" + new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(o) + ";document.head.appendChild(l);})()"); } catch { }
         }
 
+        // the tab's header (1.2: placed by RenderStrip, in the title bar or the vertical column; callers render after adding the tab)
         void AddHeader(Tab t, int index)
         {
             var g = new Grid { Height = 32 };
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            t.GroupLine = new Border { Visibility = Visibility.Collapsed, IsHitTestVisible = false, CornerRadius = new CornerRadius(1) }; Grid.SetColumnSpan(t.GroupLine, 4); g.Children.Add(t.GroupLine);
             t.IconHost = new ContentControl { Width = 16, Height = 16, Margin = new Thickness(10, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center, Focusable = false, IsTabStop = false };
             g.Children.Add(t.IconHost);
             t.TitleBlock = new TextBlock { Text = t.Title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
             Grid.SetColumn(t.TitleBlock, 1); g.Children.Add(t.TitleBlock);
-            t.Sound = Ui.Icon("volume-high", 11, "Lilac"); t.Sound.Margin = new Thickness(4, 0, 2, 0); t.Sound.Visibility = Visibility.Collapsed; Grid.SetColumn(t.Sound, 2); g.Children.Add(t.Sound);
+            // 1.2: the speaker is a button (mute / unmute this tab); a mark shows the tabs of the split view
+            t.SplitMark = Ui.Icon("table-columns", 10, "Lilac"); t.SplitMark.Margin = new Thickness(4, 0, 2, 0); t.SplitMark.Visibility = Visibility.Collapsed; t.SplitMark.ToolTip = "In split view";
+            t.Sound = Ui.Icon("volume-high", 11, "Lilac");
+            t.SoundBtn = new Button { Style = Ui.S("Tool"), Width = 22, Height = 20, Margin = new Thickness(2, 0, 0, 0), Content = t.Sound, Visibility = Visibility.Collapsed, ToolTip = "Mute this tab" };
+            t.SoundBtn.Click += (a, b) => ToggleMute(t);
+            t.RightBox = Ui.Row(t.SplitMark, t.SoundBtn); t.RightBox.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(t.RightBox, 2); g.Children.Add(t.RightBox);
             t.CloseBtn = new Button { Style = Ui.S("Tool"), Width = 20, Height = 20, Margin = new Thickness(2, 0, 6, 0), Content = Ui.Icon("xmark", 9, "Muted"), ToolTip = "Close tab (Ctrl+W)" };
             t.CloseBtn.Click += (a, b) => CloseTab(t); Grid.SetColumn(t.CloseBtn, 3); g.Children.Add(t.CloseBtn);
-            t.Header = new Border { Child = g, CornerRadius = new CornerRadius(8, 8, 0, 0), Margin = new Thickness(0, 6, 1, 0), Width = 200, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = t.Title };
+            t.Header = new Border { Child = g, CornerRadius = new CornerRadius(8, 8, 0, 0), Margin = new Thickness(0, 6, 1, 0), Width = 200, Background = Brushes.Transparent, Cursor = Cursors.Hand, ToolTip = t.Title, HorizontalAlignment = HorizontalAlignment.Left };
             Chrome(t.Header);
             Point down = new Point(); bool dragging = false;
-            t.Header.MouseLeftButtonDown += (a, b) => { if (b.ClickCount == 1) { Activate(t); down = b.GetPosition(strip); dragging = false; t.Header.CaptureMouse(); b.Handled = true; } };
+            t.Header.MouseLeftButtonDown += (a, b) =>
+            {
+                if (b.ClickCount != 1) return;
+                if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) { AddToSplit(t); b.Handled = true; return; }   // 1.2: Ctrl+click = split view
+                Activate(t); down = b.GetPosition(TabPanel); dragging = false; t.Header.CaptureMouse(); b.Handled = true;
+            };
             t.Header.MouseMove += (a, b) =>
             {
                 if (!t.Header.IsMouseCaptured || b.LeftButton != MouseButtonState.Pressed) return;
-                var p = b.GetPosition(strip);
-                if (!dragging && Math.Abs(p.X - down.X) < 6) return;
-                dragging = true;
-                // drag to reorder: the slot under the mouse
-                double x = 0; int slot = Tabs.Count - 1;
-                for (int i = 0; i < Tabs.Count; i++) { x += Tabs[i].Header.ActualWidth + 1; if (p.X < x) { slot = i; break; } }
-                int cur = Tabs.IndexOf(t);
-                if (slot != cur) MoveTab(t, slot);
+                var p = b.GetPosition(TabPanel);
+                if (!dragging && Math.Abs(S.VerticalTabs ? p.Y - down.Y : p.X - down.X) < 6) return;
+                if (!dragging) { dragging = true; dragActive = true; }
+                DragTo(t, p);   // reorder; over a group's label = into that group
             };
-            t.Header.MouseLeftButtonUp += (a, b) => { t.Header.ReleaseMouseCapture(); if (dragging) Changed(); dragging = false; };
+            t.Header.MouseLeftButtonUp += (a, b) => { var d = dragging; dragging = false; t.Header.ReleaseMouseCapture(); if (d) DropTab(t); };
+            t.Header.LostMouseCapture += (a, b) => { if (dragging) { dragging = false; DropTab(t); } };
             t.Header.MouseDown += (a, b) => { if (b.ChangedButton == MouseButton.Middle) { CloseTab(t); b.Handled = true; } };
             t.Header.MouseRightButtonUp += (a, b) => { Panels.TabMenu(this, t); b.Handled = true; };
             t.Header.MouseEnter += (a, b) => { if (t != Active) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); };
-            t.Header.MouseLeave += (a, b) => { if (t != Active) t.Header.Background = Brushes.Transparent; };
-            strip.Children.Insert(Math.Min(index, strip.Children.Count), t.Header);
+            t.Header.MouseLeave += (a, b) => { if (t != Active) { if (IsShown(t)) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); else t.Header.Background = Brushes.Transparent; } };
             SetTabIcon(t);
-            FitTabs();
         }
         public void MoveTab(Tab t, int to)
         {
             int cur = Tabs.IndexOf(t); if (cur < 0) return;
             to = Math.Max(0, Math.Min(to, Tabs.Count - 1)); if (to == cur) return;
             Tabs.RemoveAt(cur); Tabs.Insert(to, t);
-            strip.Children.Remove(t.Header); strip.Children.Insert(to, t.Header);
-            Changed();
+            RenderStrip(); Changed();
         }
         void FitTabs()
         {
             if (Tabs.Count == 0) return;
-            double avail = Math.Max(100, stripHost.ActualWidth - 44);
-            double w = Math.Max(48, Math.Min(230, avail / Tabs.Count - 1));
+            if (S.VerticalTabs) { bool ic = S.VTabsCollapsed; foreach (var t in Tabs) { t.Header.Width = double.NaN; t.CloseBtn.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; } return; }
+            int vis = Tabs.Count(t => t.Header.Visibility == Visibility.Visible);
+            double chips = 0;
+            foreach (var g in Groups) if (g.Chip != null && g.Chip.Parent == strip) { g.Chip.Measure(new Size(double.PositiveInfinity, 38)); chips += g.Chip.DesiredSize.Width; }
+            double avail = Math.Max(100, stripHost.ActualWidth - 44 - chips);
+            double w = vis == 0 ? 200 : Math.Max(48, Math.Min(230, avail / vis - 1));
             foreach (var t in Tabs) { t.Header.Width = w; t.CloseBtn.Visibility = w < 80 && t != Active ? Visibility.Collapsed : Visibility.Visible; }
         }
         void SetTabIcon(Tab t)
@@ -373,42 +381,56 @@ namespace HallowBrowser
             else if (Omni.IsNewTab(t.Url)) t.IconHost.Content = new Image { Source = Ui.AppIcon(), Width = 16, Height = 16 };
             else t.IconHost.Content = Ui.Icon("globe", 13, "Muted");
             t.Header.Opacity = t.Suspended || t.Discarded ? 0.62 : 1;
-            t.Sound.Visibility = t.Audible || t.Muted ? Visibility.Visible : Visibility.Collapsed;
-            if (t.Muted) { t.Sound.Data = Icons.Get("volume-xmark"); } else t.Sound.Data = Icons.Get("volume-high");
+            t.SoundBtn.Visibility = t.Audible || t.Muted ? Visibility.Visible : Visibility.Collapsed;
+            t.Sound.Data = Icons.Get(t.Muted ? "volume-xmark" : "volume-high");
+            t.SoundBtn.ToolTip = t.Muted ? "Unmute this tab" : "Mute this tab";
+            if (S.VerticalTabs && S.VTabsCollapsed) t.Header.ToolTip = t.Title + (t.Audible ? " (playing)" : "") + (t.Muted ? " (muted)" : "");
         }
 
         public void Activate(Tab t)
         {
             if (t == null || !Tabs.Contains(t)) return;
             var old = Active; Active = t; t.LastActive = DateTime.Now;
+            if (t.Group != null && t.Group.Collapsed) { t.Group.Collapsed = false; RenderStrip(); }
+            bool split = SplitShown;
             foreach (var x in Tabs)
             {
-                bool on = x == t;
+                bool on = x == t, shown = on || (split && (x == SplitL || x == SplitR));
                 if (on) { x.Header.SetResourceReference(Border.BackgroundProperty, "TabOn"); x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Text"); }
+                else if (shown) { x.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Text"); }
                 else { x.Header.Background = Brushes.Transparent; x.TitleBlock.SetResourceReference(TextBlock.ForegroundProperty, "Muted"); }
-                if (x.View != null && !x.PoppedOut) x.View.Visibility = on ? Visibility.Visible : Visibility.Hidden;
-                if (x.Page != null) x.Page.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                if (x.View != null && !x.PoppedOut) x.View.Visibility = shown && !x.ReaderOn ? Visibility.Visible : Visibility.Hidden;
+                if (x.Page != null) x.Page.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+                if (x.ReaderView != null) x.ReaderView.Visibility = shown && x.ReaderOn ? Visibility.Visible : Visibility.Collapsed;
             }
             popPlaceholder.Visibility = t.PoppedOut ? Visibility.Visible : Visibility.Collapsed;
-            if (t.Discarded && !t.Internal && !snap) { t.PendingUrl = t.Url; var _ = CreateView(t, null); }
-            if (t.Suspended && t.Core != null) { try { t.Core.Resume(); } catch { } t.Suspended = false; t.SleptByGame = false; }
-            if (t.Crashed && t.Core != null) { t.Crashed = false; try { t.Core.Reload(); } catch { } }
+            foreach (var x in split ? new[] { SplitL, SplitR } : new[] { t })
+            {
+                if (x.Discarded && !x.Internal && !snap) { x.PendingUrl = x.Url; var _ = CreateView(x, null); }
+                if (x.Suspended && x.Core != null) { try { x.Core.Resume(); } catch { } x.Suspended = false; x.SleptByGame = false; }
+                if (x.Crashed && x.Core != null) { x.Crashed = false; try { x.Core.Reload(); } catch { } }
+                if (x != t) SetTabIcon(x);
+            }
+            LayoutSplit();
             SetTabIcon(t); FitTabs();
             UpdateBar();
             if (findBar.Visibility == Visibility.Visible) FindStart();
             if (old != t) Changed();
+            if (t.Ready && t.ProbedUrl != t.Url && !snap) ProbeReader(t);
         }
         public void CloseTab(Tab t)
         {
             int i = Tabs.IndexOf(t); if (i < 0) return;
             if (t.PoppedOut) Pip.Close(this, t, false);
             if (Omni.IsWeb(t.Url) || t.Internal) { closed.Add(new SessionTab { Url = t.Url, Title = t.Title }); if (closed.Count > 25) closed.RemoveAt(0); }
-            Tabs.RemoveAt(i); strip.Children.Remove(t.Header);
+            if (t == SplitL || t == SplitR) SplitL = SplitR = null;
+            Tabs.RemoveAt(i); TabPanel.Children.Remove(t.Header);
             if (t.View != null) { content.Children.Remove(t.View); try { t.View.Dispose(); } catch { } t.View = null; }
             if (t.Page != null) { content.Children.Remove(t.Page); t.Page = null; }
+            if (t.ReaderView != null) { content.Children.Remove(t.ReaderView); t.ReaderView = null; }
             if (Tabs.Count == 0) { if (BrowserSettings.TestDir != null && BrowserSettings.Offscreen) { NewTab(Omni.NewTabUrl, true); } else { Close(); return; } }
             else if (Active == t) Activate(Tabs[Math.Min(i, Tabs.Count - 1)]);
-            FitTabs(); Changed();
+            RenderStrip(); LayoutSplit(); Changed();
         }
         public void ReopenClosed()
         {
@@ -439,6 +461,8 @@ namespace HallowBrowser
             if (Fallback != null) try { c.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All); } catch { }
             c.WebResourceRequested += OnRequest;
             if (capApplied > 0) { capped.Add(c); var ___ = Throttle.Apply(c, capApplied); }
+            // 1.2: in split view, clicking into a side makes it the active tab
+            var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
             Rehook(t, c);
         }
@@ -450,9 +474,10 @@ namespace HallowBrowser
             owner[c] = t;
             if (!hooked.Add(c)) { SyncFromCore(t, c); return; }
             Func<Tab> T = () => { Tab x; return owner.TryGetValue(c, out x) ? x : null; };
-            c.SourceChanged += (a, b) => { var x = T(); if (x == null) return; x.Url = c.Source; if (x == Active) UpdateBar(); Changed(); };
-            c.DocumentTitleChanged += (a, b) => { var x = T(); if (x == null) return; x.Title = c.DocumentTitle; if (string.IsNullOrWhiteSpace(x.Title)) x.Title = Omni.HostOf(x.Url) ?? "Tab"; if (Omni.IsNewTab(x.Url)) x.Title = "New tab"; x.TitleBlock.Text = x.Title; x.Header.ToolTip = x.Title; if (x == Active) UpdateTitle(); Changed(); };
-            c.NavigationStarting += (a, b) => { var x = T(); if (x == null) return; x.Loading = true; x.KeysItems = null; x.KeysLocked = false; if (!Omni.IsNewTab(b.Uri)) x.Favicon = null; SetTabIcon(x); if (x == Active) UpdateBar(); };
+            c.SourceChanged += (a, b) => { var x = T(); if (x == null) return; if (c.Source == "about:blank" && !x.Ready && x.Url != null && x.Url != "about:blank") return; x.Url = c.Source; if (x == Active) UpdateBar(); Changed(); };
+            c.DocumentTitleChanged += (a, b) => { var x = T(); if (x == null) return; x.Title = c.DocumentTitle; if (string.IsNullOrWhiteSpace(x.Title)) x.Title = Omni.HostOf(x.Url) ?? "Tab"; if (Omni.IsNewTab(x.Url)) x.Title = "New tab"; x.TitleBlock.Text = x.Title; x.Header.ToolTip = x.Title; if (x == Active) UpdateTitle(); if (History != null && Omni.IsWeb(x.Url)) History.SetTitle(x.Url, x.Title); Changed(); };
+            c.NavigationStarting += (a, b) => { var x = T(); if (x == null) return; x.Loading = true; x.KeysItems = null; x.KeysLocked = false; if (!Omni.IsNewTab(b.Uri)) x.Favicon = null; x.Readable = false; x.ProbedUrl = null; if (x.ReaderOn) ReaderOff(x); SetTabIcon(x); if (x == Active) UpdateBar(); };
+            c.WebMessageReceived += (a, b) => { string m = null; try { m = b.TryGetWebMessageAsString(); } catch { } if (m == "hallow:focus") ViewFocused(T()); };
             c.NavigationCompleted += (a, b) =>
             {
                 var x = T(); if (x == null) return; x.Loading = false; x.Ready = true; SetTabIcon(x);
@@ -460,7 +485,7 @@ namespace HallowBrowser
                 if (Tabs.Count > 0 && x == Tabs[0]) Engine.Mark("first-page-loaded");
                 Engine.Mark("first-navigation-completed");
                 if (x == Active) UpdateBar();
-                if (b.IsSuccess && Omni.IsWeb(x.Url)) { var _ = CheckKeys(x, c, 0); }
+                if (b.IsSuccess && Omni.IsWeb(x.Url)) { var _ = CheckKeys(x, c, 0); RecordHistory(x); if (x == Active) ProbeReader(x); }
             };
             c.HistoryChanged += (a, b) => { var x = T(); if (x == Active) UpdateBar(); };
             c.FaviconChanged += async (a, b) =>
@@ -511,6 +536,8 @@ namespace HallowBrowser
                 var nt = new Tab { Url = b.Uri, Title = Omni.HostOf(b.Uri) ?? "Tab" };
                 int at = x != null ? Tabs.IndexOf(x) + 1 : Tabs.Count;
                 AddHeader(nt, at); Tabs.Insert(at, nt);
+                if (x != null && x.Group != null) nt.Group = x.Group;   // 1.2: a link from a grouped tab opens in its group
+                RenderStrip();
                 await CreateView(nt, b);
                 if (nt.Core != null) { b.NewWindow = nt.Core; b.Handled = true; }
                 if (!(b.WindowFeatures != null && b.WindowFeatures.HasSize == false && b.IsUserInitiated && (Keyboard.Modifiers & ModifierKeys.Control) != 0)) Activate(nt);
@@ -538,7 +565,7 @@ namespace HallowBrowser
         }
         void SyncFromCore(Tab t, CoreWebView2 c)
         {
-            try { t.Url = c.Source; t.Audible = c.IsDocumentPlayingAudio; t.Muted = c.IsMuted; } catch { }
+            try { var src = c.Source; if (!(src == "about:blank" && !t.Ready && t.Url != null)) t.Url = src; t.Audible = c.IsDocumentPlayingAudio; t.Muted = c.IsMuted; } catch { }   // 1.2: a view that is still starting keeps the address it is going to
             if (Omni.IsNewTab(t.Url)) t.Title = "New tab"; t.TitleBlock.Text = t.Title; SetTabIcon(t);
             if (t == Active) UpdateBar();
             if (t.View != null) { t.View.ZoomFactorChanged -= ZoomChanged; t.View.ZoomFactorChanged += ZoomChanged; }
@@ -594,7 +621,7 @@ namespace HallowBrowser
             keyBtn.Opacity = t.KeysItems != null && t.KeysItems.Count > 0 ? 1 : 0.5;
             keyBtn.ToolTip = t.KeysLocked ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
-            UpdateZoom(); UpdateTitle();
+            UpdateBarPower(t); UpdateZoom(); UpdateTitle();
         }
         void UpdateTitle() { Title = Active == null || Omni.IsNewTab(Active.Url) ? "Hallow Browser" : Active.Title + " - Hallow Browser"; }
         void UpdateZoom()
@@ -701,7 +728,7 @@ namespace HallowBrowser
                 preFullState = WindowState; preFullMargin = root.Margin;
                 root.RowDefinitions[0].Height = new GridLength(0); root.RowDefinitions[1].Height = new GridLength(0); root.RowDefinitions[2].Height = new GridLength(0);
                 root.Children.OfType<FrameworkElement>().Where(x => Grid.GetRow(x) < 3).ToList().ForEach(x => x.Visibility = Visibility.Collapsed);
-                wc.CaptionHeight = 0; root.Margin = new Thickness(0); Side.FullScreen(true);
+                wc.CaptionHeight = 0; root.Margin = new Thickness(0); Side.FullScreen(true); ApplyTabLayout();
                 if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal;
                 WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize; WindowState = WindowState.Maximized;
             }
@@ -710,7 +737,7 @@ namespace HallowBrowser
                 root.RowDefinitions[0].Height = new GridLength(38); root.RowDefinitions[1].Height = GridLength.Auto; root.RowDefinitions[2].Height = GridLength.Auto;
                 root.Children.OfType<FrameworkElement>().Where(x => Grid.GetRow(x) < 3 && x != findBar).ToList().ForEach(x => x.Visibility = Visibility.Visible);
                 wc.CaptionHeight = 38; WindowStyle = WindowStyle.SingleBorderWindow; ResizeMode = ResizeMode.CanResize;
-                WindowState = preFullState; FitMaximized(); Side.FullScreen(false);
+                WindowState = preFullState; FitMaximized(); Side.FullScreen(false); ApplyTabLayout();
             }
         }
 
@@ -731,7 +758,10 @@ namespace HallowBrowser
                     case Key.PageDown: act = () => Cycle(1); break;
                     case Key.PageUp: act = () => Cycle(-1); break;
                     case Key.L: act = FocusAddress; break;
-                    case Key.K: case Key.E: act = () => { FocusAddress(); }; break;
+                    case Key.E: act = () => { FocusAddress(); }; break;
+                    case Key.K: act = () => Palette.Show(this); break;                                   // 1.2: the command palette
+                    case Key.D: if (!shift) act = () => ToggleBookmark(Active); break;                    // 1.2: bookmark
+                    case Key.X: if (shift) act = ShowScreenshot; break;                                    // 1.2: screenshot
                     case Key.R: act = () => { if (Active != null && Active.Core != null) { if (shift) Active.Core.CallDevToolsProtocolMethodAsync("Page.reload", "{\"ignoreCache\":true}"); else Active.Core.Reload(); } }; break;
                     case Key.F: act = ShowFind; break;
                     case Key.G: act = () => FindNext(!shift); break;
@@ -760,6 +790,7 @@ namespace HallowBrowser
                 else if (k == Key.F6) act = FocusAddress;
                 else if (k == Key.F3) act = () => { if (findBar.Visibility != Visibility.Visible) ShowFind(); else FindNext(!shift); };
                 else if (k == Key.F11) act = () => SetFullscreen(!fullscreen);
+                else if (k == Key.F9) act = () => ToggleReader(Active);                                    // 1.2: reader mode
                 else if (k == Key.F12) act = () => { if (Active != null && Active.Core != null) Active.Core.OpenDevToolsWindow(); };
                 else if (k == Key.Escape && shift) act = () => HotTabs.Flyout(this, menuBtn);
                 else if (k == Key.Escape && fullscreen && !(Active != null && Active.Core != null && Active.Core.ContainsFullScreenElement)) act = () => SetFullscreen(false);
@@ -906,11 +937,11 @@ namespace HallowBrowser
         void Changed() { saveTimer.Stop(); saveTimer.Start(); statusTimer.Stop(); statusTimer.Start(); }
         public void SaveSession()
         {
-            if (snap) return;
-            var s = new Session();
-            foreach (var t in Tabs) if (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || t.Internal) s.Tabs.Add(new SessionTab { Url = t.Url, Title = t.Title });
-            s.Active = Active == null ? 0 : Math.Max(0, s.Tabs.FindIndex(x => x.Url == Active.Url));
+            if (snap || Tabs.Count == 0) return;
+            // 1.2: with groups and the split; the current workspace keeps its copy in workspaces.json too
+            var s = BuildSession();
             BrowserSettings.SaveSession(s);
+            var ws = CurrentSpace; if (ws != null) { ws.Session = s; BrowserSettings.SaveWorkspaces(Spaces); }
         }
         public void WriteStatus()
         {
@@ -954,6 +985,7 @@ namespace HallowBrowser
             foreach (var t in Tabs.Where(x => x.PoppedOut).ToList()) Pip.Close(this, t, false);
             if (snap) return;
             SaveSession();
+            if (History != null) History.Save();
             if (!fullscreen) { S.Maximized = WindowState == WindowState.Maximized; if (WindowState == WindowState.Normal && !BrowserSettings.Offscreen) { S.Left = Left; S.Top = Top; S.Width = Width; S.Height = Height; } }
             S.Save();
             if (S.ClearOnExit && !clearedOnExit && Active != null && Active.Core != null)
@@ -971,15 +1003,15 @@ namespace HallowBrowser
         public CoreWebView2Profile Profile { get { var t = Tabs.FirstOrDefault(x => x.Core != null); return t == null ? null : t.Core.Profile; } }
         public Grid ContentGrid { get { return content; } }
         public void ShowPlaceholder(bool on) { popPlaceholder.Visibility = on ? Visibility.Visible : Visibility.Collapsed; }
-        public void Refresh(Tab t) { SetTabIcon(t); if (t == Active) UpdateBar(); }
+        public void Refresh(Tab t) { SetTabIcon(t); LayoutSplit(); if (t == Active) UpdateBar(); }
 
         void ShowSettingsIn(Tab t)
         {
             t.Url = Omni.SettingsUrl; t.Title = "Settings"; t.TitleBlock.Text = t.Title; t.Discarded = false;
             t.Page = Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
-            content.Children.Add(t.Page); SetTabIcon(t);
+            content.Children.Add(t.Page); SetTabIcon(t); LayoutSplit();
         }
-        public void ReloadSettings() { var t = Tabs.FirstOrDefault(x => x.Internal); if (t == null) return; content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = t == Active ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); }
+        public void ReloadSettings() { var t = Tabs.FirstOrDefault(x => x.Internal); if (t == null) return; content.Children.Remove(t.Page); t.Page = Panels.SettingsPage(this); t.Page.Visibility = IsShown(t) ? Visibility.Visible : Visibility.Collapsed; content.Children.Add(t.Page); LayoutSplit(); }
         public void ApplyPageColors() { var p = Profile; if (p != null) Engine.ApplyProfile(p, S); Engine.WriteNewTab(S, Program.AccentHex); }
         // 1.1: light / dark changed (theme.json, Windows' setting or the Look choice): title bars, page backgrounds, pages that follow
         public void ThemeChanged()
@@ -1002,15 +1034,16 @@ namespace HallowBrowser
         // --snap: made-up tabs and a made-up page in the content area (never real pages)
         public void SnapFill(string page, bool gameOn, bool keys)
         {
-            Tabs.Clear(); strip.Children.Clear();
+            Tabs.Clear(); Groups.Clear(); strip.Children.Clear(); vlist.Children.Clear();
             var names = new[] { "Hallow News - patch notes", "Delta Force - season guide", "Lo-fi beats to game to", "New tab" };
             foreach (var n in names) { var t = new Tab { Url = n == "New tab" ? Omni.NewTabUrl : "https://example.com/", Title = n }; AddHeader(t, Tabs.Count); Tabs.Add(t); if (n.StartsWith("Lo-fi")) { t.Audible = true; SetTabIcon(t); } }
+            RenderStrip();
             Tabs[2].Suspended = false; Tabs[1].Suspended = gameOn; SetTabIcon(Tabs[1]);
             var act = Tabs[0]; act.Url = "https://news.example.com/patch-notes"; act.KeysItems = keys ? new List<KeysItem> { new KeysItem { Id = "x", Title = "Hallow News", Username = "player@example.com" } } : null;
             Activate(act);
             ShieldState = "extension"; ShieldVersion = "1.7"; ShieldId = "snap"; if (Engine.RuntimeVersion == null) Engine.RuntimeVersion = Engine.FindRuntime();
             if (gameOn) { Game = "Delta Force"; gameChip.Visibility = Visibility.Visible; gameText.Text = "GAME MODE"; }
-            var mock = Panels.MockPage(page); content.Children.Add(mock);
+            var mock = Panels.MockPage(page); mock.Tag = "mock"; content.Children.Add(mock);
             dlBadge.Visibility = Visibility.Visible;
         }
     }
