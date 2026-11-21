@@ -27,6 +27,7 @@ namespace HallowBrowser
             open = p; p.IsOpen = true; return p;
         }
         public static void CloseFlyouts() { if (open != null) open.IsOpen = false; }
+        public static Popup ShowFlyout(UIElement target, UIElement child, double width) { return Show(target, child, width); }
         static FrameworkElement Sep() { var b = new Border { Height = 1, Margin = new Thickness(6, 5, 6, 5) }; b.SetResourceReference(Border.BackgroundProperty, "LineDim"); return b; }
         static TextBlock Head(string text) { var t = Ui.Label(text); t.Margin = new Thickness(12, 8, 12, 6); return t; }
 
@@ -41,6 +42,8 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("download", "Downloads", "Ctrl+J", () => run(() => DownloadsFlyout(w, at))));
             sp.Children.Add(Ui.MenuRow("magnifying-glass", "Find in page", "Ctrl+F", () => run(w.ShowFind)));
             sp.Children.Add(Ui.MenuRow("up-right-from-square", "Pop out video", null, () => run(() => { if (w.Active != null) Pip.PopOut(w, w.Active); })));
+            sp.Children.Add(Ui.MenuRow("table-columns", w.S.SidebarOn ? "Hide the sidebar" : "Show the sidebar", "Ctrl+Shift+S", () => run(() => w.Side.Toggle())));
+            sp.Children.Add(Ui.MenuRow("fire", "Hot tabs (CPU and memory)", "Shift+Esc", () => run(() => HotTabs.Flyout(w, at))));
             // zoom row
             var zg = new Grid { Margin = new Thickness(12, 4, 8, 4) };
             zg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); zg.ColumnDefinitions.Add(new ColumnDefinition()); zg.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -243,6 +246,9 @@ namespace HallowBrowser
             sp.Children.Add(row);
             var mem = w.MemoryMb();
             var mm = Ui.Muted("Browser memory: " + mem + " MB" + (w.S.RamLimitMb > 0 ? " (limit " + w.S.RamLimitMb / 1024 + " GB)" : " (no limit)"), 11.5); mm.Margin = new Thickness(12, 0, 12, 6); sp.Children.Add(mm);
+            var cap = Ui.Muted(w.CapApplied > 0 ? "Bandwidth cap on: " + (int)(w.CapApplied / 1024) + " KB/s per tab" : w.S.BandwidthKBps > 0 ? "Bandwidth cap: " + w.S.BandwidthKBps + " KB/s per tab" + (w.S.BandwidthGameOnly ? ", while a game runs" : "") : "Bandwidth cap: off", 11.5); cap.Margin = new Thickness(12, 0, 12, 6); sp.Children.Add(cap);
+            Popup qp = null;
+            sp.Children.Add(Ui.MenuRow("fire", "Hot tabs - what uses CPU and memory", "Shift+Esc", () => { if (qp != null) qp.IsOpen = false; HotTabs.Flyout(w, at); }));
             sp.Children.Add(Sep());
             sp.Children.Add(Head("Hallow"));
             int shown = 0;
@@ -259,7 +265,7 @@ namespace HallowBrowser
             }
             if (Family.Running("Hub")) { sp.Children.Add(Ui.MenuRow("gamepad", "Open Hallow Hub", null, () => Family.Send("Hub", "open", 1500))); shown++; }
             if (shown == 0) { var m = Ui.Muted("Other Hallow apps show up here when they're running (Guard score, Mixer, Clips, Hub).", 11.5); m.Margin = new Thickness(12, 0, 12, 8); sp.Children.Add(m); }
-            Show(at, sp, 330);
+            qp = Show(at, sp, 330);
         }
         static string NowPlaying(Dictionary<string, object> mixer)
         {
@@ -314,8 +320,11 @@ namespace HallowBrowser
                 Ui.Muted("The page engine is Microsoft's WebView2 runtime, which has its own diagnostic data settings (Windows Settings > Privacy > Diagnostics). Hallow Browser has no server and sends nothing anywhere.", 11.5, 0) }));
 
             col.Children.Add(card("Look", new UIElement[] {
+                Ui.Muted("The browser", 12, 6),
+                Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("follow", "Follow Hallow"), new KeyValuePair<string, string>("light", "Light"), new KeyValuePair<string, string>("dark", "Dark") }, S.Look, v => { S.Look = v; save(); w.Dispatcher.BeginInvoke(new Action(Program.ReloadTheme)); }),
+                Ui.Muted("Follow Hallow = the light / dark mode picked in Hallow Toolkit (theme.json), or Windows' when that says \"Same as Windows\".", 11.5, 10),
                 Ui.Muted("Pages", 12, 6),
-                Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("dark", "Dark when the site allows"), new KeyValuePair<string, string>("auto", "Like Windows"), new KeyValuePair<string, string>("light", "Light") }, S.PageColors, v => { S.PageColors = v; save(); w.ApplyPageColors(); }),
+                Ui.Chips(new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("follow", "Follow the browser"), new KeyValuePair<string, string>("dark", "Dark when the site allows"), new KeyValuePair<string, string>("auto", "Like Windows"), new KeyValuePair<string, string>("light", "Light") }, S.PageColors, v => { S.PageColors = v; save(); w.ApplyPageColors(); }),
                 Ui.Switch("Use the Hallow accent", "The colour picked in Hallow Toolkit (theme.json), live.", S.UseHallowAccent, on => { S.UseHallowAccent = on; save(); Program.ReloadTheme(); }) }));
 
             col.Children.Add(card("Speed and gaming", new UIElement[] {
@@ -325,7 +334,15 @@ namespace HallowBrowser
                 Ui.Chips(BrowserSettings.SleepChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Never" : m + " min")).ToList(), S.SleepMinutes, v => { S.SleepMinutes = v; save(); }),
                 Ui.Muted("RAM limiter: above this, the least recently used tabs sleep, then unload (they reload when you click them)", 12, 6),
                 Ui.Chips(BrowserSettings.RamChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Off" : m / 1024 + " GB")).ToList(), S.RamLimitMb, v => { S.RamLimitMb = v; save(); w.Tick(true); }),
-                Ui.Switch("Warm up the connection to the top suggestion", "Starts connecting while you type, so the page opens sooner.", S.Preconnect, on => { S.Preconnect = on; save(); }) }));
+                Ui.Switch("Warm up the connection to the top suggestion", "Starts connecting while you type, so the page opens sooner.", S.Preconnect, on => { S.Preconnect = on; save(); }),
+                Ui.Muted("Bandwidth limiter: a download cap for each tab and panel", 12, 6),
+                Ui.Chips(BrowserSettings.BandwidthChoices.Select(k => new KeyValuePair<int, string>(k, k == 0 ? "Off" : k >= 1024 ? k / 1024 + " MB/s" : k + " KB/s")).ToList(), S.BandwidthKBps, v => { S.BandwidthKBps = v; save(); w.Tick(true); }),
+                Ui.Switch("Only while a game runs", "Off = always.", S.BandwidthGameOnly, on => { S.BandwidthGameOnly = on; save(); w.Tick(true); }),
+                Ui.Muted("Honestly: WebView2 can't throttle the whole browser. The cap uses the engine's network emulation (DevTools) in every tab and panel separately - five busy tabs can use five times the cap - and it doesn't cover the engine's own traffic or other apps.", 11.5, 0) }));
+
+            col.Children.Add(card("Sidebar", SidebarSettings(w)));
+
+            col.Children.Add(card("Live notifications", LiveSettings(w)));
 
             var shieldInfo = w.ShieldState == "extension" ? "Hallow Shield " + w.ShieldVersion + " is built in and always on (pause it per site in its panel)." : w.ShieldNote ?? "Starting...";
             col.Children.Add(card("Hallow Shield", new UIElement[] {
@@ -350,6 +367,102 @@ namespace HallowBrowser
             return sv;
         }
 
+        // ---------------------------------------------------------------- 1.1: Settings > Sidebar
+        static UIElement[] SidebarSettings(BrowserWindow w)
+        {
+            var S = w.S; var items = new List<UIElement>();
+            items.Add(Ui.Switch("Show the sidebar (Ctrl+Shift+S)", "Pinned sites beside the page. Each panel stays signed in like a tab (same profile) and loads only when you open it.", S.SidebarOn, on => { if (on != S.SidebarOn) w.Side.Toggle(); }));
+            var list = new StackPanel { Margin = new Thickness(0, 4, 0, 8) };
+            Action fill = null;
+            fill = () =>
+            {
+                list.Children.Clear();
+                foreach (var site in S.SidebarSites.ToList())
+                {
+                    var st = site;
+                    var g = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                    g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    g.Children.Add(Ui.Icon(SidebarRules.Brand(st.Url) ?? "globe", 13, "Lilac"));
+                    var tx = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; tx.Children.Add(new TextBlock { Text = st.Name }); tx.Children.Add(Ui.Muted(st.Url + (st.Mobile ? "  -  phone version" : ""), 11));
+                    Grid.SetColumn(tx, 1); g.Children.Add(tx);
+                    var acts = Ui.Row(
+                        Ui.Tool(st.Mobile ? "desktop" : "mobile-screen", st.Mobile ? "Use the desktop version" : "Use the phone version", () => { var p = w.Side.Panels.FirstOrDefault(x => x.Site == st); if (p != null) w.Side.SetMobile(p, !st.Mobile); else { st.Mobile = !st.Mobile; S.Save(); } fill(); }, 12),
+                        Ui.Tool("trash-can", "Remove from the sidebar", () => { var p = w.Side.Panels.FirstOrDefault(x => x.Site == st); if (p != null) w.Side.Remove(p); else { S.SidebarSites.Remove(st); S.Save(); w.Side.Rebuild(); } fill(); }, 12));
+                    Grid.SetColumn(acts, 2); g.Children.Add(acts);
+                    list.Children.Add(g);
+                }
+                if (S.SidebarSites.Count == 0) list.Children.Add(Ui.Muted("No sites. Add one below (or put the usual ones back).", 12));
+            };
+            fill();
+            items.Add(list);
+            var box = new TextBox { Style = Ui.S("Field"), Width = 300, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
+            var msg = Ui.Muted("", 11.5);
+            Action add = () => { var site = SidebarRules.FromAddress(box.Text, S.SidebarSites); if (site == null) { msg.Text = "That isn't a web address (http or https)."; return; } msg.Text = ""; box.Text = ""; w.Side.Add(site); fill(); };
+            box.KeyDown += (a, b) => { if (b.Key == Key.Enter) { add(); b.Handled = true; } };
+            items.Add(Ui.Row(box, Ui.Btn("Add a site", add, true, "plus"), Ui.Btn("Put the usual ones back", () => { foreach (var d in SidebarRules.Defaults()) if (!S.SidebarSites.Any(x => x.Id == d.Id)) S.SidebarSites.Add(d); S.Save(); w.Side.Rebuild(); fill(); }, false, "rotate-left")));
+            items.Add(msg);
+            items.Add(Ui.Muted("Hidden panels go to sleep after", 12, 6));
+            items.Add(Ui.Chips(BrowserSettings.PanelSleepChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Never" : m + " min")).ToList(), S.SidebarSleepMinutes, v => { S.SidebarSleepMinutes = v; S.Save(); }));
+            items.Add(Ui.Muted("In game mode hidden panels sleep at once. A panel playing sound (Spotify, a stream) stays awake. Badges show counts from the page title, like \"(3) Discord\".", 11.5, 0));
+            return items.ToArray();
+        }
+
+        // ---------------------------------------------------------------- 1.1: Settings > Live notifications
+        static UIElement[] LiveSettings(BrowserWindow w)
+        {
+            var S = w.S; var items = new List<UIElement>();
+            items.Add(Ui.Switch("Tell me when a channel I follow goes live", "Checks each channel's own page every 5 minutes (no account, no API key, no other service). Through Hallow Hub's icon when Hub runs, otherwise a Windows notification.", S.LiveOn, on => { S.LiveOn = on; S.Save(); if (on && w.Live != null) System.Threading.Tasks.Task.Run(() => w.Live.RunOnce()); }));
+            var list = new WrapPanel { Margin = new Thickness(0, 4, 0, 6) };
+            Action fill = null;
+            fill = () =>
+            {
+                list.Children.Clear();
+                foreach (var ch in S.LiveChannels.ToList())
+                {
+                    var c = ch; string seen = null; if (w.Live != null) w.Live.LastSeen.TryGetValue(c, out seen);
+                    var chip = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(10, 3, 4, 3), Margin = new Thickness(0, 0, 6, 6) };
+                    chip.SetResourceReference(Border.BorderBrushProperty, seen == "live" ? "Red" : "Line"); chip.SetResourceReference(Border.BackgroundProperty, "PanelHi");
+                    var x = Ui.Tool("xmark", "Stop following", () => { S.LiveChannels = S.LiveChannels.Where(y => y != c).ToList(); S.Save(); fill(); }, 9); x.Width = 20; x.Height = 20;
+                    chip.Child = Ui.Row(Ui.Icon(LiveCheck.IsTwitch(c) ? "twitch" : "youtube", 12, "Lilac"), new TextBlock { Text = "  " + LiveCheck.Name(c) + (seen == "live" ? "  - LIVE" : ""), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0) }, x);
+                    list.Children.Add(chip);
+                }
+                if (S.LiveChannels.Count == 0) list.Children.Add(Ui.Muted("No channels yet.", 12));
+            };
+            fill();
+            items.Add(list);
+            var box = new TextBox { Style = Ui.S("Field"), Width = 300, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
+            var msg = Ui.Muted("A Twitch name (shroud, twitch.tv/shroud) or a YouTube handle (@name, youtube.com/@name).", 11.5);
+            Action add = () =>
+            {
+                var c = LiveCheck.Normalize(box.Text);
+                if (c == null) { msg.Text = "That isn't a Twitch name or a YouTube @handle."; return; }
+                if (!S.LiveChannels.Contains(c, StringComparer.OrdinalIgnoreCase)) S.LiveChannels = S.LiveChannels.Concat(new[] { c }).ToList();
+                S.Save(); box.Text = ""; fill();
+            };
+            box.KeyDown += (a, b) => { if (b.Key == Key.Enter) { add(); b.Handled = true; } };
+            items.Add(Ui.Row(box, Ui.Btn("Follow", add, true, "plus")));
+            items.Add(msg);
+            items.Add(Ui.Muted("Honestly: this reads Twitch's and YouTube's public channel pages, so it can stop working when they change those pages (until a browser update fixes it).", 11.5, 0));
+            return items.ToArray();
+        }
+
+        // --snap: a made-up chat for the sidebar picture (WPF-drawn, no real site or person)
+        public static FrameworkElement MockChat()
+        {
+            var g = new Grid(); g.SetResourceReference(Panel.BackgroundProperty, "Panel");
+            var col = new StackPanel { Margin = new Thickness(14, 12, 14, 12) };
+            col.Children.Add(Ui.T("# squad", 13, true, "Text", 10));
+            foreach (var m in new[] { new[] { "nova", "ready in 5? new map is up" }, new[] { "kite", "queueing now, bring the drone" }, new[] { "you", "2 min, finishing the patch notes" }, new[] { "nova", "gg last round" } })
+            {
+                var row = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+                row.Children.Add(Ui.T(m[0], 12, true, m[0] == "you" ? "AccentBrush" : "Lilac", 2));
+                row.Children.Add(Ui.T(m[1], 12.5, false, "Text"));
+                col.Children.Add(row);
+            }
+            col.Children.Add(Ui.Muted("Made-up chat for a screenshot", 11, 0));
+            g.Children.Add(col); return g;
+        }
+
         // ---------------------------------------------------------------- --snap: a made-up page (WPF-drawn, no real site)
         public static FrameworkElement MockPage(string kind)
         {
@@ -359,7 +472,7 @@ namespace HallowBrowser
             col.Children.Add(Ui.T("Season 7 patch notes: faster matchmaking, new maps and a quieter lobby", 26, true, "Text", 10));
             col.Children.Add(Ui.Muted("Made-up page for a screenshot  -  5 min read", 12, 18));
             var hero = new Border { Height = 210, CornerRadius = new CornerRadius(10), Margin = new Thickness(0, 0, 0, 18) };
-            hero.Background = new LinearGradientBrush(Color.FromRgb(0x3A, 0x26, 0x5C), Color.FromRgb(0x14, 0x10, 0x1B), 35);
+            hero.Background = Look.IsLight ? new LinearGradientBrush(Color.FromRgb(0xE6, 0xDC, 0xF7), Color.FromRgb(0xF6, 0xF4, 0xFA), 35) : new LinearGradientBrush(Color.FromRgb(0x3A, 0x26, 0x5C), Color.FromRgb(0x14, 0x10, 0x1B), 35);
             var hs = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
             hs.Children.Add(Ui.Icon("gamepad", 64, "AccentBrush")); hero.Child = hs; col.Children.Add(hero);
             foreach (var p in new[] { "The new season brings two maps, a reworked lobby and matchmaking that finds a game in half the time. Here's everything that changed.",

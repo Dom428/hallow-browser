@@ -26,6 +26,8 @@
     <SolidColorBrush x:Key="Amber" Color="#F0BE5A"/>
     <SolidColorBrush x:Key="Red" Color="#E05A64"/>
     <SolidColorBrush x:Key="CloseHover" Color="#C42B1C"/>
+    <SolidColorBrush x:Key="Rail" Color="#110E17"/>
+    <SolidColorBrush x:Key="BadgeBg" Color="#D13C48"/>
     <Color x:Key="PageBg">#14101B</Color>
     <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Courier New</FontFamily>
 

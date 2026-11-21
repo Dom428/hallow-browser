@@ -69,6 +69,7 @@ namespace HallowBrowser.Tests
 
         public static int Main(string exe, string dir, string mode)
         {
+            if (mode == "sidebar") return Integration11.Main(exe, dir);   // 1.1: sidebar, live, hot tabs, bandwidth, light/dark
             // everything goes to the test folder: settings, profile, pipes (".test-<leaf>"), the Keys stand-in's pipe
             Directory.CreateDirectory(dir);
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);

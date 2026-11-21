@@ -22,7 +22,7 @@ namespace HallowBrowser
         public static void Bind(FrameworkElement e, DependencyProperty p, string key) { e.SetResourceReference(p, key); }
         public static void DarkTitle(Window w)
         {
-            w.SourceInitialized += (s, e) => { try { int dark = 1; DwmSetWindowAttribute(new WindowInteropHelper(w).Handle, 20, ref dark, 4); } catch { } };
+            Look.Track(w);   // 1.1: dark or light title bar, like the browser (also when it changes live)
         }
         static ImageSource icon;
         public static ImageSource AppIcon()

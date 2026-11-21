@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 namespace HallowBrowser
 {
     public static class Program
     {
-        public const string Version = "1.0";
+        public const string Version = "1.1";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static BrowserWindow Win;
@@ -74,6 +74,7 @@ namespace HallowBrowser
             var w = new BrowserWindow(st, false); Win = w;
             Family.Serve("Browser", line => Command(w, line));
             accentWatch = Accent.Watch(() => app.Dispatcher.BeginInvoke(new Action(ReloadTheme)));
+            WatchMode(app);
             w.Loaded += async (s, e) => { await w.Start(urls); CrashNotice(w); };
             app.Run(w);
             GC.KeepAlive(mutex);
@@ -81,16 +82,35 @@ namespace HallowBrowser
         }
 
         // ---- the theme (Theme.xaml with the Hallow accent swapped in)
+        // 1.1: light or dark (Look: the browser's own choice, else Hallow's mode in theme.json, "system" = Windows' app mode)
+        public static bool? SnapLight;   // --snap renders both
         public static void LoadTheme(Application app)
         {
             var s = BrowserSettings.Load();
             AccentHex = Accent.Current(s.UseHallowAccent);
+            Look.IsLight = SnapLight ?? Look.Resolve(Win != null ? Win.S.Look : s.Look, Accent.FilePath);
+            var x = Res("HallowBrowser.Theme.xaml");
+            if (Look.IsLight) x = Look.LightXaml(x, AccentHex);
             app.Resources.MergedDictionaries.Clear();
-            app.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Parse(Accent.ApplyTo(Res("HallowBrowser.Theme.xaml"), AccentHex)));
+            app.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Parse(Accent.ApplyTo(x, AccentHex)));
         }
         public static void ReloadTheme()
         {
-            try { LoadTheme(Application.Current); if (Win != null) { Engine.WriteNewTab(Win.S, AccentHex); Win.ReloadSettings(); } } catch { }
+            try { LoadTheme(Application.Current); if (Win != null) { Engine.WriteNewTab(Win.S, AccentHex); Win.ReloadSettings(); Win.ThemeChanged(); } } catch { }
+        }
+        // every 3 s: did the light/dark answer change? (theme.json's mode, Windows' setting for "system"; also when Hallow's folder
+        // didn't exist yet, so the accent watcher isn't running). Reading a tiny file and one registry value - nothing else.
+        static void WatchMode(Application app)
+        {
+            var t = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher) { Interval = TimeSpan.FromSeconds(3) };
+            t.Tick += (a, b) =>
+            {
+                if (Win == null) return;
+                bool light; try { light = Look.Resolve(Win.S.Look, Accent.FilePath); } catch { return; }
+                if (light != Look.IsLight) ReloadTheme();
+                if (accentWatch == null && Directory.Exists(Accent.Folder)) accentWatch = Accent.Watch(() => app.Dispatcher.BeginInvoke(new Action(ReloadTheme)));
+            };
+            t.Start();
         }
         static string Res(string name) { using (var s = Assembly.GetExecutingAssembly().GetManifestResourceStream(name)) using (var r = new StreamReader(s)) return r.ReadToEnd(); }
 
@@ -101,7 +121,7 @@ namespace HallowBrowser
             return Family.Json(new Dictionary<string, object> {
                 { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true },
                 { "tabs", w.Tabs.Count }, { "asleep", w.Tabs.Count(t => t.Suspended || t.Discarded) }, { "gameMode", w.Game != null }, { "game", w.Game },
-                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
+                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
 
         // ---- the family pipe
@@ -123,7 +143,8 @@ namespace HallowBrowser
                         new Dictionary<string, object> { { "id", "reopen" }, { "label", "Reopen closed tab" }, { "enabled", w.ClosedCount > 0 } },
                         new Dictionary<string, object> { { "id", "-" } },
                         new Dictionary<string, object> { { "id", "game-light" }, { "label", "Gaming-light mode" }, { "checked", w.S.GameLight } },
-                        new Dictionary<string, object> { { "id", "cpu-limiter" }, { "label", "CPU limiter" }, { "checked", w.S.CpuLimiter } } } } }));
+                        new Dictionary<string, object> { { "id", "cpu-limiter" }, { "label", "CPU limiter" }, { "checked", w.S.CpuLimiter } },
+                        new Dictionary<string, object> { { "id", "sidebar" }, { "label", "Sidebar" }, { "checked", w.S.SidebarOn } } } } }));
                 case "invoke":
                     return OnUi(w, () =>
                     {
@@ -133,6 +154,7 @@ namespace HallowBrowser
                             case "reopen": w.ReopenClosed(); ShowWindow(w); return "ok";
                             case "game-light": w.S.GameLight = !w.S.GameLight; w.S.Save(); w.Tick(true); return "ok";
                             case "cpu-limiter": w.S.CpuLimiter = !w.S.CpuLimiter; w.S.Save(); w.Tick(true); return "ok";
+                            case "sidebar": w.Side.Toggle(); return "ok";
                         }
                         return "error unknown item";
                     });
@@ -199,22 +221,31 @@ namespace HallowBrowser
             Directory.CreateDirectory(dir);
             Snap.On = true;
             var s = new BrowserSettings(); s.Fix();
-            Action<string, Action<BrowserWindow>> shot = (name, setup) =>
+            s.LiveChannels = new List<string> { "twitch:hallowgg", "youtube:@HallowGaming" };
+            // 1.1: every picture in both looks (dark = the names as before, light = "-light")
+            foreach (var light in new[] { false, true })
             {
-                var w = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
-                w.SnapFill("news", name.Contains("game"), name.Contains("keys"));
-                if (setup != null) setup(w);
-                Snap.Save(w, Path.Combine(dir, name + ".png"), 1280, 800);
-                w.Close();
-            };
-            shot("browser", null);
-            shot("browser-game", null);
-            shot("browser-keys", null);
-            var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
-            ws.SnapFill("news", false, false);
-            var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);
-            Snap.Save(ws, Path.Combine(dir, "settings.png"), 1280, 1400);
-            ws.Close();
+                SnapLight = light; LoadTheme(Application.Current);
+                var sfx = light ? "-light" : "";
+                Action<string, Action<BrowserWindow>> shot = (name, setup) =>
+                {
+                    var w = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
+                    w.SnapFill("news", name.Contains("game"), name.Contains("keys"));
+                    if (setup != null) setup(w);
+                    Snap.Save(w, Path.Combine(dir, name + sfx + ".png"), 1280, 800);
+                    w.Close();
+                };
+                shot("browser", null);
+                shot("browser-game", null);
+                shot("browser-keys", null);
+                shot("sidebar", w => w.Side.SnapShow("discord", Panels.MockChat(), new Dictionary<string, string> { { "discord", "3" }, { "whatsapp", "12" } }));
+                shot("hot-tabs", w => w.ContentGrid.Children.Add(HotTabs.SnapPanel()));
+                var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
+                ws.SnapFill("news", false, false);
+                var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);
+                Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 2300);
+                ws.Close();
+            }
         }
     }
 }

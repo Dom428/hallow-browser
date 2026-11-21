@@ -112,9 +112,47 @@ namespace HallowBrowser
                 case "test-downloads": return Program.OnUi(w, () => "ok " + js.Serialize(w.Downloads.Select(d => new Dictionary<string, object> { { "name", d.Name }, { "state", d.State }, { "file", d.File } }).ToList()));
                 case "test-zoom": return Program.OnUi(w, () => { w.Zoom(arg == "in" ? 1 : -1); return "ok " + w.CurrentZoom; });
                 case "test-discard": { var t = TabAt(w, arg); if (t == null) return "error no tab"; return Program.OnUi(w, () => { w.Discard(t); return "ok"; }); }
+
+                // ---- 1.1: the sidebar, hot tabs, the bandwidth cap, live notifications, light / dark
+                case "test-sidebar":
+                    return Program.OnUi(w, () => "ok " + js.Serialize(w.Side.Panels.Select((p, i) => new Dictionary<string, object> {
+                        { "i", i }, { "id", p.Site.Id }, { "name", p.Site.Name }, { "url", p.Site.Url }, { "mobile", p.Site.Mobile }, { "width", p.Site.Width }, { "shown", p.Shown }, { "loaded", p.View != null },
+                        { "ready", p.Ready }, { "asleep", p.Asleep }, { "suspended", p.Core != null ? (object)p.Core.IsSuspended : null }, { "audible", p.Audible }, { "unread", p.Unread }, { "title", p.Title },
+                        { "ua", p.Core != null ? p.Core.Settings.UserAgent : null } }).ToList()));
+                case "test-sidebar-add":   // <0|1 mobile> <name> <url>
+                {
+                    var mob = Split(arg, out rest); string url; var name = Split(rest, out url);
+                    return Program.OnUi(w, () => { var p = w.Side.Add(new SidebarSite { Id = SidebarRules.NewId(name, w.S.SidebarSites), Name = name, Url = url, Mobile = mob == "1", Width = 400 }); return "ok " + w.Side.Panels.IndexOf(p); });
+                }
+                case "test-sidebar-show": return Program.OnUi(w, () => { int i; if (!int.TryParse(arg, out i) || i < 0 || i >= w.Side.Panels.Count) return "error no panel"; w.Side.Show(w.Side.Panels[i]); return "ok"; });
+                case "test-sidebar-mute": return Program.OnUi(w, () => { int i; if (!int.TryParse(arg, out i) || i < 0 || i >= w.Side.Panels.Count || w.Side.Panels[i].Core == null) return "error no panel view"; w.Side.Panels[i].Core.IsMuted = true; return "ok"; });
+                case "test-sidebar-hide": return Program.OnUi(w, () => { w.Side.Hide(); return "ok"; });
+                case "test-sidebar-toggle": return Program.OnUi(w, () => { w.Side.Toggle(); return "ok " + w.S.SidebarOn; });
+                case "test-sidebar-mobile": return Program.OnUi(w, () => { var a = arg.Split(' '); int i; if (a.Length < 2 || !int.TryParse(a[0], out i) || i < 0 || i >= w.Side.Panels.Count) return "error"; w.Side.SetMobile(w.Side.Panels[i], a[1] == "1"); return "ok"; });
+                case "test-sidebar-backdate":   // <i> <minutes>: as if it had been hidden that long
+                    return Program.OnUi(w, () => { var a = arg.Split(' '); int i, m; if (a.Length < 2 || !int.TryParse(a[0], out i) || !int.TryParse(a[1], out m) || i < 0 || i >= w.Side.Panels.Count) return "error"; w.Side.Panels[i].HiddenAt = DateTime.Now.AddMinutes(-m); return "ok"; });
+                case "test-sidebar-eval":
+                {
+                    int i; if (!int.TryParse(Split(arg, out rest), out i)) return "error";
+                    return Async(w, async () => { if (i < 0 || i >= w.Side.Panels.Count || w.Side.Panels[i].Core == null) return "error no panel view"; return "ok " + await Panels.Eval(w.Side.Panels[i].Core, rest); });
+                }
+                case "test-hot":   // two looks a second apart (CPU needs two)
+                    return Async(w, async () => { await HotTabs.Sample(w); await Task.Delay(1000); var rows = await HotTabs.Sample(w); lastHot = rows; return "ok " + HotTabs.Json(rows); });
+                case "test-hot-act":   // <row> sleep|close - the buttons in the flyout
+                    return Program.OnUi(w, () => { var a = arg.Split(' '); int i; if (lastHot == null || a.Length < 2 || !int.TryParse(a[0], out i) || i < 0 || i >= lastHot.Count) return "error"; return "ok " + HotTabs.Act(w, lastHot[i], a[1]); });
+                case "test-cap": return Program.OnUi(w, () => "ok " + w.CapApplied);
+                case "test-live":   // checks every channel now (on this thread, not the UI's)
+                {
+                    if (w.Live == null) return "error no watcher";
+                    w.Live.RunOnce();
+                    return "ok " + js.Serialize(new Dictionary<string, object> { { "seen", w.Live.LastSeen.ToDictionary(x => x.Key, x => (object)x.Value) }, { "notify", w.Live.LastNotify } });
+                }
+                case "test-look":
+                    return Program.OnUi(w, () => { string scheme = null; try { var p = w.Profile; if (p != null) scheme = p.PreferredColorScheme.ToString(); } catch { } return "ok " + js.Serialize(new Dictionary<string, object> { { "light", Look.IsLight }, { "scheme", scheme }, { "bg", ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Bg")).Color.ToString() } }); });
             }
             return "error unknown test command";
         }
+        static List<HotRow> lastHot;
         static int ProcessCount() { try { return Engine.Env.GetProcessInfos().Count; } catch { return -1; } }
     }
 }

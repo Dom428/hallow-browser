@@ -9,6 +9,21 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.1 - THE GAMER SIDEBAR
+- Sidebar (Ctrl+Shift+S): Discord, Twitch, YouTube, Spotify and WhatsApp beside the page,
+  or any site you add. Each panel stays signed in like a tab, has a phone/desktop version
+  and a width you drag. Hidden panels sleep after a while (at once in game mode) - except
+  one playing sound, so Spotify keeps playing. Badges show counts like "(3) Discord".
+- Live notifications (off by default): Twitch and YouTube channels you list, checked on
+  their own pages every 5 minutes. Through Hallow Hub when it runs, otherwise Windows.
+  Honestly: this reads the sites' pages, so it can break when they change them.
+- Hot tabs (Shift+Esc): every tab and panel by CPU and memory, one click to sleep or close.
+- Bandwidth limiter: a download cap per tab and panel (while a game runs, or always).
+  WebView2 can't throttle the whole browser, so it's per tab - see the README.
+- Light and dark mode: follows Hallow's mode (Hallow Toolkit), or pick Light / Dark in
+  Settings > Look. Pages follow the browser unless you choose otherwise.
+- Hallow Shield 1.7 built in.
+
 WHAT'S NEW IN 1.0
 - Tabs in the title bar (drag to reorder, Ctrl+Shift+T brings closed ones back), an
   address bar that searches DuckDuckGo (or Google, Bing, Brave Search), downloads, find

@@ -87,10 +87,18 @@ namespace HallowBrowser
         // the profile-wide choices (dark pages, tracking prevention, no built-in password saving: Hallow Keys does that)
         public static void ApplyProfile(CoreWebView2Profile p, BrowserSettings s)
         {
-            try { p.PreferredColorScheme = s.PageColors == "light" ? CoreWebView2PreferredColorScheme.Light : s.PageColors == "auto" ? CoreWebView2PreferredColorScheme.Auto : CoreWebView2PreferredColorScheme.Dark; } catch { }
+            try { p.PreferredColorScheme = PageScheme(s.PageColors, Look.IsLight); } catch { }
             try { p.PreferredTrackingPreventionLevel = s.StrictTracking ? CoreWebView2TrackingPreventionLevel.Strict : CoreWebView2TrackingPreventionLevel.Balanced; } catch { }
             try { p.IsPasswordAutosaveEnabled = false; p.IsGeneralAutofillEnabled = false; } catch { }
             try { p.DefaultDownloadFolderPath = Downloads(); } catch { }
+        }
+        // pages: "follow" = the browser's own look (1.1, the default), dark, light or "auto" (Windows' app mode, the engine decides)
+        public static CoreWebView2PreferredColorScheme PageScheme(string pageColors, bool browserLight)
+        {
+            if (pageColors == "light") return CoreWebView2PreferredColorScheme.Light;
+            if (pageColors == "auto") return CoreWebView2PreferredColorScheme.Auto;
+            if (pageColors == "dark") return CoreWebView2PreferredColorScheme.Dark;
+            return browserLight ? CoreWebView2PreferredColorScheme.Light : CoreWebView2PreferredColorScheme.Dark;
         }
         public static string Downloads()
         {
@@ -106,22 +114,25 @@ namespace HallowBrowser
             try
             {
                 Directory.CreateDirectory(NewTabDir);
-                var html = NewTabHtml(s.Search, accent);
+                var html = NewTabHtml(s.Search, accent, Look.IsLight);
                 var f = Path.Combine(NewTabDir, "index.html");
                 if (!File.Exists(f) || File.ReadAllText(f) != html) File.WriteAllText(f, html, new UTF8Encoding(false));
             }
             catch { }
         }
-        public static string NewTabHtml(string engine, string accent)
+        public static string NewTabHtml(string engine, string accent, bool light = false)
         {
             var name = Omni.EngineName(engine); var url = Omni.SearchUrl(engine, "");
-            return "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><meta name=color-scheme content=dark><title>New tab</title><style>" +
-                "html,body{margin:0;height:100%;background:#14101B;color:#ECE8F4;font:15px 'Segoe UI',system-ui,sans-serif}" +
-                "body{display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#221A30 0,#14101B 60%)}" +
-                "h1{font-weight:300;letter-spacing:.32em;font-size:34px;margin:0 0 6px}h1 b{font-weight:700;color:" + accent + "}" +
-                "p{color:#9790A8;margin:0 0 28px;font:12px 'Cascadia Mono',Consolas,monospace;letter-spacing:.08em}" +
-                "form{width:min(620px,86vw)}input{width:100%;box-sizing:border-box;padding:14px 18px;border-radius:10px;border:1px solid #3A3248;background:#110E17;color:#ECE8F4;font-size:16px;outline:none}" +
-                "input:focus{border-color:" + accent + ";box-shadow:0 0 0 3px " + accent + "33}#t{position:fixed;bottom:18px;color:#5E5670;font:11px 'Cascadia Mono',Consolas,monospace}" +
+            // 1.1: the light look too (family palette; the accent darkened for text)
+            string bg = light ? "#F6F4FA" : "#14101B", glow = light ? "#ECE5F8" : "#221A30", fg = light ? "#1E1A26" : "#ECE8F4", muted = light ? "#6B6478" : "#9790A8",
+                line = light ? "#DAD3E6" : "#3A3248", field = light ? "#FFFFFF" : "#110E17", dim = light ? "#6B6478" : "#5E5670", head = light ? Look.TextAccent(accent) : accent;
+            return "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><meta name=color-scheme content=" + (light ? "light" : "dark") + "><title>New tab</title><style>" +
+                "html,body{margin:0;height:100%;background:" + bg + ";color:" + fg + ";font:15px 'Segoe UI',system-ui,sans-serif}" +
+                "body{display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%," + glow + " 0," + bg + " 60%)}" +
+                "h1{font-weight:300;letter-spacing:.32em;font-size:34px;margin:0 0 6px}h1 b{font-weight:700;color:" + head + "}" +
+                "p{color:" + muted + ";margin:0 0 28px;font:12px 'Cascadia Mono',Consolas,monospace;letter-spacing:.08em}" +
+                "form{width:min(620px,86vw)}input{width:100%;box-sizing:border-box;padding:14px 18px;border-radius:10px;border:1px solid " + line + ";background:" + field + ";color:" + fg + ";font-size:16px;outline:none}" +
+                "input:focus{border-color:" + head + ";box-shadow:0 0 0 3px " + accent + "33}#t{position:fixed;bottom:18px;color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}" +
                 "</style></head><body><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
                 "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=t></div>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +

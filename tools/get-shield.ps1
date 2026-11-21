@@ -1,10 +1,10 @@
 # Puts Hallow Shield's Chrome build into package\shield (shipped inside Hallow Browser) and .\shield (for running from the repo).
 # Only from Shield's own GitHub release, and only if the zip matches the pinned sha256 (GitHub's digest for that asset).
-#   .\tools\get-shield.ps1 [-Zip <already downloaded hallow-shield-chrome-1.6.zip>]
+#   .\tools\get-shield.ps1 [-Zip <already downloaded hallow-shield-chrome-1.7.zip>]
 param([string]$Zip)
 $ErrorActionPreference = 'Stop'
-$ver = '1.6'
-$sha = '740c631acec54935b61845f191a58e3c7a1f40d4d78107005181216dd8566fe9'
+$ver = '1.7'
+$sha = '8d9cf2f4f57dca0bed93e35d5a314662b1d5dde2689faeecf3422bba026005ba'
 $root = Split-Path $PSScriptRoot
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('hallow-shield-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $tmp | Out-Null

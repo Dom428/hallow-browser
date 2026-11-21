@@ -1,7 +1,8 @@
 # Hallow Browser
 
-A fast Chromium browser for gamers, in the Hallow style. **Hallow Shield is built in**, **Hallow Keys** fills your logins when you
-click, and **gaming-light mode** puts background tabs to sleep while you play. It runs on **Microsoft Edge WebView2** - the Evergreen
+A fast Chromium browser for gamers, in the Hallow style. **Hallow Shield is built in**, a **gamer sidebar** keeps Discord, Twitch,
+YouTube, Spotify and WhatsApp signed in beside the page, **Hallow Keys** fills your logins when you click, and **gaming-light mode**
+puts background tabs (and sidebar panels) to sleep while you play. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small
 (a ~300 KB app plus Microsoft's WebView2 DLLs).
 
@@ -21,8 +22,67 @@ choose it yourself in Windows Settings > Apps > Default apps.
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
 
-## What's in 1.0
+## What's new in 1.1: the gamer sidebar
 
+![The sidebar with a made-up Discord chat](docs/sidebar.png)
+
+**Sidebar** (Ctrl+Shift+S, or Menu > Show the sidebar)
+- Pinned web panels beside the page: **Discord, Twitch, YouTube, Spotify and WhatsApp** to start with; add any site with the **+** at
+  the bottom of the rail (or Settings > Sidebar) and remove any with a right-click. "Put the usual ones back" restores the five.
+- Each panel is **its own WebView2 on the browser's own profile**, so it **stays signed in** like a tab (and across restarts), gets
+  Hallow Shield, Global Privacy Control and the third-party cookie block like a tab. Links that open a new window open as a tab.
+- **Phone or desktop version** per panel (a Chrome-on-Android user agent; Twitch and YouTube start as phone versions, which fit a
+  narrow panel), and a **width you drag** (280-900 px, remembered per panel). The open panel comes back open next time.
+- Panels **load only when you first open them** (nothing at start-up), and a **hidden panel sleeps** (WebView2's TrySuspendAsync)
+  after 10 minutes (Never / 1 / 5 / 10 / 30). **In game mode hidden panels sleep at once** - except a panel **playing sound**, so
+  Spotify or a stream keeps playing. Opening a sleeping panel wakes it. Right-click > Unload frees all of its memory.
+- **Unread badges** from the page title: "(3) Discord" shows a 3 on Discord's icon ([2] and 99+ work too). A green dot marks a
+  hidden panel that's playing sound.
+
+**Twitch / YouTube live notifications** (Settings > Live notifications, **off by default**)
+- List channels: a Twitch name (shroud, 	witch.tv/shroud) or a YouTube handle (@name, youtube.com/@name).
+- Every 5 minutes (the first look a minute after start) Hallow Browser loads each channel's **own public page** -
+  https://www.twitch.tv/<name> and https://www.youtube.com/@<handle>/live - one at a time, and looks for the live markers in it
+  (Twitch: "isLiveBroadcast":true; YouTube: "isLiveNow":true). **No account, no API key, no third-party service.**
+- When a channel goes live you get one notification (again only after it has been offline): through **Hallow Hub's** 
+otify when
+  Hub runs, otherwise a Windows notification from a short-lived tray icon; clicking it opens the stream in a tab.
+- **Honestly: this is page-scraping.** Twitch and YouTube can change their pages at any time, and then it stops seeing streams (it
+  says nothing rather than something wrong) until a browser update fixes it. YouTube gets its "reject all" consent cookie so the
+  consent page doesn't hide the answer.
+
+**Hot tabs killer** (Shift+Esc, Menu > Hot tabs, or the quick panel)
+- Every tab and sidebar panel with **CPU and memory**, hottest first, refreshed every 2 s while open: WebView2's
+  GetProcessExtendedInfosAsync says which page process holds each tab's main frame (CoreWebView2.FrameId); CPU is that
+  process's processor time between two looks, memory its private bytes. Pages sharing a process show the same numbers ("shared").
+  The engine's own processes (browser, GPU, extensions) are one row at the bottom.
+- One click: **sleep** (a background tab is unloaded and reloads when you click it; a panel is suspended) or **close** (a tab closes;
+  a panel unloads and stays in the sidebar).
+
+**Network bandwidth limiter** (Settings > Speed and gaming: Off / 256 KB/s / 1 / 4 / 10 MB/s; "Only while a game runs" on by default)
+- **Honestly: WebView2 has no throttle for the whole browser.** What it has is the DevTools protocol in each WebView, so the cap is
+  Network.emulateNetworkConditions (download throughput) **in every tab and panel separately**: each one gets the full cap, so
+  five busy tabs can use five times it. It covers what pages load, and in the test also a download a page started (1 MB took 4.5 s
+  at 256 KB/s). It **doesn't** cover the engine's own traffic outside pages (its updates, Shield's lists), and nothing outside the
+  browser. Measured: a 2 MB transfer took 6 ms uncapped and 8.0 s at 256 KB/s (local test server).
+
+**Light and dark mode** (family spec)
+- The browser follows the **mode in %APPDATA%\Hallow\theme.json** (Hallow Toolkit: Light / Dark / Same as Windows - then
+  Windows' "apps use light theme"), live; **Settings > Look** can pin it to Light or Dark instead (Follow Hallow is the default).
+- Light uses the family palette (background #F6F4FA, panels white, text #1E1A26, lilac #7A5CC0); the accent is darkened for
+  text and thin lines until it reaches 4.5:1 on white (orange becomes about #B85410), see-through accent fills keep your accent.
+  Title bars, the new tab page, menus and the sidebar follow.
+- **Pages** follow the browser when set to **Follow the browser** (the new default; 1.0's "dark" default becomes this - same look
+  until you go light) through WebView2's PreferredColorScheme. Dark / Like Windows / Light still pin them.
+
+![Light mode](docs/light.png)
+
+**Also**: Hallow Shield **1.7** is the built-in default. status.json gains look, sidebar, panels, panelsAwake,
+liveNotifications, liveChannels, andwidthCapKBps (still never addresses or titles), and the pipe menu gains "Sidebar".
+
+![Hot tabs (made-up numbers)](docs/hot-tabs.png)
+
+## What's in 1.0
 **Tabs and window**
 - Tabs in the title bar: new, close (button, middle-click, Ctrl+W), drag to reorder, right-click menu (duplicate, mute, pop out video,
   put to sleep, close others), **Ctrl+Shift+T** reopens closed tabs (the last 25).
@@ -77,12 +137,15 @@ it and pick a login. See [Hallow Keys](#hallow-keys).
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
 
-| What | Measured |
-|---|---|
-| Browser UI drawn (first paint of the window) | 550-660 ms (warm profile, 14 restored tabs); ~610-770 ms on a brand-new profile |
-| First page loaded (local test page) | 740-910 ms (warm), ~1.0-1.15 s (new profile) |
-| New tab (pre-warmed, until drawn) | median 60-75 ms (6 tries per run; single tries 48-97 ms, one outlier 147 ms) |
-| Memory | ~215-230 MB private for the whole browser after a restart with 14 tabs (13 still asleep); ~450 MB with 14 small pages all loaded (13 processes) |
+| What | 1.1 (measured again, sidebar on) | 1.0 |
+|---|---|---|
+| Browser UI drawn (first paint of the window) | 546-624 ms (warm profile, 14 restored tabs); 715 ms on a brand-new profile | 550-660 ms; ~610-770 ms new profile |
+| First page loaded (local test page) | 733-842 ms (warm), 1.05 s (new profile) | 740-910 ms, ~1.0-1.15 s |
+| New tab (pre-warmed, until drawn) | median 54 ms (6 tries: 44-75 ms) | median 60-75 ms |
+| Memory | 224-229 MB private after a restart with 14 tabs (13 asleep); 451 MB with 14 small pages loaded (13 processes) | ~215-230 MB; ~450 MB |
+
+The sidebar costs nothing at start: its rail is plain WPF and panels load only when opened (an open panel comes back ~2 s after
+the first page, when the browser is idle).
 
 How: the browser's own UI is plain WPF (no web view for the chrome); the WebView2 environment is started while the window is being built;
 one hidden WebView is pre-warmed with the (fully local, no network) new-tab page and becomes the next new tab; restored tabs load only
@@ -92,7 +155,7 @@ start-up was made (it would have meant opening Edge on your screen).
 
 ## Hallow Shield inside WebView2
 
-Shield 1.6's Chrome build ships inside the package (`shield\`, from Shield's GitHub release, sha256-checked) and is loaded with
+Shield 1.7's Chrome build ships inside the package (`shield\`, from Shield's GitHub release, sha256-checked) and is loaded with
 `CoreWebView2EnvironmentOptions.AreBrowserExtensionsEnabled` + `CoreWebView2Profile.AddBrowserExtensionAsync`. Tested in the
 integration test against local pages (ad hosts pointed at the test server):
 
@@ -134,9 +197,12 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 ## Family link
 
 - Pipe `HallowFamily.Browser.<user>`: `ping`, `status`, `open` (focus), `open <url>` (http/https only), `menu` (New tab, Reopen
-  closed tab, Gaming-light mode, CPU limiter), `invoke <id>`, `quit`. `HallowBrowser.exe --cmd "<line>"` for scripts.
+  closed tab, Gaming-light mode, CPU limiter, Sidebar), `invoke <id>`, `quit`. `HallowBrowser.exe --cmd "<line>"` for scripts.
 - `%APPDATA%\HallowBrowser\status.json`: `tabs`, `asleep`, `gameMode`, `game`, `shield` (extension / fallback / missing), `shieldVersion`,
-  `runtime`, `lastCrash` - never addresses, titles or history.
+  `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps` -
+  never addresses, titles or history.
+- Live notifications go through Hub's `notify Browser<TAB>title<TAB>text` when Hub runs (Hallow Browser has no tray icon of its own;
+  without Hub a short-lived tray icon shows the balloon).
 - Hallow Hub's generic host lists it while it runs. The Hallow accent (theme.json), crash reports (`%APPDATA%\HallowBrowser\crashes`,
   kept on this PC) and the GitHub updater (sha256-checked) work like in the other apps.
 
@@ -156,10 +222,10 @@ Uninstall from Windows Settings > Apps; it asks whether to remove your browsing 
 Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.NET Framework 4.8, C# 5).
 
 ```
-.\tools\get-shield.ps1     # Shield 1.6's Chrome build into package\shield (from its GitHub release, sha256-pinned)
+.\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -173,7 +239,12 @@ tests drive the real browser off-screen (never shown, never focused) with its ow
 tiny server: Shield blocking and cosmetic filtering, Shield's popup and options page, third-party cookies (and a control run with the
 setting off), GPC/DNT headers, dark pages, Keys filling only after the click and refusing an origin change, game mode with a fake game
 (suspended tabs, awake audio tab, priority), close / reopen, pop-out, find, zoom, downloads (to the test folder), the family pipe, speed
-and memory, session restore. Page pictures come from `CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>`.
+and memory, session restore. 1.1 adds (unit) unread badges, panel sleeping, sites and user agents, live-page parsing, CPU maths,
+the cap, light/dark resolution, the light theme with contrast checks for every pair, the 1.0 -> 1.1 settings; and (integration
+"sidebar", local panel pages, fake Twitch/YouTube pages, a stand-in Hub) a panel's sign-in cookie surviving a restart, badges, phone /
+desktop user agents, sleeping after the time / at once in game mode / not while playing sound, the hot tabs list and its buttons, the
+cap slowing a 2 MB transfer, live notifications via the tray path and via Hub, light/dark switched live from theme.json and pages
+following. Page pictures come from `CapturePreviewAsync`, the browser UI from `HallowBrowser.exe --snap <folder>`.
 
 ## Credits
 
