@@ -61,6 +61,14 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("bookmark", w.S.BookmarksBar ? "Hide the bookmarks bar" : "Show the bookmarks bar", "Ctrl+Shift+B", () => run(w.ToggleBookmarksBar)));
             sp.Children.Add(Ui.MenuRow("file-import", "Import from another browser...", null, () => run(() => w.ShowImport(at))));
             sp.Children.Add(Ui.MenuRow("briefcase", "Workspaces and saved sessions", null, () => run(() => w.ShowWorkspaces(false))));
+            // 1.6: reading list, install a site, apps, profiles
+            sp.Children.Add(Ui.MenuRow("book-bookmark", "Save for later", "Ctrl+Shift+D", () => run(() => w.SaveForLater(w.Active))));
+            sp.Children.Add(Ui.MenuRow("book-bookmark", "Reading list", null, () => run(() => w.Side.ShowNative("reading"))));
+            sp.Children.Add(Ui.MenuRow("note-sticky", "Notes for this page", null, () => run(() => w.Side.ShowNative("notes"))));
+            var ins = Ui.MenuRow("square-plus", "Install this site...", null, () => run(() => { var _ = w.InstallSite(w.Active); })); ins.IsEnabled = !w.Private && w.Active != null && Omni.IsWeb(w.Active.Url); sp.Children.Add(ins);
+            sp.Children.Add(Ui.MenuRow("table-cells-large", "Apps", null, () => run(() => w.NewTab(Omni.AppsUrl, true))));
+            sp.Children.Add(Sep());
+            foreach (var r in w.ProfileMenuRows(run)) sp.Children.Add(r);
             // zoom row
             var zg = new Grid { Margin = new Thickness(12, 4, 8, 4) };
             zg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); zg.ColumnDefinitions.Add(new ColumnDefinition()); zg.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -83,7 +91,7 @@ namespace HallowBrowser
         }
         public static void DoUpdate(BrowserWindow w)
         {
-            w.SaveSession();
+            w.SaveSession(); Program.Updating = true;   // 1.6: no startup boost across an update
             var err = Updater.Install(w.Update);
             if (err != null) w.Toast(err, 8); else w.Toast("Updating - Hallow Browser restarts with your tabs.", 6);
         }
@@ -202,7 +210,7 @@ namespace HallowBrowser
                 var p = m.Transform(pt); shieldWin.Left = p.X - shieldWin.Width; shieldWin.Top = p.Y;
             }
             shieldWin.Show(); if (!BrowserSettings.Offscreen) shieldWin.Activate();
-            await shieldView.EnsureCoreWebView2Async(Engine.Env);
+            await Engine.Ensure(shieldView);
             var core = shieldView.CoreWebView2;
             // Shield's popup asks the browser for "the active tab"; in WebView2 that's this little window, so the popup is told the page's tab
             var pageUrl = w.Active == null ? null : w.Active.Url;
@@ -324,6 +332,8 @@ namespace HallowBrowser
             col.Children.Add(card("Downloads", w.DownloadSettings()));                  // 1.5
             col.Children.Add(card("Tab previews, gestures and media", w.TabsMediaSettings()));   // 1.5
 
+            col.Children.Add(card("Profiles", w.ProfileSettings()));                    // 1.6
+            col.Children.Add(card("Spell check", w.SpellSettings()));                   // 1.6
             col.Children.Add(card("Start-up", new UIElement[] {
                 Ui.Switch("Open the tabs from last time", "Session restore: tabs you had open come back (each loads when you click it).", S.RestoreSession, on => { S.RestoreSession = on; save(); }) }));
 
@@ -348,6 +358,7 @@ namespace HallowBrowser
                 Ui.Muted("Sites ask before they use your camera, microphone, location, notifications and so on. Your answers, and the pop-ups, sound and JavaScript you set per site, are in Site settings (the padlock in the address bar shows the current site's).", 12, 8),
                 Ui.Row(Ui.Btn("Site settings", () => w.NewTab(Omni.SitesUrl, true), false, "sliders"), Ui.Btn("Extensions", () => w.NewTab(Omni.ExtensionsUrl, true), false, "puzzle-piece"), Ui.Btn("New private window", () => Program.OpenWindow(true, null, null), false, "mask")),
                 Ui.Muted("Ctrl+N opens a new window and Ctrl+Shift+N a private one (nothing kept: no history, session, bookmark or sync changes - downloads stay). Drag a tab out of the strip to give it its own window, or into another window's strip.", 11.5, 0) }));
+            col.Children.Add(card("Hallow apps on the new tab page", w.FamilyRowSettings()));   // 1.6
             col.Children.Add(card("Game corner", w.GameCornerSettings()));
 
             col.Children.Add(card("Look", new UIElement[] {
@@ -362,8 +373,7 @@ namespace HallowBrowser
             col.Children.Add(card("Speed and gaming", new UIElement[] {
                 Ui.Switch("Gaming-light mode", "While a game runs: background tabs sleep, the browser drops to a lower priority. Tabs playing sound stay awake.", S.GameLight, on => { S.GameLight = on; save(); w.Tick(true); }),
                 Ui.Switch("CPU limiter", "The browser always runs below normal priority, so games and other apps come first.", S.CpuLimiter, on => { S.CpuLimiter = on; save(); w.Tick(true); }),
-                Ui.Muted("Put background tabs to sleep after", 12, 6),
-                Ui.Chips(BrowserSettings.SleepChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Never" : m + " min")).ToList(), S.SleepMinutes, v => { S.SleepMinutes = v; save(); }),
+
                 Ui.Muted("RAM limiter: above this, the least recently used tabs sleep, then unload (they reload when you click them)", 12, 6),
                 Ui.Chips(BrowserSettings.RamChoices.Select(m => new KeyValuePair<int, string>(m, m == 0 ? "Off" : m / 1024 + " GB")).ToList(), S.RamLimitMb, v => { S.RamLimitMb = v; save(); w.Tick(true); }),
                 Ui.Switch("Warm up the connection to the top suggestion", "Starts connecting while you type, so the page opens sooner.", S.Preconnect, on => { S.Preconnect = on; save(); }),
@@ -372,6 +382,8 @@ namespace HallowBrowser
                 Ui.Switch("Only while a game runs", "Off = always.", S.BandwidthGameOnly, on => { S.BandwidthGameOnly = on; save(); w.Tick(true); }),
                 Ui.Muted("Honestly: WebView2 can't throttle the whole browser. The cap uses the engine's network emulation (DevTools) in every tab and panel separately - five busy tabs can use five times the cap - and it doesn't cover the engine's own traffic or other apps.", 11.5, 0) }));
 
+            col.Children.Add(card("Memory saver and battery", w.MemorySettings()));   // 1.6
+            col.Children.Add(card("Sounds and ambience", w.VibeSettings()));         // 1.6
             col.Children.Add(card("Sidebar", SidebarSettings(w)));
 
             col.Children.Add(card("Live notifications", LiveSettings(w)));

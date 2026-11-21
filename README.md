@@ -9,11 +9,14 @@ through a folder you pick** (OneDrive, Dropbox, Syncthing, a NAS) and a **speed-
 (Ctrl+N, drag a tab out), **private windows**, **site permissions**, **HTTPS-only mode and secure DNS**, **your own extensions**,
 Shield's **"blocked on this page"** number and an opt-in **game corner**. 1.5 offers to **save logins to Hallow Keys**, adds a
 **calculator, keywords and tab search** to the address bar, **dark pages**, **download pause / resume, a speed limit while you play
-and a Microsoft Defender check**, **hover previews**, **mouse gestures**, **media controls** for every tab and **crash recovery**. It runs on **Microsoft Edge WebView2** - the Evergreen
+and a Microsoft Defender check**, **hover previews**, **mouse gestures**, **media controls** for every tab and **crash recovery**. 1.6 brings
+**profiles** ("Personal", "Gaming" - separate sign-ins, history, bookmarks, panels and settings), **your Hallow games, clips and the
+Overlay switch on the new tab page**, **sites installed as apps**, **spell check**, **memory saver levels, battery saver and an opt-in
+startup boost**, optional **UI sounds and ambience**, and a **reading list and page notes**. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
-~1 MB app plus Microsoft's WebView2 DLLs).
+~1.5 MB app plus Microsoft's WebView2 DLLs).
 
-![Hallow Browser 1.4: a private window (made-up page)](docs/private.png)
+![Hallow Browser 1.6: the profile switcher (made-up page and profiles)](docs/profiles.png)
 
 Part of the Hallow family (Mixer, Hub, Vault, Overlay, Remote, Clips, Keys, Assist, Guard, Shield, Setup, Toolkit).
 
@@ -28,6 +31,79 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.6: profiles, your Hallow apps on the new tab, sites as apps
+
+**Profiles** - e.g. "Personal" and "Gaming", each with its **own sign-ins and cookies, history, bookmarks, sidebar panels, settings,
+sync and private windows**.
+- The **profile button** in the title bar (its colour and name, shown once you have more than one profile; the window's top edge
+  takes the profile's colour too) switches or adds profiles; Settings > Profiles adds, recolours, picks the one a plain start opens,
+  and removes one from the list (its files stay until you delete them). **Right-click a link > Open link in profile**.
+- Each profile is its own **WebView2 profile** (`CoreWebView2ControllerOptions.ProfileName`, e.g. `Hallow_gaming`) in the one engine
+  folder, run by its **own Hallow Browser process** (`HallowBrowser.exe --profile gaming`) - tested: both run on the same engine (one
+  browser process), a cookie set in Default isn't in Gaming, Gaming's private window is its own InPrivate profile
+  (`HallowPrivate_gaming`), its history and files are in `Profiles\gaming`.
+- **Shield is loaded in every profile** (tested in Default and Gaming). **Sync per profile**: Default syncs in the folder you picked,
+  as before; another profile in a `profile-<id>` sub-folder of it (tested), so profiles never mix.
+- **Your data from before 1.6 is the "Default" profile, with no loss**: nothing is moved or rewritten - Default keeps 1.5's folders and
+  the engine's default WebView2 profile (your sign-ins). On the first 1.6 start a copy of the settings files goes to
+  `%APPDATA%\HallowBrowser\backup-1.5`. The migration test builds a fake 1.5 folder (settings, tabs, workspaces, bookmarks, the engine's
+  profile and cookies, history, Shield), migrates it and compares every file: all unchanged, settings and tabs load as before; the
+  integration test starts 1.6 on a fake 1.5 folder and gets the tabs and settings back.
+- Honestly: secure DNS and the spell check language are engine-wide (one setting for every profile - set in Default). Hallow apps talk
+  to the Default profile (`HallowFamily.Browser.<user>`); another profile answers on its own pipe (`Browser-<id>`), and the Default's
+  `menu` offers "Open profile: ..." for Hub's tray menu.
+
+**The Hallow family on the new tab page** (Settings > Hallow apps on the new tab page) - everything local, each row only when that app
+is installed:
+- **Your games** from Hallow Hub's library (hub.json, read only; with Hub's own screenshot of each). **Play** asks Hub first; Hub 2.16
+  has no launch command on its pipe (checked: it answers "unknown command"), so the browser then opens the game's own launch link
+  `steam://rungameid/<id>` - only when you click (tests write it to a log; no game is ever started).
+- **Recent clips** from Hallow Clips' status.json, with their thumbnails; a click opens the clip.
+- **Hallow Overlay on / off** through Overlay's `toggle` pipe command, showing its state from its status.json.
+- **Lazy**: the page draws first; family.json is fetched only once the engine reports the page's first paint (measured in the test).
+
+**Install this site** (menu) - its own **app window** (no tabs or address bar; the site's name and icon, back / reload / open in the
+browser), a **Start menu shortcut** (Start > Hallow Browser Apps: `HallowBrowser.exe --app <url> --profile <id>`) and
+**hallow://apps** with Open and Uninstall.
+- Name, start address, scope and icon from the page's **web app manifest** when it has one (read by the page itself; the biggest
+  PNG/ICO/JPG icon - SVG icons can't be drawn by WPF, so then the favicon); without one, the page's title and the **favicon the engine
+  already has** (`GetFaviconAsync` - no extra fetch). The shortcut gets a real .ico (256 px PNG + 48/32/16 px bitmaps).
+- Links you click to another site open in the browser; sign-in redirects and links inside the app's scope stay in its window.
+- Honestly: app windows share Hallow Browser's taskbar button (same program).
+
+**Spell check** - misspelled words are underlined and right-click shows suggestions, plus **"Add to dictionary"** (the browser's own
+menu item - WebView2's menu has none). Measured: WebView2 checks with **Windows' own spell checker**; it **ignores Chromium's
+`spellcheck.dictionaries` preference** (tried, like the 1.4 DoH approach - no effect), so the **language is the engine's language**
+(Settings > Spell check offers the languages Windows has spelling for - here en-US, en-CA, en-LR, en-PH; picking one also changes the
+language pages are asked for and the menu's language, after a restart). Nothing is downloaded by the browser; more languages come from
+Windows Settings > Language (Windows gets them from Microsoft). "Add to dictionary" writes the word to the profile's own `Custom
+Dictionary.txt` before the engine starts: **it applies from the next start** (tested: after a restart the word is accepted while
+another misspelling is still flagged). Turning spell check off stops it in new pages.
+
+**Memory saver** Off / Balanced / Max - background tabs sleep after **30 / 10 / 2 minutes** (1.5's own "sleep after" stays as Custom).
+A sleeping tab shows a **leaf** with **"about N MB saved"** (its page process measured before and after it slept - an estimate when
+pages share a process).
+- **Battery saver** (on): on battery tabs sleep **twice as soon**, and background tabs and hidden panels are **slowed to a quarter of
+  their speed** (DevTools CPU throttling; tested: 4-5x fewer script loops). Honestly: a hidden tab already draws no frames in Chromium and
+  WebView2 has no frame-rate setting, so slowing their scripts and timers is what it can do.
+- **Startup boost** (**off by default**): when the last window closes the browser's own process stays, hidden, at idle priority,
+  memory trimmed. It **uses some memory while closed** - measured about 10-12 MB in use (~125 MB committed, which Windows keeps
+  paged out). The engine itself isn't kept (WebView2 ends its browser process with the last page), so on the next start the window is
+  drawn about 130 ms after the request and the pages follow as the engine starts.
+
+**Sounds and ambience** (**off by default**): a soft blip when a tab opens or closes, a chime when a download is done, a cue when game
+mode turns on, and a calm 12-second ambience loop - all **synthesised when the browser is built** (`tools\gen-sounds.ps1`: sine tones
+with envelopes, nothing recorded or downloaded). A volume slider for each; **while a game runs everything is quiet** (only the short
+game-mode cue as it starts; the ambience pauses).
+
+**Reading list and notes** (two panels at the top of the sidebar): **Save for later (Ctrl+Shift+D)**, read / unread, remove; and a
+**short note per page** (saved as you type, shown for the page you're on, with a list of all notes). Both stay on this PC
+(`reading-list.json`, `notes.json` in the profile's folder); **notes go through the 1.3 folder sync** when it's on - **encrypted when the
+sync password is set** (tested between two test PCs and in the browser: the note isn't readable in the sync file).
+
+![1.6: an installed site's own window (made-up page)](docs/app-window.png)
+![1.6: the reading list in the sidebar (made-up)](docs/reading-list-light.png)
 
 ## What's new in 1.5: faster to use, safer downloads, logins into Keys
 
@@ -366,7 +442,7 @@ otify when
 ![Light mode](docs/light.png)
 
 **Also**: Hallow Shield **1.7** is the built-in default. status.json gains look, sidebar, panels, panelsAwake,
-liveNotifications, liveChannels, andwidthCapKBps (still never addresses or titles), and the pipe menu gains "Sidebar".
+liveNotifications, liveChannels, bandwidthCapKBps (still never addresses or titles), and the pipe menu gains "Sidebar".
 
 ![Hot tabs (made-up numbers)](docs/hot-tabs.png)
 
@@ -432,6 +508,8 @@ start:
 | New tab (pre-warmed, until drawn) | median 48.3 ms with tiles (7 tries: 9-79 ms); 56.9 ms in the busier main run. Same day, same script: 1.4 and 1.5 identical (4.4 / 4.5 ms from Ctrl+T to the swap) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
 | Memory | 582 MB private with 14 small pages loaded (17 processes) - 1.4 measured 555 MB that way | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
 
+1.6, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **617 / 616-636 ms** (new profile / warm) vs 1.5 608 / 584-629 ms; pre-warmed new tab swap **median 4.3 ms** vs 1.5 4.2 ms; new tab with tiles until drawn median 44.9 ms in the movein run (48 ms in 1.5). The new parts add nothing at start: the family rows are fetched after the page's first paint and written in the background 1.5 s after start; the profile chip, reading list and notes panels are plain WPF; spell words and the profile list are small files read once; sounds load only when switched on. Startup boost (off by default) draws a window ~130 ms after a new start while boosted.
+
 1.5: the new parts add nothing at start: the login, media and gesture scripts are tiny and only registered with each page; previews are taken 0.7-0.9 s after a tab is shown (never during a game, never for new tab pages); the downloads list is read only when you open it; the private-flyout check is one comparison per element as it appears.
 
 1.4: more windows, site rules and HTTPS-only add nothing at start (plain WPF and per-navigation checks); Shield's copy is made once per Shield version (16 MB, in the background), and the Shield relay runs 20 s after start and then every 5 minutes (a hidden page of Shield's for about a second, never during a game). The game corner is off unless you switch it on.
@@ -466,6 +544,9 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   address bar (not addresses, sums or tab searches; never from private windows), as you type. No cookies are sent with it.
 - **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
   (not the pages), instead of your Wi-Fi / internet provider.
+- 1.6: **Install this site** reads the site's own manifest and icon from that site (like the page itself would), only when you click
+  it. The new tab page's games, clips and Overlay switch, spell check (Windows' own checker), the sounds, the reading list and notes
+  are all local - nothing goes out (notes only to your own sync folder, when sync is on).
 
 Kept on this PC only: Shield's counts in `%APPDATA%\HallowShield\status.json` (for Hallow Hub and Remote - counts, never sites),
 `status.json` (no addresses or titles), history, bookmarks, site settings. Private windows keep nothing but downloads.
@@ -521,7 +602,15 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 - `%APPDATA%\HallowBrowser\status.json`: `tabs`, `asleep`, `gameMode`, `game`, `shield` (extension / fallback / missing), `shieldVersion`,
   `runtime`, `lastCrash`; 1.1: `look`, `sidebar`, `panels`, `panelsAwake`, `liveNotifications`, `liveChannels`, `bandwidthCapKBps`;
   1.2: `verticalTabs`, `workspaces`, `groups`, `split`; 1.3: `bookmarksBar`, `sync`; 1.4: `windows`, `privateWindows`, `httpsOnly`,
-  `secureDns`, `extensions` (how many are on), `gameCorner`; 1.5: `forceDark`, `searchSuggestions`, `mediaTabs`, `downloadsRunning` - never addresses, titles, history or workspace / group names.
+  `secureDns`, `extensions` (how many are on), `gameCorner`; 1.5: `forceDark`, `searchSuggestions`, `mediaTabs`, `downloadsRunning`; 1.6: `profiles` (how many),
+  `boosted`, `appWindows`, `memorySaver`, `onBattery`, `memorySavedMb`, `readingList`, `sounds` - never addresses, titles, history,
+  profile / workspace / group names.
+- 1.6: the pipe and status.json are the Default profile's; another profile answers on `HallowFamily.Browser-<id>.<user>` (the hyphen
+  keeps it out of Hub's list of apps); Default's `menu` adds "Open profile: <name>" (`invoke profile-<id>`). `app <url>` opens an
+  installed site's window. `quit` really exits (also a startup-boosted process).
+- 1.6 reads Hub's `hub.json` / `status.json` and `meta\<id>\shot0.jpg`, Clips' and Overlay's `status.json`, and sends Hub `play
+  steam:<id>` (only on Play; Hub 2.16 answers "unknown command" and the game's own Steam link is used) and Overlay `toggle` (only
+  on the switch).
 - Live notifications go through Hub's `notify Browser<TAB>title<TAB>text` when Hub runs (Hallow Browser has no tray icon of its own;
   without Hub a short-lived tray icon shows the balloon).
 - Hallow Hub's generic host lists it while it runs. The Hallow accent (theme.json), crash reports (`%APPDATA%\HallowBrowser\crashes`,
@@ -541,6 +630,11 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.4: the Shield copy the browser loads (with the feedback permission), your extensions' copies, the game corner's cache (gamecorner.json), newtab\private.html | `%LOCALAPPDATA%\HallowBrowser\ShieldLoaded`, `...\Extensions`, `...\gamecorner.json` |
 | 1.4: site settings (pop-ups, sound, JavaScript, http allowed) and your extensions' list | settings.json in %APPDATA%\HallowBrowser (permissions themselves are in the profile) |
 | 1.4: Shield's counts for Hallow Hub / Remote | `%APPDATA%\HallowShield\status.json` (merged with Shield's bridge's entries) |
+| 1.6: the list of profiles (and the spell check language), the copy of 1.5's settings files made on the first 1.6 start | `%APPDATA%\HallowBrowser\profiles.json`, `...\backup-1.5` |
+| 1.6: another profile's files (settings, tabs, bookmarks, reading list, notes...; its history, apps, new tab page) | `%APPDATA%\HallowBrowser\Profiles\<id>`, `%LOCALAPPDATA%\HallowBrowser\Profiles\<id>`; its engine profile: `...\Profile\EBWebView\WV2Profile_hallow_<id>` |
+| 1.6: the reading list and notes (Default) | `%APPDATA%\HallowBrowser\reading-list.json`, `notes.json` |
+| 1.6: installed sites (list and icons), their Start menu shortcuts | `%LOCALAPPDATA%\HallowBrowser\apps`, Start menu > Hallow Browser Apps |
+| 1.6: the sounds (written from the app when first played), words you added to the dictionary | `%LOCALAPPDATA%\HallowBrowser\sounds`, the engine profile's `Custom Dictionary.txt` |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
 
@@ -550,9 +644,9 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 
 ```
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
-.\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe
+.\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe (1.6: runs tools\gen-sounds.ps1 first - the sounds are synthesised, then embedded)
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -594,7 +688,19 @@ JavaScript / pop-ups / sound / cookies per site, Shield's "blocked on this page"
 browser's entry, a test unpacked extension (content script, popup, off, removed), new windows and moving a live page between windows
 without a reload, a private window leaving nothing in the session / workspaces / settings / history files (downloads kept, its own
 cookies, Shield's fallback blocking), the game corner (off = nothing fetched; only app ids sent; on the new tab page; not again within
-6 hours), and both windows coming back after a restart.
+6 hours), and both windows coming back after a restart. 1.6 adds (unit) the migration of a fake 1.5 folder into the Default profile
+(every file compared before / after, the backup, settings and tabs loading as before), profile ids / folders / WebView2 profile names /
+pipes / arguments, Chromium's dictionary file and its checksum, memory saver levels and the battery rule, the synthesised WAVs (format,
+no clipping, a seamless loop), manifest parsing / scope / square icons / a readable .ico / a shortcut in the test folder, the family rows
+from stand-in files, the reading list and notes, notes through sync between two test PCs (encrypted), and the new colours' contrast in
+the dark, light and private looks; and (integration "v16", local pages and stand-ins only - stand-in Hub / Clips / Overlay files and
+pipes, launch links written to a log, never opened) the first start on a fake 1.5 folder, a Gaming profile in its own process (same
+engine, separate cookies, its own private profile, Shield, its own sync sub-folder), the family rows on a real new tab page (Play, a
+clip and the Overlay switch clicked in the page, rows hidden when an app isn't there, loaded after the first paint), installing two
+sites (manifest and favicon), the app window and its scope, the shortcut's command handed to the running profile, Uninstall, spell
+check suggestions and Add to dictionary across a restart, the reading list and notes panels and encrypted notes sync, memory saver
+levels, battery throttling measured in the page, "memory saved", sounds at volume 0 (and muted in a fake game), and startup boost
+(closed, then woken by a new start).
 
 ## Credits
 

@@ -293,7 +293,7 @@ namespace HallowBrowser.Tests
                 Ok(br.HasExited && !File.Exists(Path.Combine(run, "running.flag")), "a normal quit removes the running marker");
                 br = launch(); Wait(() => Cmd("ping", 2000), r => r != null && r.StartsWith("ok"), 25000); Wait(Tabs, t => t.Count > 0, 20000); Thread.Sleep(1500);
                 Ok(S(J(Cmd("test-x-info")), "info") == null, "after a normal quit: no crash note");
-                var status = Val(Cmd("status")); Ok(status != null && status.Contains("\"version\":\"1.5\"") && status.Contains("\"forceDark\":false") && !status.Contains("127.0.0.1"), "status: 1.5 fields, no addresses");
+                var status = Val(Cmd("status")); Ok(status != null && status.Contains("\"version\":\"" + Program.Version + "\"") && status.Contains("\"forceDark\":false") && !status.Contains("127.0.0.1"), "status: 1.5 fields, no addresses");
             }
             catch (Exception e) { Ok(false, "integration crashed: " + e); }
             finally

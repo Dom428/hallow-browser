@@ -110,7 +110,7 @@ namespace HallowBrowser
         readonly string path; readonly object gate = new object();
         List<HistoryEntry> items = new List<HistoryEntry>(); bool loaded, dirty;
         public HistoryStore(string file) { path = file; }
-        public static string DefaultPath { get { return Path.Combine(BrowserSettings.ProfileDir, "hallow-history.json"); } }
+        public static string DefaultPath { get { return Path.Combine(BrowserSettings.HistoryDir, "hallow-history.json"); } }   // 1.6: another profile keeps its own
         public bool Loaded { get { lock (gate) return loaded; } }
         public int Count { get { lock (gate) return items.Count; } }
 

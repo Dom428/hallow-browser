@@ -107,7 +107,7 @@ namespace HallowBrowser
         public CoreWebView2 Core { get { try { return View == null ? null : View.CoreWebView2; } catch { return null; } } }
     }
 
-    public class Sidebar
+    public partial class Sidebar
     {
         readonly BrowserWindow w;
         public readonly List<SidePanel> Panels = new List<SidePanel>();
@@ -186,6 +186,7 @@ namespace HallowBrowser
             // keep the panels that are still in the list, drop the others (their WebViews go away)
             foreach (var p in Panels.Where(p => !w.S.SidebarSites.Contains(p.Site)).ToList()) Remove(p, false);
             railList.Children.Clear();
+            AddNativeButtons();   // 1.6: the reading list and notes (the browser's own panels) first
             foreach (var site in w.S.SidebarSites)
             {
                 var p = Panels.FirstOrDefault(x => x.Site == site);
@@ -239,7 +240,7 @@ namespace HallowBrowser
         public void Toggle() { if (w.Private) { w.Toast("The sidebar's panels use your signed-in profile, so they aren't in private windows.", 4); return; } w.S.SidebarOn = !w.S.SidebarOn; w.S.Save(); ApplyOn(); }
         public void ApplyOn()
         {
-            bool on = w.S.SidebarOn && !w.Private;   // 1.4: not in private windows (the panels are signed in on your normal profile)
+            bool on = w.S.SidebarOn && !w.Private && !w.AppMode;   // 1.4: not in private windows (the panels are signed in on your normal profile); 1.6: nor app windows
             rail.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             railCol.Width = on ? GridLength.Auto : new GridLength(0);
             if (!on && Open != null) Hide();
@@ -251,6 +252,7 @@ namespace HallowBrowser
         {
             if (w.Private) return;
             if (!w.S.SidebarOn) { w.S.SidebarOn = true; ApplyOn(); }
+            if (NativeOpen != null) RemoveNative();   // 1.6
             if (Open != null && Open != p) HideOnly(Open);
             Open = p; p.Shown = true;
             w.S.SidebarOpenId = p.Site.Id; w.S.Save();
@@ -266,7 +268,7 @@ namespace HallowBrowser
         }
         public void Hide()
         {
-            if (Open == null) return;
+            if (Open == null) { if (NativeOpen != null) HideNative(true); return; }   // 1.6: the reading list / notes
             HideOnly(Open); Open = null;
             w.S.SidebarOpenId = null; w.S.Save();
             host.Visibility = Visibility.Collapsed; splitter.Visibility = Visibility.Collapsed;
@@ -291,7 +293,7 @@ namespace HallowBrowser
             try { var c = (Color)w.FindResource("PageBg"); v.DefaultBackgroundColor = System.Drawing.Color.FromArgb(c.R, c.G, c.B); } catch { }
             p.View = v; p.Ready = false; p.Asleep = false;
             viewBox.Children.Add(v);
-            try { await v.EnsureCoreWebView2Async(Engine.Env); }
+            try { await Engine.Ensure(v); }
             catch (Exception e)
             {
                 // gone again, so the next click tries anew

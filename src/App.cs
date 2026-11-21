@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.5";
+        public const string Version = "1.6";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -42,18 +42,26 @@ namespace HallowBrowser
             int si = Array.IndexOf(args, "--snap");
             if (si >= 0 && si + 1 < args.Length) { BrowserSettings.Frozen = true; var sa = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; LoadTheme(sa); SnapAll(args[si + 1]); return 0; }
 
-            var urls = args.Where(a => !a.StartsWith("--")).Select(a => Omni.Interpret(a, "duckduckgo")).Where(u => u != null && Omni.IsWeb(u)).ToList();
+            // 1.6: --profile <id or name> (a profile's own process), --app <url> (an installed site in its own window)
+            string wantProfile, appArg; List<string> rest; ParseArgs(args, out wantProfile, out appArg, out rest);
+            var urls = rest.Select(a => Omni.Interpret(a, "duckduckgo")).Where(u => u != null && Omni.IsWeb(u)).ToList();
+            var appUrl = appArg == null ? null : Omni.Interpret(appArg, "duckduckgo"); if (appUrl != null && !Omni.IsWeb(appUrl)) appUrl = null;
+            Profiles = ProfileStore.EnsureMigrated();   // 1.6: the data from before profiles is the "Default" profile (nothing moves)
+            var prof = (wantProfile != null ? Profiles.Find(wantProfile) : null) ?? Profiles.Find(Profiles.StartWith) ?? Profiles.Items[0];
+            BrowserSettings.ProfileId = prof.Id;
             var leaf = BrowserSettings.TestDir != null ? "Test" + Path.GetFileName(BrowserSettings.TestDir.TrimEnd('\\')) : "";
             bool created;
-            var mutex = new Mutex(true, @"Local\HallowBrowser" + leaf, out created);
+            var mutex = new Mutex(true, MutexName(prof.Id, leaf), out created);
             if (!created)
             {
                 // already running: hand the addresses to it (or just bring it forward)
+                var pipe = PipeApp(prof.Id);
                 for (int i = 0; i < 20; i++)
                 {
                     bool ok = true;
-                    if (urls.Count == 0) ok = Family.Send("Browser", "open", 3000) != null;
-                    else foreach (var u in urls) ok &= Family.Send("Browser", "open " + u, 3000) != null;
+                    if (appUrl != null) ok = Family.Send(pipe, "app " + appUrl, 3000) != null;
+                    else if (urls.Count == 0) ok = Family.Send(pipe, "open", 3000) != null;
+                    else foreach (var u in urls) ok &= Family.Send(pipe, "open " + u, 3000) != null;
                     if (ok) return 0;
                     Thread.Sleep(250);
                 }
@@ -73,10 +81,12 @@ namespace HallowBrowser
             var st = st0;
             Engine.Starting = Engine.Create(st);   // the page engine starts while the window is being built
             var w = new BrowserWindow(st, false); Register(w);
-            Family.Serve("Browser", line => Command(Win ?? w, line));
+            var app0 = appUrl == null ? null : SiteApps.ForUrl(appUrl);   // 1.6: an installed site opens as its app window
+            if (appUrl != null) w.MakeAppWindow(app0 ?? SiteApps.Adhoc(appUrl));
+            Family.Serve(PipeApp(prof.Id), line => Command(Win ?? w, line));
             accentWatch = Accent.Watch(() => app.Dispatcher.BeginInvoke(new Action(ReloadTheme)));
             WatchMode(app);
-            w.Loaded += async (s, e) => { await w.Start(urls); CrashNotice(w); };
+            w.Loaded += async (s, e) => { if (w.AppMode) await w.StartApp(); else { await w.Start(urls); CrashNotice(w); } };
             app.Run(w);
             MarkClosed();   // 1.5: a normal exit (a crash leaves the marker, and the next start offers your tabs back)
             GC.KeepAlive(mutex);
@@ -121,7 +131,7 @@ namespace HallowBrowser
         {
             var c = Crash.LastTime();
             return Family.Json(new Dictionary<string, object> {
-                { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true },
+                { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true }, { "profiles", Profiles == null ? 1 : Profiles.Items.Count }, { "boosted", Boosted }, { "appWindows", Windows.Count(x => x.AppMode) }, { "memorySaver", w.S.MemorySaver }, { "onBattery", Power16.OnBattery }, { "memorySavedMb", Windows.Sum(x => x.Tabs.Where(t => t.Suspended || t.Discarded).Sum(t => t.SavedMb)) }, { "readingList", ReadingList.Count(false) }, { "sounds", w.S.Sounds },
                 { "tabs", Windows.Sum(x => x.Tabs.Count) }, { "asleep", Windows.Sum(x => x.Tabs.Count(t => t.Suspended || t.Discarded)) }, { "windows", Windows.Count(x => !x.Private) }, { "privateWindows", Windows.Count(x => x.Private) }, { "gameMode", w.Game != null }, { "game", w.Game },
                 { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "httpsOnly", w.S.HttpsOnly }, { "secureDns", w.S.SecureDns }, { "extensions", w.S.Extensions.Count(x => x.Enabled) }, { "gameCorner", w.S.GameCorner }, { "forceDark", w.S.ForceDark }, { "searchSuggestions", w.S.SearchSuggest }, { "mediaTabs", BrowserWindow.MediaTabs().Count }, { "downloadsRunning", Windows.Sum(x => x.Downloads.Count(d => d.State == "running" || d.State == "paused")) }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
@@ -130,8 +140,18 @@ namespace HallowBrowser
         public static string Command(BrowserWindow w, string line)
         {
             var sp = line.IndexOf(' '); var cmd = (sp < 0 ? line : line.Substring(0, sp)).ToLowerInvariant(); var arg = sp < 0 ? "" : line.Substring(sp + 1).Trim();
+            // 1.6: startup boost - no window is open: the first "open" (a new start of the browser) makes one at once
+            if (Boosted && (cmd == "open" || cmd == "app" || cmd == "invoke"))
+            {
+                if (cmd == "open" && arg.Length > 0) { Uri bu; if (!Uri.TryCreate(arg, UriKind.Absolute, out bu) || (bu.Scheme != "http" && bu.Scheme != "https")) return "error only http and https addresses can be opened"; }
+                if (cmd == "app" && !Omni.IsWeb(arg)) return "error not a web address";
+                return OnUi(w, () => { Wake(cmd == "open" && arg.Length > 0 ? new List<string> { new Uri(arg).AbsoluteUri } : new List<string>(), cmd == "app" ? arg : null); return "ok"; });
+            }
             switch (cmd)
             {
+                case "app":   // 1.6: an installed site in its own window (HallowBrowser.exe --app <url> while this profile runs)
+                    if (!Omni.IsWeb(arg)) return "error not a web address";
+                    return OnUi(w, () => { OpenApp(arg); return "ok"; });
                 case "ping": return "ok " + Family.Json(new Dictionary<string, object> { { "app", "Browser" }, { "version", Version } });
                 case "status": return "ok " + OnUi(w, () => StatusJson(w));
                 case "open":
@@ -151,7 +171,7 @@ namespace HallowBrowser
                         new Dictionary<string, object> { { "id", "game-light" }, { "label", "Gaming-light mode" }, { "checked", w.S.GameLight } },
                         new Dictionary<string, object> { { "id", "cpu-limiter" }, { "label", "CPU limiter" }, { "checked", w.S.CpuLimiter } },
                         new Dictionary<string, object> { { "id", "sidebar" }, { "label", "Sidebar" }, { "checked", w.S.SidebarOn } },
-                        new Dictionary<string, object> { { "id", "vertical-tabs" }, { "label", "Vertical tabs" }, { "checked", w.S.VerticalTabs } } } } }));
+                        new Dictionary<string, object> { { "id", "vertical-tabs" }, { "label", "Vertical tabs" }, { "checked", w.S.VerticalTabs } } }.Concat(ProfileMenuItems()).ToArray() } }));
                 case "invoke":
                     return OnUi(w, () =>
                     {
@@ -168,9 +188,10 @@ namespace HallowBrowser
                             case "sidebar": w.Side.Toggle(); return "ok";
                             case "vertical-tabs": w.ToggleVerticalTabs(); return "ok";
                         }
+                        if (arg.StartsWith("profile-")) return LaunchProfile(arg.Substring(8), null) ? "ok" : "error no such profile";   // 1.6
                         return "error unknown item";
                     });
-                case "quit": w.Dispatcher.BeginInvoke(new Action(Quit)); return "ok";
+                case "quit": RealQuit = true; w.Dispatcher.BeginInvoke(new Action(() => { if (Boosted) EndBoost(); else Quit(); })); return "ok";   // 1.6: really exits (no startup boost)
             }
             if (BrowserSettings.TestDir != null && cmd.StartsWith("test-")) return TestHooks.Run(w, cmd, arg);
             return "error unknown command";
@@ -233,6 +254,8 @@ namespace HallowBrowser
         {
             Directory.CreateDirectory(dir);
             Snap.On = true;
+            Profiles = null;   // 1.6: made-up profiles only where a picture shows them (never yours)
+            ReadingList.UseForSnap(new List<ReadItem>()); PageNotes.UseForSnap(new List<PageNote>()); SiteApps.SnapItems = new List<InstalledApp>();
             var s = new BrowserSettings(); s.Fix();
             s.LiveChannels = new List<string> { "twitch:hallowgg", "youtube:@HallowGaming" };
             // 1.1: every picture in both looks (dark = the names as before, light = "-light")
@@ -271,11 +294,19 @@ namespace HallowBrowser
                 shot("sites", w => w.SnapPage("sites"));
                 shot("omni", w => w.SnapOmni());              // 1.5: the address bar's answer, keywords and suggestions (made-up)
                 shot("downloads", w => w.SnapDownloads());    // 1.5: the downloads page with Defender's badges (made-up)
+                // 1.6: the profile chip and switcher, the reading list and notes, apps, an app window, sleeping tabs (all made-up)
+                shot("profiles", w => { Profiles = BrowserWindow.SnapProfiles(); w.SnapProfileSwitcher(); }); Profiles = null;
+                shot("reading-list", w => w.SnapSide("reading"));
+                shot("notes", w => w.SnapSide("notes"));
+                shot("apps", w => { w.SnapApps(); });
+                shot("app-window", w => w.SnapAppWindow());
+                shot("sleeping-tabs", w => w.SnapSleeping());
+                Profiles = BrowserWindow.SnapProfiles();
                 var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                 ws.SnapFill("news", false, false);
                 var set = Panels.SettingsPage(ws); ws.ContentGrid.Children.Add(set);
-                Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 3500);
-                ws.Close();
+                Snap.Save(ws, Path.Combine(dir, "settings" + sfx + ".png"), 1280, 5600);
+                ws.Close(); Profiles = null;
             }
         }
     }

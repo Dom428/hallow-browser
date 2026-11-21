@@ -326,6 +326,7 @@ namespace HallowBrowser
         public void ToggleVTabsCollapsed() { S.VTabsCollapsed = !S.VTabsCollapsed; S.Save(); ApplyTabLayout(); Changed(); }
         public void ApplyTabLayout()
         {
+            if (AppMode) { vtabs.Visibility = Visibility.Collapsed; vtabsCol.Width = new GridLength(0); strip.Visibility = Visibility.Collapsed; newBtn.Visibility = Visibility.Collapsed; Side.Dock(false); return; }   // 1.6: an app window has no tabs
             bool v = S.VerticalTabs, ic = S.VTabsCollapsed;
             vtabs.Visibility = v && !fullscreen ? Visibility.Visible : Visibility.Collapsed;
             vtabsCol.Width = v && !fullscreen ? new GridLength(ic ? 52 : 240) : new GridLength(0);

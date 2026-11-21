@@ -438,10 +438,12 @@ namespace HallowBrowser
             try { var p = Side == null ? null : Side.Panels.FirstOrDefault(x => x.Audible && x.View != null); if (p != null) { var t = p.View.CoreWebView2 == null ? null : p.View.CoreWebView2.DocumentTitle; if (!string.IsNullOrWhiteSpace(t)) playing = t + " (" + p.Site.Name + ")"; } } catch { }
             var hist = History; var s = S;
             Task.Run(() => { lock (ntLock) NewTabData.Write(NewTabData.Build(s, hist != null && hist.Loaded ? hist.All() : new List<HistoryEntry>(), playing, DateTime.Now)); });
+            RefreshFamily(Engine.SinceStart() < 5000 ? 1500 : 0);   // 1.6: your games, clips and the Overlay switch - after the first paint
             GameCornerTick(false);   // 1.4: when it is on and due
         }
         void NewTabMessage(string m, string source)
         {
+            if (FamilyMessage(m, source)) return;   // 1.6: Play, a clip, the Overlay switch
             if (source == null || !Omni.IsNewTab(source) || Private) return;   // only the new tab page itself (1.4: never from a private window)
             var p = m.Split('\t'); var url = p.Length > 1 ? p[1] : null; if (!Omni.IsWeb(url)) return;
             if (p[0] == "hallow:nt-hide") { if (!S.NewTabHidden.Contains(url)) S.NewTabHidden.Add(url); }
@@ -466,6 +468,15 @@ namespace HallowBrowser
                 foreach (var t in Tabs) if (Omni.IsNewTab(t.Url) && t.Core != null) try { var __ = t.Core.ExecuteScriptAsync("window.hallowRefresh&&hallowRefresh()"); } catch { }
             }));
             SyncSoon(8);
+        }
+        // 1.6: a note changed: it goes to the sync folder soon (when sync is on)
+        public void NotesChanged() { SyncSoon(8); }
+        public static string SyncFolderFor(string folder)
+        {
+            if (string.IsNullOrEmpty(folder) || BrowserSettings.IsDefaultProfile) return folder;
+            var sub = System.IO.Path.Combine(folder, "profile-" + BrowserSettings.ProfileId);
+            try { if (System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(sub); } catch { }   // only inside a folder that's there (a sync drive that's away stays away)
+            return sub;
         }
         public string NewTabJson() { return NewTabData.Build(S, History != null && History.Loaded ? History.All() : new List<HistoryEntry>(), null, DateTime.Now); }
 
@@ -506,7 +517,7 @@ namespace HallowBrowser
         }
         SyncInput MakeSyncInput()
         {
-            return new SyncInput { Settings = S, Bookmarks = Bookmarks, Saved = BrowserSettings.LoadSaved(), Spaces = Spaces, CurrentSpace = SpaceId, CurrentLive = Tabs.Count > 0 ? BuildSession() : null };
+            return new SyncInput { Settings = S, Bookmarks = Bookmarks, Saved = BrowserSettings.LoadSaved(), Spaces = Spaces, CurrentSpace = SpaceId, CurrentLive = Tabs.Count > 0 ? BuildSession() : null, Notes = PageNotes.All };
         }
         SyncOptions MakeSyncOptions(string pw) { return new SyncOptions { Dev = S.SyncDevice, DevName = Environment.MachineName, Password = pw, CopyData = SyncData.CopyData, KeepDir = BrowserSettings.Dir }; }
         public async Task<SyncOutcome> SyncNow(bool manual)
@@ -521,7 +532,7 @@ namespace HallowBrowser
                 if (S.SyncEncrypt) { pw = SyncCrypto.LoadPassword(); if (pw == null) { SyncNoted(new SyncOutcome { State = "error", Message = "Encryption is on but no sync password is set on this PC - set it in Settings > Sync" }, manual); return LastSync; } }
                 var input = MakeSyncInput(); var local = SyncData.Gather(input); var hashes = SyncData.KindHashes(local);
                 var st = BrowserSettings.Read<SyncState>(SyncStatePath) ?? new SyncState();
-                var opts = MakeSyncOptions(pw); var folder = S.SyncFolder;
+                var opts = MakeSyncOptions(pw); var folder = SyncFolderFor(S.SyncFolder);   // 1.6: a profile other than Default syncs in its own sub-folder
                 syncDirty = false;
                 var o = await Task.Run(() => { try { return SyncCore.Run(local, st, folder, opts); } catch (Exception e) { return new SyncOutcome { State = "error", Message = e.Message }; } });
                 if (o.State2 != null)
@@ -556,6 +567,7 @@ namespace HallowBrowser
                 RefreshNewTabData();
             }
             if (o.ChangedKinds.Contains("saved")) BrowserSettings.SaveSaved(input.Saved);
+            if (o.ChangedKinds.Contains("note")) { PageNotes.Replace(input.Notes); Side.RefreshNative(); }   // 1.6
             if (o.ChangedKinds.Contains("ws")) { BrowserSettings.SaveWorkspaces(Spaces); UpdateSpaceButton(); }
             if (done.Count > 0 && o.Incoming > 0) Toast("Synced: " + string.Join(", ", done) + " came in from your other PC" + (o.Conflicts > 0 ? " (" + o.Conflicts + " changed on both - the newer one kept, the other bookmark kept as a conflict copy)" : "") + ".", 6);
         }
@@ -574,7 +586,7 @@ namespace HallowBrowser
             {
                 var pw = S.SyncEncrypt ? SyncCrypto.LoadPassword() : null; if (S.SyncEncrypt && pw == null) return;
                 var local = SyncData.Gather(MakeSyncInput()); var st = BrowserSettings.Read<SyncState>(SyncStatePath) ?? new SyncState();
-                var opts = MakeSyncOptions(pw); var folder = S.SyncFolder;
+                var opts = MakeSyncOptions(pw); var folder = SyncFolderFor(S.SyncFolder);
                 var t = Task.Run(() => SyncCore.Run(local, st, folder, opts));
                 // the folder now has this PC's changes; what came in is merged next time (the state is kept only if nothing came in)
                 if (t.Wait(5000) && t.Result.State2 != null && t.Result.ChangedKinds.Count == 0) BrowserSettings.WriteFile(SyncStatePath, t.Result.State2, typeof(SyncState));

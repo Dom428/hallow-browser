@@ -201,7 +201,7 @@ namespace HallowBrowser
             {
                 v = new WebView2 { Visibility = Visibility.Hidden, Width = 1, Height = 1, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
                 content.Children.Add(v);
-                await v.EnsureCoreWebView2Async(Engine.Env);
+                await Engine.Ensure(v);
                 await Panels.NavigateAndWait(v.CoreWebView2, ShieldPage("family.js"));
                 var r = await Panels.Eval(v.CoreWebView2, RelayScript);
                 var json = new JavaScriptSerializer().Deserialize<string>(r);

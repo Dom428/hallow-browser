@@ -15,7 +15,12 @@ $refs = "$wpf\PresentationFramework.dll", "$wpf\PresentationCore.dll", "$wpf\Win
     "$fw\System.Windows.Forms.dll", "$fw\System.Drawing.dll", "$fw\System.Runtime.Serialization.dll", "$fw\System.Core.dll",
     "$fw\System.IO.Compression.dll", "$fw\System.IO.Compression.FileSystem.dll", "$fw\System.Web.Extensions.dll", "$fw\System.Xml.dll", "$fw\System.Security.dll",
     "$lib\Microsoft.Web.WebView2.Core.dll", "$lib\Microsoft.Web.WebView2.Wpf.dll"
-$common = @('/nologo', '/optimize+', '/platform:x64', "/win32icon:$src\hallow.ico", "/resource:$src\Theme.xaml,HallowBrowser.Theme.xaml") + ($refs | ForEach-Object { "/reference:$_" })
+# 1.6: the optional UI sounds and the ambience loop are synthesised here (tools\gen-sounds.ps1 - no recorded or downloaded sounds) and embedded
+$snd = Join-Path $PSScriptRoot 'obj\sounds'
+& (Join-Path $PSScriptRoot 'tools\gen-sounds.ps1') -Out $snd | Out-Null
+$sounds = @(Get-ChildItem $snd -Filter *.wav | ForEach-Object { "/resource:$($_.FullName),HallowBrowser.Sounds.$($_.Name)" })
+if ($sounds.Count -ne 5) { throw "gen-sounds.ps1 made $($sounds.Count) sounds, not 5" }
+$common = @('/nologo', '/optimize+', '/platform:x64', "/win32icon:$src\hallow.ico", "/resource:$src\Theme.xaml,HallowBrowser.Theme.xaml") + $sounds + ($refs | ForEach-Object { "/reference:$_" })
 $files = Get-ChildItem $src -Filter *.cs | ForEach-Object FullName
 & "$fw\csc.exe" @($common + @('/target:winexe', "/out:$out") + $files)
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }

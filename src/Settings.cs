@@ -13,7 +13,7 @@ using System.Threading;
 namespace HallowBrowser
 {
     [DataContract]
-    public class BrowserSettings
+    public partial class BrowserSettings
     {
         // developer tests: HALLOW_BROWSER_TESTDIR = a folder for everything (settings, profile, Shield updates) and separate pipes;
         // HALLOW_BROWSER_OFFSCREEN=1 = the window lives off-screen and never takes focus; HALLOW_BROWSER_HOSTRULES = host mapping for
@@ -33,9 +33,13 @@ namespace HallowBrowser
         public static bool Frozen;   // --snap: never saved
         static string Env(string n) { var v = Environment.GetEnvironmentVariable(n); return string.IsNullOrWhiteSpace(v) ? null : v; }
 
-        public static string Dir { get { return TestDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HallowBrowser"); } }
-        public static string LocalDir { get { return TestDir != null ? Path.Combine(TestDir, "Local") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HallowBrowser"); } }
-        public static string ProfileDir { get { return Path.Combine(LocalDir, "Profile"); } }
+        // 1.6: profiles. The "Default" profile keeps the folders it always had (nothing moves); another profile keeps its own files in
+        // Profiles<id> of both folders. The page engine's folder (ProfileDir) is shared: each profile is a WebView2 profile in it.
+        public static string RootDir { get { return TestDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HallowBrowser"); } }
+        public static string RootLocalDir { get { return TestDir != null ? Path.Combine(TestDir, "Local") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HallowBrowser"); } }
+        public static string Dir { get { return IsDefaultProfile ? RootDir : Path.Combine(RootDir, "Profiles", ProfileId); } }
+        public static string LocalDir { get { return IsDefaultProfile ? RootLocalDir : Path.Combine(RootLocalDir, "Profiles", ProfileId); } }
+        public static string ProfileDir { get { return Path.Combine(RootLocalDir, "Profile"); } }
         static string FilePath { get { return Path.Combine(Dir, "settings.json"); } }
         static string SessionPath { get { return Path.Combine(Dir, "session.json"); } }
 
@@ -139,6 +143,7 @@ namespace HallowBrowser
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
             HttpsOnly = true; SecureDns = "off"; ShareShieldCounts = true;
             SaveLogins = true; DownloadScan = true; TabPreviews = true;
+            Defaults16();
         }
 
         public static BrowserSettings Load()
@@ -195,6 +200,7 @@ namespace HallowBrowser
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
+            Fix16();
             if (double.IsNaN(Width) || Width < 480) Width = 1280;
             if (double.IsNaN(Height) || Height < 360) Height = 820;
         }

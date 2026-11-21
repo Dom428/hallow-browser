@@ -73,6 +73,7 @@ namespace HallowBrowser.Tests
             if (mode == "movein") return Integration13.Main(exe, dir);    // 1.3: import, bookmarks bar / manager, new tab page, sync
             if (mode == "v14") return Integration14.Main(exe, dir);       // 1.4: windows, private, permissions, HTTPS-only, secure DNS, extensions, Shield relay, game corner
             if (mode == "v15") return Integration15.Main(exe, dir);       // 1.5: address bar, saving logins to Keys, dark pages, downloads, tabs, media, crashes
+            if (mode == "v16") return Integration16.Main(exe, dir);       // 1.6: profiles, family rows, apps, spell check, memory saver / battery / boost, sounds, reading list and notes
             if (mode == "power") return Integration12.Main(exe, dir);     // 1.2: vertical tabs, groups, workspaces, split, Ctrl+K, screenshots, reader, mute
             // everything goes to the test folder: settings, profile, pipes (".test-<leaf>"), the Keys stand-in's pipe
             Directory.CreateDirectory(dir);

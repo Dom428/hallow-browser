@@ -144,7 +144,7 @@ namespace HallowBrowser
             else d.State = "running";
             if (d.State != old)
             {
-                if (d.State == "done") { Toast("Downloaded " + d.Name, 4); if (S.DownloadScan) ScanDownload(d); else d.Scan = "off"; }
+                if (d.State == "done") { Toast("Downloaded " + d.Name, 4); Vibe.Play("download", this); if (S.DownloadScan) ScanDownload(d); else d.Scan = "off"; }
                 if (d.Record != null && d.State != "paused") { d.Record.State = d.State; d.Record.Size = Math.Max(d.Got, d.Total); if (d.State == "done" && !S.DownloadScan) d.Record.Scan = "off"; DownloadHistory.Save(); }
             }
             Panels.RefreshDownloads(this); RefreshDownloadsPage();

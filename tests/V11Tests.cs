@@ -150,7 +150,7 @@ namespace HallowBrowser.Tests
             var path = Path.Combine(BrowserSettings.Dir, "settings.json");
             File.WriteAllText(path, "{\"Search\":\"google\",\"PageColors\":\"dark\"}");   // a 1.0 file
             var s = BrowserSettings.Load();
-            Ok(s.PageColors == "follow" && s.SettingsVersion == 2, "1.0's default dark pages become \"follow\"");
+            Ok(s.PageColors == "follow" && s.SettingsVersion >= 2, "1.0's default dark pages become \"follow\"");
             Ok(s.SidebarOn && s.SidebarSites.Count == 5 && s.SidebarSleepMinutes == 10 && !s.LiveOn && s.BandwidthKBps == 0 && s.BandwidthGameOnly && s.Look == "follow", "1.1 defaults: sidebar on with 5 panels, 10 min, live off, no cap, Look follow");
             s.PageColors = "dark"; s.SidebarSites.RemoveAt(0); s.LiveChannels = new List<string> { "twitch:abc", "TWITCH:ABC", "bogus channel!" }; s.BandwidthKBps = 1024; s.Save();
             var t = BrowserSettings.Load();

@@ -15,6 +15,7 @@ namespace HallowBrowser
     {
         public BrowserSettings Settings; public BookmarkStore Bookmarks;
         public List<SavedSession> Saved; public WorkspaceStore Spaces; public string CurrentSpace; public Session CurrentLive;
+        public List<PageNote> Notes;   // 1.6: notes per page
     }
 
     public static class SyncData
@@ -26,7 +27,7 @@ namespace HallowBrowser
             "GameLight", "SleepMinutes", "Preconnect", "KeysOn", "ShieldAutoUpdate", "SidebarOn", "SidebarSleepMinutes", "LiveOn", "LiveChannels",
             "BandwidthKBps", "BandwidthGameOnly", "VerticalTabs", "VTabsCollapsed", "SidebarSide", "ReaderFontSize", "ReaderWidth", "KeepHistory",
             "BookmarksBar", "NewTabTopSites", "NewTabClock", "NewTabFamily", "NewTabPinned", "NewTabHidden" };
-        public static readonly string[] Kinds = { "bm", "set", "saved", "ws", "side" };
+        public static readonly string[] Kinds = { "bm", "set", "saved", "ws", "side", "note" };   // 1.6: "note"
         static FieldInfo F(string n) { return typeof(BrowserSettings).GetField(n, BindingFlags.Public | BindingFlags.Instance); }
 
         static string Ser(object o) { return js.Serialize(o); }
@@ -59,6 +60,10 @@ namespace HallowBrowser
             if (i.Saved != null)
                 foreach (var s in i.Saved.GroupBy(x => (x.Name ?? "").ToLowerInvariant()).Select(g => g.First()))
                     res.Add(new SyncRecord { Id = "saved:" + (s.Name ?? "").ToLowerInvariant(), Kind = "saved", Data = Ser(s) });
+            // 1.6: a note per page (its id from the page's address, the same on every PC)
+            if (i.Notes != null)
+                foreach (var n in i.Notes.Where(x => x != null && x.Key != null && !string.IsNullOrEmpty(x.Text)))
+                    res.Add(new SyncRecord { Id = "note:" + PageNotes.IdOf(n.Key), Kind = "note", Data = Ser(new SortedDictionary<string, object>(StringComparer.Ordinal) { { "k", n.Key }, { "t", n.Title }, { "u", n.Url }, { "x", n.Text } }) });
             if (i.Spaces != null && i.Spaces.Items != null)
                 foreach (var w in i.Spaces.Items)
                 {
@@ -131,6 +136,24 @@ namespace HallowBrowser
                 }
                 i.Settings.Fix();
                 done.Add("settings");
+            }
+            if (kinds.Contains("note") && i.Notes != null)
+            {
+                var have = i.Notes.Where(x => x.Key != null).GroupBy(x => x.Key).ToDictionary(g => g.Key, g => g.First());
+                var list = new List<PageNote>();
+                foreach (var r in result.Where(r => r.Kind == "note"))
+                {
+                    try
+                    {
+                        var d = js.Deserialize<Dictionary<string, object>>(r.Data); object k, t, u, x; d.TryGetValue("k", out k); d.TryGetValue("t", out t); d.TryGetValue("u", out u); d.TryGetValue("x", out x);
+                        var key = k as string; if (key == null || !(x is string)) continue;
+                        PageNote old; var upd = have.TryGetValue(key, out old) && old.Text == (string)x ? old.Updated : DateTime.Now.ToString("s");
+                        list.Add(new PageNote { Key = key, Title = t as string, Url = u as string ?? key, Text = (string)x, Updated = upd });
+                    }
+                    catch { }
+                }
+                i.Notes.Clear(); i.Notes.AddRange(list);
+                done.Add("notes");
             }
             if (kinds.Contains("saved") && i.Saved != null)
             {

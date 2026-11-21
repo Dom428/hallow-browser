@@ -58,12 +58,12 @@ namespace HallowBrowser
         {
             get
             {
-                if (lastActive != null && !lastActive.Gone && Windows.Contains(lastActive) && !lastActive.Private) return lastActive;
+                if (lastActive != null && !lastActive.Gone && Windows.Contains(lastActive) && !lastActive.Private && !lastActive.AppMode) return lastActive;
                 return First ?? Windows.FirstOrDefault(x => !x.Gone) ?? Windows.FirstOrDefault();
             }
         }
         // the first normal window: its tabs are session.json's own, it runs sync and live notifications
-        public static BrowserWindow First { get { return Windows.FirstOrDefault(x => !x.Private && !x.Gone); } }
+        public static BrowserWindow First { get { return Windows.FirstOrDefault(x => !x.Private && !x.Gone && !x.AppMode); } }   // 1.6: never an app window
         public static readonly ShieldBox MainShield = new ShieldBox(), PrivateShield = new ShieldBox();
         public static WorkspaceStore SharedSpaces; public static HistoryStore SharedHistory; public static BookmarkStore SharedBookmarks;
         public static bool Quitting, SessionFrozen;
@@ -75,7 +75,7 @@ namespace HallowBrowser
             w.Closed += (a, b) =>
             {
                 w.Gone = true; Windows.Remove(w); if (lastActive == w) lastActive = null;
-                if (Windows.Count == 0) { Application.Current.Shutdown(); return; }
+                if (Windows.Count == 0) { if (Boost(w)) return; Application.Current.Shutdown(); return; }   // 1.6: startup boost keeps a small process
                 var m = First; if (m != null && !m.IsPrimary) m.Promote();
                 var s = Win; if (s != null) s.WriteStatus();
             };
@@ -126,7 +126,7 @@ namespace HallowBrowser
         public static void SaveAll()
         {
             if (SessionFrozen) return;
-            var normals = Windows.Where(x => !x.Private && !x.Gone && !x.IsSnap && x.Tabs.Count > 0).ToList(); if (normals.Count == 0) return;
+            var normals = Windows.Where(x => !x.Private && !x.AppMode && !x.Gone && !x.IsSnap && x.Tabs.Count > 0).ToList(); if (normals.Count == 0) return;
             var sessions = normals.Select(w => w.BuildSession()).ToList();
             var file = new Session { Tabs = sessions[0].Tabs, Active = sessions[0].Active, Groups = sessions[0].Groups, Split = sessions[0].Split };
             if (normals.Count > 1)
@@ -170,7 +170,7 @@ namespace HallowBrowser
         // a tab from one window into another (never between private and normal windows: different profiles)
         public static bool MoveTab(Tab t, BrowserWindow from, BrowserWindow to, int index)
         {
-            if (t == null || from == null || to == null || from == to || from.Private != to.Private || !from.Tabs.Contains(t)) return false;
+            if (t == null || from == null || to == null || from == to || from.Private != to.Private || from.AppMode || to.AppMode || !from.Tabs.Contains(t)) return false;
             from.Detach(t);
             to.Adopt(t, index);
             if (from.Tabs.Count == 0) from.Close();
@@ -195,9 +195,7 @@ namespace HallowBrowser
         // the WebView's engine: one environment; normal windows on the browser's profile, private ones on a separate InPrivate profile
         Task EnsureCore(WebView2 v)
         {
-            if (!Private) return v.EnsureCoreWebView2Async(Engine.Env);
-            var o = Engine.Env.CreateCoreWebView2ControllerOptions(); o.ProfileName = PrivateProfile; o.IsInPrivateModeEnabled = true;
-            return v.EnsureCoreWebView2Async(Engine.Env, o);
+            return Engine.Ensure(v, Private);   // 1.6: on this window's browser profile (Default, or a profile of its own)
         }
 
         // a window opened after the first one (Ctrl+N, Ctrl+Shift+N, a torn-off tab, one from last time)

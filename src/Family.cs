@@ -159,6 +159,7 @@ namespace HallowBrowser
         static readonly object fileLock = new object();
         public static void WriteStatus(string json)
         {
+            if (!BrowserSettings.IsDefaultProfile) return;   // 1.6: the family reads the Default profile's status (other profiles answer on their own pipes)
             lock (fileLock)
             {
                 try

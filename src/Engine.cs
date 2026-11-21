@@ -55,9 +55,11 @@ namespace HallowBrowser
         // They're written before the engine starts (the runtime reads them at start). A broken file is left alone.
         public static void WritePrefs(BrowserSettings s)
         {
-            WritePrefs(s, Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "Default", "Preferences"));
-            WritePrefs(s, Path.Combine(BrowserSettings.ProfileDir, "EBWebView", "WV2Profile_" + BrowserWindow.PrivateProfile.ToLowerInvariant(), "Preferences"));   // 1.4: private windows' profile
-            WriteLocalState(s);
+            // 1.6: this window's browser profile (Default or a profile of its own) and its private profile
+            WritePrefs(s, Path.Combine(BrowserSettings.EngineProfileFolder(BrowserSettings.WebViewProfile), "Preferences"));
+            WritePrefs(s, Path.Combine(BrowserSettings.EngineProfileFolder(BrowserSettings.PrivateWebViewProfile), "Preferences"));   // 1.4: private windows' profile
+            WriteSpellWords(s);   // 1.6: words you added to the dictionary
+            WriteLocalState(BrowserSettings.IsDefaultProfile ? s : DefaultProfileSettings());   // secure DNS is engine-wide: the Default profile's choice
         }
         static void WritePrefs(BrowserSettings s, string f)
         {
@@ -89,8 +91,10 @@ namespace HallowBrowser
             o.AreBrowserExtensionsEnabled = true;          // Hallow Shield
             o.EnableTrackingPrevention = true;
             try { o.ScrollBarStyle = CoreWebView2ScrollbarStyle.FluentOverlay; } catch { }
+            var lang = SpellLanguage(); if (lang != null) o.Language = lang;   // 1.6: the spell check language (engine-wide, the same for every profile)
             Env = await CoreWebView2Environment.CreateAsync(null, BrowserSettings.ProfileDir, o);
             RuntimeVersion = Env.BrowserVersionString;
+            var made = Env; made.BrowserProcessExited += (a, b) => { if (Env == made && (Program.Boosted || Program.Windows.Count == 0)) { Env = null; Starting = null; } };   // 1.6: startup boost starts it again
             Mark("environment");
             return Env;
         }
@@ -213,8 +217,9 @@ namespace HallowBrowser
                 "#gc{width:min(720px,90vw);margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}#gc:empty{display:none}#gc section{background:" + tile + ";border:1px solid " + line + ";border-radius:12px;padding:10px 14px}" +
                 "#gc h2{font:600 11px 'Cascadia Mono',Consolas,monospace;letter-spacing:.12em;color:" + head + ";margin:2px 0 8px}#gc a{display:block;color:" + fg + ";text-decoration:none;font-size:12.5px;padding:4px 0;border-top:1px solid " + line + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
                 "#gc a:first-of-type{border-top:0}#gc a:hover{color:" + head + "}#gc a small{color:" + muted + ";margin-right:6px}#gc .note{color:" + muted + ";font-size:11px;margin-top:6px}" +
+                NewTabFamily.Css(fg, muted, line, tile, tileHover, head) +   // 1.6: the Hallow family rows
                 "</style></head><body><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
-                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=gc></div><div id=fam></div><div id=t></div>" +
+                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=hf></div><div id=gc></div><div id=fam></div><div id=t></div>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +
                 "var D={};function c(){var d=new Date(),s=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);document.getElementById('t').textContent=D.clock?'':s;document.getElementById('clk').textContent=D.clock?s:'';}c();setInterval(c,15000);" +
                 "function post(m){try{chrome.webview.postMessage(m);}catch(e){}}" +
@@ -229,7 +234,8 @@ namespace HallowBrowser
                 "var sf=el('section');sf.appendChild(el('h2',null,'FREE GAMES'));(G.free||[]).forEach(function(n){var a=el('a');a.href=n.u;a.title=n.t;a.appendChild(el('small',null,n.w));a.appendChild(document.createTextNode(n.t));sf.appendChild(a);});if(!(G.free||[]).length)sf.appendChild(el('div','note','No free games right now.'));" +
                 "sf.appendChild(el('div','note',G.note||''));gc.appendChild(sf);}c();}" +
                 "window.hallowRefresh=function(){return fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){D=j||{};draw();return (D.tiles||[]).length;}).catch(function(){return -1;});};" +
-                "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden)hallowRefresh();});</script></body></html>";
+                NewTabFamily.Script +
+                "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden){hallowRefresh();if(window.hallowFamily)hallowFamily();}});</script></body></html>";
         }
     }
 }

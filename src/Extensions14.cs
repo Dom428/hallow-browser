@@ -195,7 +195,7 @@ namespace HallowBrowser
                 var p = m.Transform(pt); extWin.Left = p.X - extWin.Width; extWin.Top = p.Y;
             }
             extWin.Show(); if (!BrowserSettings.Offscreen) extWin.Activate();
-            await extView.EnsureCoreWebView2Async(Engine.Env);
+            await Engine.Ensure(extView);
             var url = "chrome-extension://" + x.Id + "/" + x.Popup.TrimStart('/');
             await Panels.NavigateAndWait(extView.CoreWebView2, url);
             return extView.CoreWebView2.Source;

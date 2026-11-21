@@ -9,6 +9,9 @@ Get-Process HallowBrowser -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 600
 $data = [System.Windows.Forms.MessageBox]::Show("Also remove your Hallow Browser data - cookies, history, site data, open tabs and settings?`n`nNo = keep it (in %LOCALAPPDATA%\HallowBrowser and %APPDATA%\HallowBrowser) for a later reinstall.", 'Uninstall Hallow Browser', 'YesNo', 'Question')
 foreach ($dir in [Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop')) { Remove-Item (Join-Path $dir 'Hallow Browser.lnk') -ErrorAction SilentlyContinue }
+# 1.6: the Start menu shortcuts of sites you installed as apps (only the .lnk files the browser made there)
+$apps = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hallow Browser Apps'
+if (Test-Path $apps) { Get-ChildItem $apps -Filter *.lnk | Remove-Item -ErrorAction SilentlyContinue; if (-not (Get-ChildItem $apps -ErrorAction SilentlyContinue)) { Remove-Item $apps -ErrorAction SilentlyContinue } }
 Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\HallowBrowser' -Recurse -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Clients\StartMenuInternet\HallowBrowser' -Recurse -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Classes\HallowBrowserURL' -Recurse -ErrorAction SilentlyContinue

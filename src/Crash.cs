@@ -11,7 +11,7 @@ namespace HallowBrowser
 {
     public static class Crash
     {
-        public static string Dir { get { return Path.Combine(BrowserSettings.Dir, "crashes"); } }
+        public static string Dir { get { return Path.Combine(BrowserSettings.RootDir, "crashes"); } }
         public static volatile string[] Secrets = new string[0];   // anything secret that must never appear in a report
         static int writing;
 

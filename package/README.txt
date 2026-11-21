@@ -9,6 +9,22 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.6 - PROFILES, YOUR HALLOW APPS ON THE NEW TAB, SITES AS APPS
+- Profiles ("Personal", "Gaming"...): each with its own sign-ins, history, bookmarks,
+  sidebar panels, settings, sync and private windows. The profile button in the title bar
+  switches; right-click a link > Open link in profile. Everything you had before is the
+  "Default" profile - nothing is moved. Shield runs in every profile.
+- New tab page: your games from Hallow Hub (Play), your newest clips from Hallow Clips and
+  a Hallow Overlay on / off switch - each only when that app is installed, all local.
+- Install this site (menu): its own window, its icon and name, a Start menu shortcut, and
+  hallow://apps to open or uninstall it.
+- Spell check with Windows' own spell checker, and "Add to dictionary" (from the next start).
+- Memory saver Off / Balanced / Max (tabs sleep after 30 / 10 / 2 min) with a leaf and
+  "about N MB saved" on sleeping tabs; battery saver; startup boost (OFF by default - it
+  keeps a small hidden process while the browser is closed).
+- Optional sounds and a calm ambience loop (OFF by default), made by the browser itself.
+- Reading list (Ctrl+Shift+D) and short notes per page in the sidebar; notes sync too.
+
 WHAT'S NEW IN 1.5 - FASTER TO USE, SAFER DOWNLOADS, LOGINS INTO KEYS
 - Save to Hallow Keys: after you sign in, Save / Never for this site / Not now. Keys
   keeps it (encrypted); the browser never stores passwords. Not in private windows.
@@ -118,7 +134,9 @@ WHAT'S NEW IN 1.0
 WHERE THINGS ARE
 - The browser: %LOCALAPPDATA%\Programs\Hallow Browser
 - Browsing data: %LOCALAPPDATA%\HallowBrowser\Profile
-- Settings and open tabs: %APPDATA%\HallowBrowser
+- Settings and open tabs: %APPDATA%\HallowBrowser (1.6: other profiles in Profiles\<id>;
+  a copy of 1.5's settings files in backup-1.5)
+- Installed sites: Start menu > Hallow Browser Apps, and hallow://apps
 
 CREDITS
 Microsoft Edge WebView2 SDK 1.0.4314.35 (c) Microsoft Corporation - WebView2-LICENSE.txt.
