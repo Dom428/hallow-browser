@@ -22,7 +22,9 @@ screen) and **game mode at once** when you start a game from the new tab page. 1
 has a screen-reader name and keyboard access (F6 moves between the address bar, tabs, page and sidebar), a **100-200 % UI size** that
 follows Windows' text size, **high contrast** and **reduced motion** from Windows, a measured start-up gain - plus fixes from
 real use (the Overlay switch's label, the bookmarks bar showing once you have bookmarks, tab groups easier to find, a smaller game-mode
-icon). It runs on **Microsoft Edge WebView2** - the Evergreen
+icon). 1.10 handles **Twitch ads** (on by default): ads stitched into a stream are swapped for Twitch's own ad-free stream of the
+same channel while the break lasts, or covered and muted when there's no way around them; display ads and ad beacons are blocked -
+only Twitch's own servers are contacted, it works in private windows, and channels you want to support can keep their ads. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -41,6 +43,50 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.10: Twitch ad handling
+
+**Twitch ads don't play** - on by default, because that's what was asked for. Settings > Gaming > Twitch ads turns it off, and you
+can **allow ads on channels you want to support**.
+
+![Hallow Browser 1.10: Settings > Gaming > Twitch ads (made-up page)](docs/twitch-ads.png)
+
+How it works:
+- **Stitched ads.** Twitch puts its video ads into the stream itself (server-side ad insertion): the HLS playlists from
+  `usher.ttvnw.net` get ad segments, marked with `#EXT-X-DATERANGE` tags (`CLASS="twitch-stitched-ad"`, `twitch-ad-quartile`) and
+  segments titled `Amazon|...`, and Twitch's player fetches those playlists in a Web Worker. The browser runs a small script of its own
+  at document start on twitch.tv pages (in the page itself - not an extension) that starts every worker with a prelude watching its
+  playlist fetches. When a playlist carries ad markers, it asks **Twitch itself** for the same channel's stream as another of Twitch's
+  player types - "embed", "popout", "autoplay", "picture-by-picture" - with Twitch's public PlaybackAccessToken query on
+  `gql.twitch.tv` (the public web client id twitch.tv itself sends) and `usher.ttvnw.net`, and hands the player that playlist,
+  at the same quality when there is one, while the break lasts. The player type that worked is tried first next time.
+- **Only Twitch's own servers.** No third-party proxy (TTV LOL, Luminous and the like see every stream you watch - a privacy risk),
+  and no cookies or sign-in go with these requests.
+- **When every alternative has the ad too**, the ad plays **muted under a Hallow cover**: "Ad break - back in 0:28", counting down
+  the length from the `DATERANGE` tag (the pod's length when Twitch gives it). The tab is muted by the browser as well, and the cover
+  lifts and the sound comes back when the break is over.
+- **Display ads and ad beacons.** Requests from Twitch tabs to ad hosts (Amazon's ad system, `edge.ads.twitch.tv`, Google's ad and IMA
+  servers, comScore, Nielsen and a few more) are blocked by the browser itself (WebResourceRequested); the display-ad boxes and "Ad"
+  labels are hidden; a GraphQL call made **only** of ad-event reports is answered in the page instead of being sent (a call that mixes
+  in anything else is never touched). **Left alone on purpose:** chat, emotes, channel points, and Twitch's analytics
+  (`spade.twitch.tv` - it carries the watch-time events that earn channel points and drops) and view counts (`countess.twitch.tv`).
+- **The Twitch button** (on a channel, in the address bar) says what happened to the last break - **"Ad break skipped (swapped
+  stream)"** or **"Ad covered"** - and has **"Support <channel>: allow ads"**. On channels in your allow list nothing is touched:
+  their ads play and their beacons go, so the streamer is paid.
+- **Private windows too.** Extensions don't run in WebView2's InPrivate profiles, but none of this is an extension: the page script and
+  the request blocking are the browser's own.
+
+Honestly:
+- **Twitch changes this often**, and then it can stop working until a fix ships. Fixes come with the browser's normal releases, and -
+  so they don't have to wait for one - the page script is a small updatable file: once a day the browser looks at its own latest GitHub
+  release for a `hallow-twitch.js` asset, checks it against GitHub's sha256 and uses it only if its version line is newer than the
+  built-in one (Settings > Gaming > Twitch ads > "Get fixes for Twitch ad handling between browser updates", on; "Check now").
+- **A swapped stream can drop in quality for the length of the break** (the embed and popout streams usually have every quality;
+  autoplay and picture-by-picture only 360p), and switching streams can stutter for a second.
+- **Ads pay streamers.** That's why there's a per-channel allow list - use it for the channels you want to support.
+- **Twitch's terms discourage blocking its ads.** Using this is your choice; switch it off any time.
+- Tested only against a local fake Twitch (playlists, usher, GraphQL, beacons, chat - see Build). The real usher playlist format was
+  checked once by hand (read-only) for the tag names; the real twitch.tv player wasn't driven in a test.
 
 ## What's new in 1.9: speed and accessibility
 
@@ -713,6 +759,7 @@ History (each version's own numbers, measured the way the README said then):
 | 1.7 | 477 / 476-493 ms | - | 46.5 ms (swap 3.8 ms) | - |
 | 1.8 | 484 / 472-478 ms | - | 48.1 ms (swap 3.8 ms) | - |
 | 1.9 (game running, see above) | 931 / 632 ms (1.8 the same day: 1035 / 710) | 875 ms (1.8: 1024) | 6.1 ms (1.8: 5.0) | 867 MB, 14 sites; 856 MB after 10 min |
+| 1.10 (game running, quick mode) | 594 / 635 ms (1.9 the same day: 887 / 664) | 911 ms (1.9: 912) | 6.7 ms (1.9: 6.5) | 879 MB, 14 sites (1.9: 878) |
 
 Numbers from the integration test (`tests\Integration.cs`, browser off-screen, Windows 11, WebView2 runtime 158), times from the process
 start:
@@ -723,6 +770,8 @@ start:
 | First page loaded (local test page) | about the same as 1.4 in the main run | 681-801 ms (warm), 825 ms (new profile) | 631-653 ms (warm), 852 ms (new profile) | 732-763 ms (warm), 929 ms (new profile) | 733-842 ms, 1.05 s | 740-910 ms, ~1.0-1.15 s |
 | New tab (pre-warmed, until drawn) | median 48.3 ms with tiles (7 tries: 9-79 ms); 56.9 ms in the busier main run. Same day, same script: 1.4 and 1.5 identical (4.4 / 4.5 ms from Ctrl+T to the swap) | median 48 ms with tiles (7 tries: 10-72 ms); 55-80 ms in the busier main run. Measured the same day with the same script, 1.3 and 1.4 were identical (3-8 ms from Ctrl+T to the swap) | median 62 ms (6 tries: 46-78 ms) - the same as 1.2 measured on the same day (63 ms), but now a real page with tiles | median 46 ms (6 tries: 42-77 ms) | median 54 ms (44-75 ms) | median 60-75 ms |
 | Memory | 582 MB private with 14 small pages loaded (17 processes) - 1.4 measured 555 MB that way | 555 MB private with 14 small pages loaded (17 processes) - the same as 1.3 measured that way | 223-233 MB private after a restart with 14 tabs | 224-227 MB private after a restart with 14 tabs (13 asleep); 458 MB with 14 small pages loaded (13 processes) | 224-229 MB; 451 MB | ~215-230 MB; ~450 MB |
+
+1.10, measured the same day back to back with the same script while Delta Force was running (off-screen, BelowNormal, throw-away test profiles, quick mode): window first paint 594 / 635 ms (new profile / warm) vs 1.9 887 / 664 ms; first page 911 ms vs 912 ms; pre-warmed new tab median 6.7 ms vs 6.5 ms; scrolling median 4.2 ms both; memory with 14 pages 879 MB vs 878 MB. The Twitch script is registered with every page but returns at its first lines outside twitch.tv; the request filters cover only the ad hosts.
 
 1.8, measured the same day back to back with the same script (off-screen, BelowNormal, throw-away test profiles): window first paint **484 / 472-478 ms** (new profile / warm) vs 1.7 491 / 477-509 ms; pre-warmed new tab swap **median 3.8 ms** vs 1.7 3.8 ms; new tab with tiles until drawn median 48.1 ms in the movein run (46.5 ms in 1.7's; within the run-to-run spread). The new parts add nothing at start or to new tabs: two more WPF buttons; nothing is injected into pages unless SponsorBlock is on, and then only into YouTube videos; the Twitch chat panel is created only when you watch a channel with it switched on; Steam's flag is read only while a launched game is being followed.
 
@@ -764,6 +813,11 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   address bar (not addresses, sums or tab searches; never from private windows), as you type. No cookies are sent with it.
 - **Your secure DNS provider - only if you pick one** (Cloudflare, Quad9 or Google): it then sees the names of the sites you open
   (not the pages), instead of your Wi-Fi / internet provider.
+- 1.10: **Twitch - only on Twitch, only during an ad break, only on channels you didn't allow ads on** (Twitch ads blocking is on by
+  default): `gql.twitch.tv` (Twitch's public PlaybackAccessToken query for the channel as another player type, with the public web
+  client id twitch.tv itself sends - no cookies, no sign-in) and `usher.ttvnw.net` / Twitch's playlist servers. These are the servers
+  that already serve the stream; never a third-party proxy. Once a day, with fixes on: GitHub (this browser's latest release) for a
+  newer `hallow-twitch.js` (sha256-checked).
 - 1.8: **SponsorBlock - only if you switch "Skip sponsors and intros on YouTube" on** (off by default): for each YouTube video you
   open, `https://sponsor.ajay.app/api/skipSegments/<4 characters>?categories=[...]&actionType=skip` - the first 4 characters of the
   SHA-256 of the video's id (shared by many videos) and the kinds you picked; no address, cookies, referrer or account. SponsorBlock sees
@@ -865,6 +919,7 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.6: installed sites (list and icons), their Start menu shortcuts | `%LOCALAPPDATA%\HallowBrowser\apps`, Start menu > Hallow Browser Apps |
 | 1.6: the sounds (written from the app when first played), words you added to the dictionary | `%LOCALAPPDATA%\HallowBrowser\sounds`, the engine profile's `Custom Dictionary.txt` |
 | 1.7: your translation API keys (protected by Windows for your user; never synced) | `%LOCALAPPDATA%\HallowBrowser\translate-keys.bin` (another profile: its own Local folder) |
+| 1.10: a newer Twitch script from the release (when there is one) | `%LOCALAPPDATA%\HallowBrowser\Twitch\hallow-twitch.js` (the built-in one is inside HallowBrowser.exe) |
 | 1.8: SponsorBlock's answers | in memory only (30 minutes), never written to disk |
 | 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
@@ -878,7 +933,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe (1.6: runs tools\gen-sounds.ps1 first - the sounds are synthesised, then embedded)
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18|v19|bench
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18|v19|v110|bench
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256
@@ -920,7 +975,17 @@ JavaScript / pop-ups / sound / cookies per site, Shield's "blocked on this page"
 browser's entry, a test unpacked extension (content script, popup, off, removed), new windows and moving a live page between windows
 without a reload, a private window leaving nothing in the session / workspaces / settings / history files (downloads kept, its own
 cookies, Shield's fallback blocking), the game corner (off = nothing fetched; only app ids sent; on the new tab page; not again within
-6 hours), and both windows coming back after a restart. 1.8 adds (unit) which addresses are YouTube videos and Twitch channels, the
+6 hours), and both windows coming back after a restart. 1.10 adds (unit) Twitch ad handling's settings (on by default, also for
+1.9's settings files; the allow list cleaned), which requests are blocked (ad hosts - never spade, countess, GraphQL, chat, emotes or
+look-alike hosts), what counts as twitch.tv, the script's version line and update rules, and that the script names no server but
+Twitch's own; and (integration "v110", a local fake Twitch: player pages whose Web Worker - made from a blob address revoked at once,
+like Twitch's - fetches a master and media playlists with stitched-ad `DATERANGE` segments and every segment in them, a fake usher, a
+fake GraphQL endpoint handing out tokens for other player types, chat / emote / beacon stand-ins and a GitHub release stand-in) no ad
+segment ever requested when an alternative is clean (the same quality, Twitch's client id, no cookies), the cover with its countdown
+and the video and tab muted when every alternative has the ad, lifted after the tag's duration, channels on the allow list played
+untouched (no other stream asked for, display ads and beacons through), "Support <channel>" from the Twitch button, a private window
+blocking too, chat / emotes / channel points / spade still working, off = nothing touched, and a script update refused on a wrong
+sha256 and used from the next page load on the right one. 1.8 adds (unit) which addresses are YouTube videos and Twitch channels, the
 4-character SHA-256 prefix and the exact SponsorBlock request (no video id in it), picking our video's skip segments out of an answer for
 many, everything off by default, the launch handoff's rules (at once, Steam / Hub / the process, closed, never showed up) and the Skip
 button's contrast; and (integration "v18", a stand-in SponsorBlock server, a YouTube-like page with a real `<video>`, a Twitch-like page,
@@ -947,6 +1012,8 @@ levels, battery throttling measured in the page, "memory saved", sounds at volum
   as it allows (`WebView2-LICENSE.txt`, `WebView2-NOTICE.txt`). The WebView2 runtime itself is Microsoft's and isn't shipped.
 - **Hallow Shield** (Dom428/hallow-shield) and its filter lists (uBlock Origin's lists, EasyList, EasyPrivacy and others - see
   `shield\LISTS-LICENSE.txt`).
+- **Twitch**: 1.10's ad handling is the browser's own code (no third-party code); it uses Twitch's public PlaybackAccessToken query
+  and web client id the way twitch.tv itself does.
 - **SponsorBlock** (sponsor.ajay.app, by Ajay Ramachandran and its contributors): YouTube segment data through its public API, licensed
   **CC BY-NC-SA 4.0** - fetched when you turn the option on, used as it comes, non-commercially, kept in memory only.
 - Icons: **Font Awesome Free** 7.3.1 (CC BY 4.0, `FontAwesome-LICENSE.txt`).

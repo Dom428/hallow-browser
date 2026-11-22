@@ -152,6 +152,7 @@ namespace HallowBrowser
             BuildAddressExtras(inBar);   // 1.2: reader mode, bookmark star
             BuildTranslateButton(inBar);   // 1.7
             BuildStreamButtons(inBar);     // 1.8: Clip it, theatre mode
+            BuildTwitchButton(inBar);      // 1.10: Twitch ads (status, Support <channel>)
             ag.Children.Add(inBar);
             addressBox.Child = ag; bar.Children.Add(addressBox);
             var right = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(right, 2);
@@ -508,6 +509,7 @@ namespace HallowBrowser
             Hook16(c);   // 1.6: spell check off / Add to dictionary, Open link in profile
             Hook17(c);   // 1.7: translation
             Hook18(c);   // 1.8: SponsorBlock on YouTube
+            Hook110(c);  // 1.10: Twitch ad handling (also in private windows)
             // 1.2: in split view, clicking into a side makes it the active tab
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
@@ -614,6 +616,7 @@ namespace HallowBrowser
             c.WebResourceRequested += OnRequest;
             c.DownloadStarting += OnDownload;
             Hook14(c);
+            HookPanel110(c);   // 1.10: Twitch ad hosts blocked in panels too
             if (capApplied > 0) { capped.Add(c); var ___ = Throttle.Apply(c, capApplied); }
         }
         void SyncFromCore(Tab t, CoreWebView2 c)
@@ -674,7 +677,7 @@ namespace HallowBrowser
             keyBtn.Opacity = t.KeysItems != null && t.KeysItems.Count > 0 ? 1 : 0.5;
             keyBtn.ToolTip = t.KeysLocked ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
-            UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateZoom(); UpdateTitle();
+            UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateTwitchButton(t); UpdateZoom(); UpdateTitle();
         }
         void UpdateTitle()
         {
@@ -1007,6 +1010,12 @@ namespace HallowBrowser
                 {
                     var msg = ShieldHost.CheckForUpdate();
                     Dispatcher.BeginInvoke(new Action(() => { S.LastShieldCheck = now.ToString("s"); S.Save(); if (msg != null) Toast(msg, 8); }));
+                }
+                // 1.10: a newer Twitch page script from the release (sha256-checked) - quietly, used from the next Twitch page load
+                if (S.TwitchAds && S.TwitchFixes && (!DateTime.TryParse(S.LastTwitchCheck, out last) || now - last > TimeSpan.FromHours(20)))
+                {
+                    var msg = TwitchAdRules.CheckForUpdate();
+                    Dispatcher.BeginInvoke(new Action(() => { S.LastTwitchCheck = now.ToString("s"); S.Save(); if (msg != null && msg.StartsWith("Twitch ad handling updated")) TwitchSettingsChanged(); }));
                 }
             });
         }

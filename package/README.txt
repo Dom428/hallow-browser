@@ -9,6 +9,19 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.10 - TWITCH AD HANDLING
+- Twitch ads don't play (on by default): an ad Twitch stitches into the stream is swapped
+  for Twitch's own ad-free stream of the same channel while the break lasts. When there is
+  none, the ad plays muted under an "Ad break - back in 0:28" cover that lifts when it ends.
+- Display ads and ad beacons are blocked. Chat, emotes and channel points keep working.
+- Only Twitch's own servers are contacted - never a third-party proxy. Works in private
+  windows too.
+- Ads pay streamers: allow them on channels you support (the Twitch button on a channel:
+  "Support <channel>: allow ads", or Settings > Gaming > Twitch ads).
+- Honestly: Twitch changes this often, so it can stop working until a fix ships (fixes can
+  also come between releases, sha256-checked); a swapped stream can be lower quality for the
+  break; Twitch's terms discourage blocking its ads.
+
 WHAT'S NEW IN 1.9 - SPEED AND ACCESSIBILITY
 - Every button, tab, menu item, sidebar entry and setting has a name and help text for
   screen readers (Windows UI Automation - what Narrator reads), and works from the keyboard:

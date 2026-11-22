@@ -19,14 +19,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.9.0.0")]
-[assembly: AssemblyFileVersion("1.9.0.0")]
+[assembly: AssemblyVersion("1.10.0.0")]
+[assembly: AssemblyFileVersion("1.10.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.9";
+        public const string Version = "1.10";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -161,7 +161,7 @@ namespace HallowBrowser
             return Family.Json(new Dictionary<string, object> {
                 { "app", "Browser" }, { "version", Version }, { "updated", Family.Time(DateTime.Now) }, { "running", true }, { "profiles", Profiles == null ? 1 : Profiles.Items.Count }, { "boosted", Boosted }, { "appWindows", Windows.Count(x => x.AppMode) }, { "memorySaver", w.S.MemorySaver }, { "onBattery", Power16.OnBattery }, { "memorySavedMb", Windows.Sum(x => x.Tabs.Where(t => t.Suspended || t.Discarded).Sum(t => t.SavedMb)) }, { "readingList", ReadingList.Count(false) }, { "sounds", w.S.Sounds },
                 { "tabs", Windows.Sum(x => x.Tabs.Count) }, { "asleep", Windows.Sum(x => x.Tabs.Count(t => t.Suspended || t.Discarded)) }, { "windows", Windows.Count(x => !x.Private) }, { "privateWindows", Windows.Count(x => x.Private) }, { "gameMode", w.Game != null }, { "game", w.Game },
-                { "shield", w.ShieldState }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "httpsOnly", w.S.HttpsOnly }, { "secureDns", w.S.SecureDns }, { "extensions", w.S.Extensions.Count(x => x.Enabled) }, { "gameCorner", w.S.GameCorner }, { "forceDark", w.S.ForceDark }, { "searchSuggestions", w.S.SearchSuggest }, { "mediaTabs", BrowserWindow.MediaTabs().Count }, { "downloadsRunning", Windows.Sum(x => x.Downloads.Count(d => d.State == "running" || d.State == "paused")) }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
+                { "shield", w.ShieldState }, { "twitchAds", w.S.TwitchAds }, { "shieldVersion", w.ShieldVersion }, { "runtime", Engine.RuntimeVersion }, { "look", Look.IsLight ? "light" : "dark" }, { "sidebar", w.S.SidebarOn }, { "panels", w.Side.Panels.Count }, { "panelsAwake", w.Side.Panels.Count(p => p.View != null && !p.Asleep) }, { "liveNotifications", w.S.LiveOn }, { "liveChannels", w.S.LiveChannels.Count }, { "bandwidthCapKBps", w.CapApplied > 0 ? (object)(int)(w.CapApplied / 1024) : null }, { "verticalTabs", w.S.VerticalTabs }, { "workspaces", w.Spaces == null ? 1 : w.Spaces.Items.Count }, { "groups", w.Groups.Count }, { "split", w.SplitOn }, { "bookmarksBar", w.S.BookmarksBar }, { "sync", w.S.SyncOn ? (w.LastSync == null ? "on" : w.LastSync.State) : "off" }, { "httpsOnly", w.S.HttpsOnly }, { "secureDns", w.S.SecureDns }, { "extensions", w.S.Extensions.Count(x => x.Enabled) }, { "gameCorner", w.S.GameCorner }, { "forceDark", w.S.ForceDark }, { "searchSuggestions", w.S.SearchSuggest }, { "mediaTabs", BrowserWindow.MediaTabs().Count }, { "downloadsRunning", Windows.Sum(x => x.Downloads.Count(d => d.State == "running" || d.State == "paused")) }, { "lastCrash", c == null ? null : Family.Time(c.Value) } });
         }
 
         // ---- the family pipe
@@ -352,6 +352,12 @@ namespace HallowBrowser
                 var ws4 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws4.SnapFill("news", false, false); ws4.SettingsQuery = "Accessibility";
                 ws4.ContentGrid.Children.Add(Panels.SettingsPage(ws4));
                 Snap.Save(ws4, Path.Combine(dir, "accessibility" + sfx + ".png"), 1280, 800); ws4.Close();
+                // 1.10: Settings > Gaming > Twitch ads with two made-up channels on the allow list
+                s.TwitchAllow = new List<string> { "hallowfriend", "smallstreamer_42" };
+                var ws5 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws5.SnapFill("news", false, false); ws5.SettingsQuery = "streamer is paid";
+                ws5.ContentGrid.Children.Add(Panels.SettingsPage(ws5));
+                Snap.Save(ws5, Path.Combine(dir, "twitch-ads" + sfx + ".png"), 1280, 800); ws5.Close();
+                s.TwitchAllow = new List<string>();
                 A11y.SetScale(1.5);
                 shot("ui-scale-150", null);
                 A11y.SetScale(1.0);

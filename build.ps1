@@ -21,7 +21,7 @@ $snd = Join-Path $PSScriptRoot 'obj\sounds'
 & (Join-Path $PSScriptRoot 'tools\gen-sounds.ps1') -Out $snd | Out-Null
 $sounds = @(Get-ChildItem $snd -Filter *.wav | ForEach-Object { "/resource:$($_.FullName),HallowBrowser.Sounds.$($_.Name)" })
 if ($sounds.Count -ne 5) { throw "gen-sounds.ps1 made $($sounds.Count) sounds, not 5" }
-$common = @('/nologo', '/optimize+', '/platform:x64', "/win32icon:$src\hallow.ico", "/resource:$src\Theme.xaml,HallowBrowser.Theme.xaml") + $sounds + ($refs | ForEach-Object { "/reference:$_" })
+$common = @('/nologo', '/optimize+', '/platform:x64', "/win32icon:$src\hallow.ico", "/resource:$src\Theme.xaml,HallowBrowser.Theme.xaml", "/resource:$src\hallow-twitch.js,HallowBrowser.hallow-twitch.js") + $sounds + ($refs | ForEach-Object { "/reference:$_" })
 $files = Get-ChildItem $src -Filter *.cs | ForEach-Object FullName
 & "$fw\csc.exe" @($common + @('/target:winexe', "/out:$out") + $files)
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }

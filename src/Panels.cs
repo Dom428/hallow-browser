@@ -400,12 +400,14 @@ namespace HallowBrowser
 
             col.Children.Add(card("Live notifications", LiveSettings(w)));
             col.Children.Add(card("YouTube and Twitch", w.StreamSettings()));   // 1.8
+            col.Children.Add(card("Twitch ads", w.TwitchAdSettings()));         // 1.10
 
             var shieldInfo = w.ShieldState == "extension" ? "Hallow Shield " + w.ShieldVersion + " is built in and always on (pause it per site in its panel)." : w.ShieldNote ?? "Starting...";
             col.Children.Add(card("Hallow Shield", new UIElement[] {
                 Ui.Muted(shieldInfo, 12, 8),
                 Ui.Row(Ui.Btn("Shield settings", () => OpenShieldSettings(w), true, "shield-halved"), Ui.Btn("Check for a Shield update", () => { w.Toast("Checking...", 2); Task.Run(() => ShieldHost.CheckForUpdate()).ContinueWith(r => w.Dispatcher.BeginInvoke(new Action(() => w.Toast(r.Result ?? "Shield is up to date.", 5)))); }, false, "arrows-rotate")),
                 new Border { Height = 8 },
+                Ui.Muted("Twitch ads are handled by the browser itself, also in private windows: Settings > Gaming > Twitch ads.", 11.5, 6),
                 Ui.Switch("Get new Shield versions between browser updates", "From Shield's own GitHub release, checked against GitHub's sha256.", S.ShieldAutoUpdate, on => { S.ShieldAutoUpdate = on; save(); }),
                 Ui.Switch("Share Shield's counts with Hallow Hub and Remote", "Blocked today / this week and cookie banners answered go to %APPDATA%\\HallowShield\\status.json on this PC (the file Shield's family bridge writes) about every 5 minutes. Counts only - never a site.", S.ShareShieldCounts, on => { S.ShareShieldCounts = on; save(); if (on) { var _ = w.RelayShield(); } }),
                 Ui.Muted(w.ShieldCounts ? "\"Blocked on this page\" works: Shield is loaded with the feedback permission it asks for (WebView2 has no permission prompt, so the browser grants it in its own copy of Shield)." : "", 11, 0) }));

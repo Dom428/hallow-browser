@@ -26,7 +26,7 @@ namespace HallowBrowser
             "Search", "RestoreSession", "ClearOnExit", "BlockThirdPartyCookies", "DoNotTrack", "StrictTracking", "PageColors", "Look", "UseHallowAccent",
             "GameLight", "SleepMinutes", "Preconnect", "KeysOn", "ShieldAutoUpdate", "SidebarOn", "SidebarSleepMinutes", "LiveOn", "LiveChannels",
             "BandwidthKBps", "BandwidthGameOnly", "VerticalTabs", "VTabsCollapsed", "SidebarSide", "ReaderFontSize", "ReaderWidth", "KeepHistory",
-            "BookmarksBar", "NewTabTopSites", "NewTabClock", "NewTabFamily", "NewTabPinned", "NewTabHidden" };
+            "BookmarksBar", "NewTabTopSites", "NewTabClock", "NewTabFamily", "NewTabPinned", "NewTabHidden", "TwitchAds", "TwitchAllow" };
         public static readonly string[] Kinds = { "bm", "set", "saved", "ws", "side", "note", "shf", "hist" };   // 1.6: "note"; 1.7: Shield's My filters, history
         static FieldInfo F(string n) { return typeof(BrowserSettings).GetField(n, BindingFlags.Public | BindingFlags.Instance); }
 
