@@ -64,10 +64,10 @@ namespace HallowBrowser
     public class ImportResult
     {
         public int Bookmarks, History, SkippedBookmarks; public List<string> Notes = new List<string>();
-        public int OnBar, InOther; public string BarFolder, ShowAt;   // 1.13: where they went (ShowAt = the folder to open the manager at)
+        public int OnBar, InOther; public string BarFolder, ShowAt; public int Logos;   // 1.14: site logos copied   // 1.13: where they went (ShowAt = the folder to open the manager at)
     }
 
-    public static class Importer
+    public static partial class Importer
     {
         static readonly JavaScriptSerializer js = new JavaScriptSerializer { MaxJsonLength = 256 * 1024 * 1024, RecursionLimit = 512 };
         public static readonly string[] Browsers = { "Chrome", "Edge", "Brave", "Opera", "Opera GX", "Vivaldi", "Firefox" };
@@ -355,7 +355,7 @@ namespace HallowBrowser
         public static bool IsOtherRoot(string title) { return string.Equals(title, "Other bookmarks", StringComparison.OrdinalIgnoreCase); }
 
         // the import itself: bookmarks where the other browser had them (no duplicates), history merged
-        public static ImportResult Run(FoundProfile p, bool bookmarks, bool history, BookmarkStore store, HistoryStore hist)
+        public static ImportResult Run(FoundProfile p, bool bookmarks, bool history, BookmarkStore store, HistoryStore hist, bool logos = false)
         {
             var res = new ImportResult(); var tmp = TempDir();
             try
@@ -380,6 +380,17 @@ namespace HallowBrowser
                     }
                     catch (IOException) { res.Notes.Add(p.Browser + " is using its history file - close it and try again."); }
                     catch (Exception e) { res.Notes.Add("History couldn't be read: " + e.Message); }
+                }
+                // 1.14: the browser's own site icons for what Hallow has now (a copy of its Favicons file; only sites without a logo yet)
+                if (logos && p.Kind == "chromium")
+                {
+                    try
+                    {
+                        if (!store.Loaded) store.Load(); if (!hist.Loaded) hist.Load();
+                        var urls = store.All().Select(b => b.Url).Concat(hist.All().Select(h => h.Url));
+                        res.Logos = SiteIcons.AddMissing(Favicons(p, MissingKeys(urls), tmp));
+                    }
+                    catch { }   // logos are a bonus: in use or unreadable = the fetch fills them in later
                 }
             }
             finally { try { Directory.Delete(tmp, true); } catch { } }

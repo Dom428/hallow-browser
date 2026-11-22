@@ -49,7 +49,7 @@ namespace HallowBrowser
                     var prof = lastFound[i];
                     var stores = OnUiT(w, () => { w.EnsureStoresPublic(); return Tuple.Create(w.Bookmarks, w.History); });
                     if (!stores.Item1.Loaded) stores.Item1.Load(); if (!stores.Item2.Loaded) stores.Item2.Load();
-                    var r = Importer.Run(prof, p.Length > 1 && p[1] == "1", p.Length > 2 && p[2] == "1", stores.Item1, stores.Item2);
+                    var r = Importer.Run(prof, p.Length > 1 && p[1] == "1", p.Length > 2 && p[2] == "1", stores.Item1, stores.Item2, p.Length > 3 && p[3] == "1");
                     return "ok " + js.Serialize(new Dictionary<string, object> { { "bookmarks", r.Bookmarks }, { "skipped", r.SkippedBookmarks }, { "history", r.History }, { "notes", r.Notes } });
                 }
                 case "nt-data": return Program.OnUi(w, () => "ok " + w.NewTabJson());

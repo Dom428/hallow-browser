@@ -363,7 +363,7 @@ namespace HallowBrowser
             foreach (var r in BuildSuggestions("5 km in miles"))
             {
                 var icon = r.Kind == "calc" ? "calculator" : r.Kind == "history" ? "globe" : "magnifying-glass";
-                var row = Ui.MenuRow(icon, r.Text, r.Kind == "calc" ? "copy" : null, null);
+                var row = r.Kind == "history" && Omni.IsWeb(r.Fill) ? SiteIcons.MenuRow(r.Fill, r.Text, null, null) : Ui.MenuRow(icon, r.Text, r.Kind == "calc" ? "copy" : null, null);
                 if (r.Kind == "calc") ((Grid)row.Content).Children.OfType<TextBlock>().First().FontWeight = FontWeights.SemiBold;
                 list.Children.Add(row);
             }

@@ -24,6 +24,7 @@ namespace HallowBrowser
         {
             RepairBarOnce();   // 1.13: a 1.3 - 1.12 import's bookmarks bar onto the bar, once
             AutoBookmarksBar(); RenderBookmarksBar(); RefreshNewTabData(); StartSync();
+            StartLogos();   // 1.14: site logos - redraw when they arrive; once: logos from the browser the bookmarks came from; the quiet fetch
             DefaultCheck();   // 1.13: what Windows says now (the default-browser hint follows it)
             if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => { if (!DefaultCheck()) RefreshNewTabData(); }; ntTimer.Start(); }
         }
@@ -86,7 +87,7 @@ namespace HallowBrowser
         {
             var title = string.IsNullOrWhiteSpace(b.Title) ? (b.Folder ? "Folder" : Omni.HostOf(b.Url)) : b.Title;
             var tb = new TextBlock { Text = title, MaxWidth = 150, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
-            var ic = Ui.Icon(b.Folder ? "folder" : "globe", 11, b.Folder ? "Lilac" : "Muted"); ic.Margin = new Thickness(0, 0, 6, 0);
+            var ic = b.Folder ? (FrameworkElement)Ui.Icon("folder", 11, "Lilac") : SiteIcons.Element(b.Url, 14); ic.Margin = new Thickness(0, 0, 6, 0);   // 1.14: the site's logo
             var btn = new Button { Style = Ui.S("Tool"), Width = double.NaN, Height = 24, Margin = new Thickness(0, 0, 4, 0), Content = new Border { Padding = new Thickness(7, 0, 9, 0), Child = Ui.Row(ic, tb) }, Tag = b, ToolTip = b.Folder ? title : title + "\n" + b.Url, AllowDrop = true };
             btn.Click += (s, e) => { if (b.Folder) FolderMenu(b, btn); else OpenBookmark(b, (Keyboard.Modifiers & ModifierKeys.Control) != 0); };
             btn.MouseUp += (s, e) => { if (e.ChangedButton == MouseButton.Middle && !b.Folder) { OpenBookmark(b, true); e.Handled = true; } };
@@ -151,12 +152,13 @@ namespace HallowBrowser
             foreach (var b in items.Take(60))
             {
                 var x = b;
-                var r = Ui.MenuRow(x.Folder ? "folder" : "globe", Cut(x.Title ?? x.Url, 56), x.Folder ? ">" : null, () =>
+                Action click = () =>
                 {
                     pop.IsOpen = false;
                     if (x.Folder) { var t2 = new Stack<Bookmark>(trail.Reverse()); if (folder != null) t2.Push(folder); ShowList(Bookmarks.Children(x.Id), at, x, t2); }
                     else OpenBookmark(x, (Keyboard.Modifiers & ModifierKeys.Control) != 0);
-                });
+                };
+                var r = x.Folder ? Ui.MenuRow("folder", Cut(x.Title ?? x.Url, 56), ">", click) : SiteIcons.MenuRow(x.Url, Cut(x.Title ?? x.Url, 56), null, click);   // 1.14: site logos
                 if (!x.Folder) r.ToolTip = x.Url;
                 r.MouseRightButtonUp += (s, e) => { pop.IsOpen = false; BarMenu(x, at); e.Handled = true; };
                 sp.Children.Add(r);
@@ -302,7 +304,7 @@ namespace HallowBrowser
         {
             var g = new Grid { Height = 36, Background = Brushes.Transparent, AllowDrop = true, Tag = b };
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) }); g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var ic = Ui.Icon(b.Folder ? "folder" : "globe", 13, b.Folder ? "Lilac" : "Muted"); ic.HorizontalAlignment = HorizontalAlignment.Center; g.Children.Add(ic);
+            var ic = b.Folder ? (FrameworkElement)Ui.Icon("folder", 13, "Lilac") : SiteIcons.Element(b.Url, 16); ic.HorizontalAlignment = HorizontalAlignment.Center; g.Children.Add(ic);   // 1.14: the site's logo
             var tx = new StackPanel { VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(tx, 1);
             tx.Children.Add(new TextBlock { Text = b.Title ?? "", TextTrimming = TextTrimming.CharacterEllipsis });
             if (!b.Folder) { var u = Ui.Muted(b.Url, 11); u.TextWrapping = TextWrapping.NoWrap; u.TextTrimming = TextTrimming.CharacterEllipsis; tx.Children.Add(u); }
@@ -407,7 +409,7 @@ namespace HallowBrowser
                     {
                         go.IsEnabled = false; go.Content = "Importing...";
                         bool wb = cb.IsChecked == true, wh = ch.IsChecked == true;
-                        Task.Run(() => { if (!Bookmarks.Loaded) Bookmarks.Load(); if (!History.Loaded) History.Load(); return Importer.Run(prof, wb, wh, Bookmarks, History); }).ContinueWith(t => Dispatcher.BeginInvoke(new Action(() =>
+                        Task.Run(() => { if (!Bookmarks.Loaded) Bookmarks.Load(); if (!History.Loaded) History.Load(); return Importer.Run(prof, wb, wh, Bookmarks, History, wb || wh); }).ContinueWith(t => Dispatcher.BeginInvoke(new Action(() =>
                         {
                             var res = t.Exception != null ? new ImportResult { Notes = { "Import failed: " + t.Exception.GetBaseException().Message } } : t.Result;
                             go.Content = "Done"; ShowImportResult(prof, res);
@@ -434,6 +436,7 @@ namespace HallowBrowser
             if (r.InOther > 0) parts.Add(r.InOther + " in Other bookmarks");
             if (r.SkippedBookmarks > 0) parts.Add(r.SkippedBookmarks + " you already had skipped");
             if (r.History > 0) parts.Add(r.History.ToString("N0") + " pages of history");
+            if (r.Logos > 0) parts.Add(r.Logos + (r.Logos == 1 ? " site logo" : " site logos"));   // 1.14
             var msg = (parts.Count > 0 ? "Imported from " + p.Label + ": " + string.Join(", ", parts) + "." : "Nothing new to import from " + p.Label + ".") + (r.Notes.Count > 0 ? " " + string.Join(" ", r.Notes) : "");
             if (r.OnBar > 0 && !S.BookmarksBar && !Private) { SetBookmarksBar(true); msg += " The bookmarks bar is on (Ctrl+Shift+B hides it)."; }
             LastImport = msg;
@@ -503,7 +506,7 @@ namespace HallowBrowser
             Action<string, string, string, bool, string> add = (id, parent, title, folder, url) => items.Add(new Bookmark { Id = id, Parent = parent, Title = title, Folder = folder, Url = url, Pos = p++, Added = "2026-11-20T20:00:00" });
             add("g", BookmarkStore.BarId, "Games", true, null); add("n", BookmarkStore.BarId, "Hallow News", false, "https://news.example.com/");
             add("d", BookmarkStore.BarId, "Delta Force guide", false, "https://guides.example.com/delta"); add("s", BookmarkStore.BarId, "Patch notes", false, "https://patch.example.com/");
-            add("m", BookmarkStore.BarId, "Map planner", false, "https://maps.example.com/"); add("r", BookmarkStore.BarId, "Raid night", true, null);
+            add("m", BookmarkStore.BarId, "Map planner", false, "https://maps.example.com/"); add("t", BookmarkStore.BarId, "Twitch", false, "https://www.twitch.tv/"); add("q", BookmarkStore.BarId, "Squad wiki", false, "https://wiki.example.org/"); add("r", BookmarkStore.BarId, "Raid night", true, null);   // 1.14: logos - made-up favicons, a brand icon (Twitch), letter tiles
             add("g1", "g", "Season pass tracker", false, "https://season.example.com/"); add("g2", "g", "Loadout builder", false, "https://loadout.example.com/"); add("g3", "g", "Server status", false, "https://status.example.com/");
             add("i", BookmarkStore.OtherId, "Imported from Chrome", true, null); add("i1", "i", "Bookmarks bar", true, null); add("i2", "i1", "Recipes", false, "https://recipes.example.com/");
             Bookmarks.Replace(items);

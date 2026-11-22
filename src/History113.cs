@@ -27,6 +27,8 @@ namespace HallowBrowser
         public string Host { get; set; }
         public string Url { get; set; }
         public string Letter { get; set; }
+        object iconView;   // 1.14: the site's logo (cached icon -> brand icon -> letter tile), made when the row is first drawn
+        public object IconView { get { if (Day) return null; return iconView ?? (iconView = SiteIcons.Element(Url, 16)); } }
         public Visibility DayVis { get { return Day ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility RowVis { get { return Day ? Visibility.Collapsed : Visibility.Visible; } }
         public override string ToString() { return Day ? DayText : (Title ?? Url); }   // screen readers
@@ -126,7 +128,7 @@ namespace HallowBrowser
                 "<Grid Visibility='{Binding RowVis}' Height='34'>" +
                 "<Grid.ColumnDefinitions><ColumnDefinition Width='54'/><ColumnDefinition Width='30'/><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/><ColumnDefinition Width='34'/></Grid.ColumnDefinitions>" +
                 "<TextBlock Text='{Binding Time}' Foreground='{DynamicResource Muted}' FontSize='12' VerticalAlignment='Center' Margin='8,0,0,0'/>" +
-                "<Border Grid.Column='1' Width='20' Height='20' CornerRadius='5' Background='{DynamicResource PanelHi}' VerticalAlignment='Center'><TextBlock Text='{Binding Letter}' FontSize='11' FontWeight='SemiBold' HorizontalAlignment='Center' VerticalAlignment='Center' Foreground='{DynamicResource Lilac}'/></Border>" +
+                "<ContentControl Grid.Column='1' Width='18' Height='18' Focusable='False' IsTabStop='False' VerticalAlignment='Center' HorizontalAlignment='Center' Content='{Binding IconView}'/>" +
                 "<TextBlock Grid.Column='2' Text='{Binding Title}' TextTrimming='CharacterEllipsis' VerticalAlignment='Center' Margin='4,0,8,0' Foreground='{DynamicResource Text}'/>" +
                 "<TextBlock Grid.Column='3' Text='{Binding Host}' Foreground='{DynamicResource Muted}' FontSize='12' VerticalAlignment='Center' MaxWidth='240' TextTrimming='CharacterEllipsis' Margin='0,0,8,0'/>" +
                 "<Button Grid.Column='4' Tag='del' Style='{DynamicResource Tool}' Width='28' Height='26' ToolTip='Remove from history' AutomationProperties.Name='Remove from history' Content='&#x2715;' FontSize='11'/>" +

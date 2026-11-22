@@ -104,6 +104,8 @@ namespace HallowBrowser
                 var pin = new HashSet<string>(pinned.Select(p => p.Url), StringComparer.Ordinal);
                 foreach (var h in TopSites(history ?? new HistoryEntry[0], hidden, pin, Math.Max(0, MaxTiles - tiles.Count), now))
                     tiles.Add(new Dictionary<string, object> { { "u", h.Url }, { "t", Short(h.Title, h.Url) }, { "l", Letter(h.Url, h.Title) }, { "c", Color(h.Url) }, { "pin", false } });
+                // 1.14: the site's logo, copied beside the page (the letter tile stays when there is none)
+                foreach (var t in tiles) { var ic = SiteIcons.ForNewTab(t["u"] as string); if (ic != null) t["i"] = ic; }
             }
             List<Dictionary<string, string>> fam = null;
             if (s.NewTabFamily)

@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.13.0.0")]
-[assembly: AssemblyFileVersion("1.13.0.0")]
+[assembly: AssemblyVersion("1.14.0.0")]
+[assembly: AssemblyFileVersion("1.14.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.13";
+        public const string Version = "1.14";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -298,6 +298,7 @@ namespace HallowBrowser
             Snap.On = true;
             Profiles = null;   // 1.6: made-up profiles only where a picture shows them (never yours)
             ReadingList.UseForSnap(new List<ReadItem>()); PageNotes.UseForSnap(new List<PageNote>()); SiteApps.SnapItems = new List<InstalledApp>();
+            SiteIcons.ReadOnly = true; SiteIcons.Fake = SiteIcons.SnapIcons();   // 1.14: made-up site logos (the real cache isn't read)
             var s = new BrowserSettings(); s.Fix();
             s.LiveChannels = new List<string> { "twitch:hallowgg", "youtube:@HallowGaming" };
             // 1.1: every picture in both looks (dark = the names as before, light = "-light")

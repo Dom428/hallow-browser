@@ -154,6 +154,7 @@ namespace HallowBrowser
             if (cmd.StartsWith("test-p-")) return Power(w, cmd.Substring(7), arg);
             if (cmd.StartsWith("test-mm-")) return V1121(w, cmd.Substring(8), arg);   // 1.12.1 (before test-m-)
             if (cmd.StartsWith("test-h-")) return V113(w, cmd.Substring(7), arg);     // 1.13
+            if (cmd.StartsWith("test-fav-")) return V114(w, cmd.Substring(9), arg);   // 1.14
             if (cmd.StartsWith("test-m-")) return MoveIn(w, cmd.Substring(7), arg);   // 1.3
             if (cmd.StartsWith("test-v-")) return V14(w, cmd.Substring(7), arg);      // 1.4
             if (cmd.StartsWith("test-x-")) return V15(w, cmd.Substring(7), arg);      // 1.5

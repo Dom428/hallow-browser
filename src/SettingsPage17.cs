@@ -22,7 +22,7 @@ namespace HallowBrowser
         static readonly Dictionary<string, string> sectionOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
             { "Default browser", "General" }, { "Search", "General" }, { "Start-up", "General" }, { "Address bar", "General" }, { "Tabs and workspaces", "General" }, { "Bookmarks and new tab", "General" },
             { "Downloads", "General" }, { "Tab previews, gestures and media", "General" }, { "Translate pages", "General" }, { "Cast to a TV", "General" }, { "Spell check", "General" }, { "Sidebar", "General" },
-            { "Privacy", "Privacy & security" }, { "Security", "Privacy & security" }, { "Sites, extensions and windows", "Privacy & security" }, { "Hallow Keys", "Privacy & security" },
+            { "Privacy", "Privacy & security" }, { "Site logos", "Privacy & security" }, { "Security", "Privacy & security" }, { "Sites, extensions and windows", "Privacy & security" }, { "Hallow Keys", "Privacy & security" },
             { "Hallow Shield", "Shield" },
             { "Speed and gaming", "Gaming" }, { "Memory saver and battery", "Gaming" }, { "Game corner", "Gaming" }, { "Hallow apps on the new tab page", "Gaming" }, { "Live notifications", "Gaming" }, { "YouTube and Twitch", "Gaming" }, { "Twitch ads", "Gaming" },
             { "Look", "Appearance" }, { "Accessibility", "Appearance" }, { "Sounds and ambience", "Appearance" }, { "Taskbar", "Appearance" },

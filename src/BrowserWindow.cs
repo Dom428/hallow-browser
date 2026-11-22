@@ -421,6 +421,7 @@ namespace HallowBrowser
             else if (t.Internal) t.IconHost.Content = Ui.Icon(t.Url == Omni.BookmarksUrl ? "bookmark" : t.Url == Omni.ExtensionsUrl ? "puzzle-piece" : t.Url == Omni.SitesUrl ? "sliders" : t.Url == Omni.DownloadsUrl ? "download" : t.Url == Omni.AppsUrl ? "table-cells-large" : t.Url == Omni.HistoryUrl ? "clock-rotate-left" : "gear", 13, "Lilac");
             else if (Private && Omni.IsNewTab(t.Url)) t.IconHost.Content = Ui.Icon("mask", 13, "Lilac");
             else if (Omni.IsNewTab(t.Url)) t.IconHost.Content = new Image { Source = Ui.AppIcon(), Width = 16, Height = 16 };
+            else if (Omni.IsWeb(t.Url)) t.IconHost.Content = SiteIcons.Element(t.Url, 15);   // 1.14: a sleeping / restored tab shows the site's logo (or its letter), not a globe
             else t.IconHost.Content = Ui.Icon("globe", 13, "Muted");
             t.Header.Opacity = t.Suspended || t.Discarded ? 0.62 : 1;
             SleepMark(t);   // 1.6: a leaf and "about N MB saved" on a sleeping tab
@@ -553,6 +554,7 @@ namespace HallowBrowser
                     {
                         if (s == null || s.Length == 0) return;
                         var ms = new MemoryStream(); s.CopyTo(ms); ms.Position = 0;
+                        if (!Private && !snap) { var bytes = ms.ToArray(); var pageUrl = c.Source; var _s = Task.Run(() => SiteIcons.Save(pageUrl, bytes, Private)); }   // 1.14: the site's logo, kept (never from a private window)
                         var img = new System.Windows.Media.Imaging.BitmapImage(); img.BeginInit(); img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; img.StreamSource = ms; img.DecodePixelWidth = 32; img.EndInit(); img.Freeze();
                         x.Favicon = img; SetTabIcon(x);
                     }

@@ -304,6 +304,7 @@ namespace HallowBrowser
                 Ui.Row(Ui.Btn("Clear browsing data now...", () => ClearData(w), false, "broom"), Ui.Btn("Clear history", () => w.ClearHistory(), false, "clock-rotate-left")),
                 Ui.Muted("The page engine is Microsoft's WebView2 runtime, which has its own diagnostic data settings (Windows Settings > Privacy > Diagnostics). Hallow Browser has no server and sends nothing anywhere.", 11.5, 0) }));
 
+            col.Children.Add(card("Site logos", w.LogoSettings()));   // 1.14
             // 1.4: HTTPS-only and secure DNS, site settings, extensions, private windows, the game corner
             col.Children.Add(card("Security", w.SecuritySettings()));
             col.Children.Add(card("Sites, extensions and windows", new UIElement[] {

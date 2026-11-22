@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,46 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.14: site logos everywhere
+
+From real use: "will the logos appear for each bookmark?" - the bookmarks bar showed the same plain globe for Emby, UGREEN, Supabase,
+GoDaddy, Cloudflare, Instagram, Gmail, ChatGPT, LinkedIn, Proton...
+
+![Hallow Browser 1.14: logos on the bookmarks bar and in the manager (made-up sites and icons)](docs/logos.png)
+
+- **Logos everywhere a site is listed**: the bookmarks bar and its folder menus, the bookmarks manager, the History page, the new tab
+  page's tiles, Ctrl+K, the address bar's suggestions, and tabs that haven't loaded yet (asleep, restored).
+- **What shows**: the site's own icon; else a Font Awesome brand icon for well-known sites (Discord, Twitch, YouTube, Spotify,
+  WhatsApp, GitHub); else a **coloured letter tile** (the site's first letter, a colour from the site's name) - no more plain globe.
+  A site without an icon of its own uses its parent domain's (mail.google.com -> google.com).
+- **A logo cache**: whenever a tab's icon changes it is kept as a small PNG (at most 32 px) per site, in
+  %LOCALAPPDATA%\HallowBrowser\Profile\favicons\ (named by a hash of the site, at most 2,000 sites, the least recently used go
+  first). **Private windows never write to it.**
+- **Logos for bookmarks you haven't opened in Hallow yet**:
+  - **From the browser they came from**: Chrome, Edge, Brave, Opera and Vivaldi keep site icons in their profile's Favicons file.
+    Every import now brings them too, and **once, at the next start**, Hallow takes them for an earlier import (when its logo cache is
+    empty and your bookmarks are in that browser's bookmarks too). Like the importer: a **copy** of the file is read in a temp folder and
+    deleted, only icons for sites in your Hallow bookmarks and history are taken, never passwords or cookies. If the other browser has
+    the file open, Hallow tries again at a later start (Settings > Privacy & security > Site logos has a **Get logos from my other
+    browsers** button too).
+  - **"Fetch missing site logos"** (Settings > Privacy & security > Site logos, on by default): for what's still missing, Hallow asks
+    each site **once** for its own /favicon.ico or, if that isn't an image, the icon its home page names - in a hidden view of
+    Hallow's own engine and profile (Shield and secure DNS apply; the page's scripts and styles never load), **never a third-party
+    icon service** (no Google / DuckDuckGo icon APIs). Three sites at a time, only after the browser has been open two minutes and the
+    PC has been idle a little, never while a tab loads and **never during a game**. A site with no icon is asked again after 30 days at
+    the earliest. Internet sites only over https; a NAS on your network (Emby, UGREEN) at its own address.
+
+Tests: 1.14 adds (unit) the cache (write / read back / 128 px scaled to 32 / the same icon not rewritten / junk and tracking pixels
+refused / the LRU limit keeping the one just used), private windows and --snap never writing, the fallback order (cached icon ->
+parent domain -> brand -> letter tile, never another site's icon), reading Chromium's Favicons layout from a made-up fixture written
+with the same SQLite writer as the History tests (the best size per site, only the wanted sites, 400 sites over b-tree pages), the
+one-time import against fake Brave and Chrome profiles in a temp folder (only the browser the bookmarks came from, its file untouched,
+the copy deleted, a file in use reported and left for a later start, not twice), the fetcher's origins and its once-per-site memory, the
+new tab tiles and the setting's default; and (integration "v114", a test profile and local test sites only) the bar before and after, the
+one-time import from a fake Brave, a tab's icon cached, a **private window's icon not cached** (though the engine loaded it), the fetch
+of /favicon.ico (nothing else requested), of a <link rel=icon> (the page's script and style never requested), of a site with none,
+nothing during a game, and the logos in the manager, the History page, Ctrl+K and the new tab tiles. --snap draws them in dark and light.
 
 ## What's new in 1.13: a cleaner menu, a History page, imports that land where they belong
 
@@ -1079,6 +1119,7 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.8: SponsorBlock's answers | in memory only (30 minutes), never written to disk |
 | 1.12: the registration with Windows (a browser you can pick - never your default) | `HKCU\Software\Classes\HallowBrowserURL`, `...\HallowBrowserHTML`, `...\.html\OpenWithProgids` (and the other file types), `HKCU\Software\Clients\StartMenuInternet\HallowBrowser`, `HKCU\Software\RegisteredApplications` |
 | 1.13: a copy of your bookmarks from before the one-time bookmarks bar repair (only if it moved something) | `%APPDATA%\HallowBrowser\bookmarks.before-1.13.json` |
+| 1.14: site logos (a PNG per site, named by a hash; `tried.txt` = sites without one, asked again after 30 days) | `%LOCALAPPDATA%\HallowBrowser\Profile\favicons\` (another profile: its own Local folder); the new tab page's copies in `...\newtab\ico\` |
 | 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.

@@ -143,7 +143,7 @@ namespace HallowBrowser
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
             HttpsOnly = true; SecureDns = "off"; ShareShieldCounts = true;
             SaveLogins = true; DownloadScan = true; TabPreviews = true;
-            Defaults16(); Defaults17(); Defaults18(); Defaults19(); Defaults110();
+            Defaults16(); Defaults17(); Defaults18(); Defaults19(); Defaults110(); Defaults114();
         }
 
         public static BrowserSettings Load()

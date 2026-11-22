@@ -210,6 +210,7 @@ namespace HallowBrowser
                 ".tl{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px 10px;border-radius:12px;background:" + tile + ";border:1px solid " + line + ";color:" + fg + ";text-decoration:none;font-size:12px}" +
                 ".tl:hover,.tl:focus{background:" + tileHover + ";border-color:" + head + ";outline:none}" +
                 ".tl i{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font:700 18px 'Segoe UI',sans-serif;font-style:normal;color:#fff}" +
+                ".tl i.lg{background:" + (light ? "#F0EAFA" : "#2A2236") + "!important}.tl i img{width:28px;height:28px;image-rendering:auto}" +
                 ".tl span{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
                 ".tl button{position:absolute;top:3px;width:20px;height:20px;border:0;border-radius:6px;background:transparent;color:" + muted + ";font-size:12px;line-height:20px;padding:0;cursor:pointer;opacity:0}" +
                 ".tl:hover button,.tl:focus-within button{opacity:1}.tl button:hover{background:" + line + ";color:" + fg + "}.tl .x{right:3px}.tl .pn{left:3px}.tl.pinned .pn{opacity:1;color:" + head + "}" +
@@ -231,7 +232,7 @@ namespace HallowBrowser
                 "function post(m){try{chrome.webview.postMessage(m);}catch(e){}}" +
                 "function el(t,k,x){var e=document.createElement(t);if(k)e.className=k;if(x!=null)e.textContent=x;return e;}" +
                 "function draw(){var g=document.getElementById('dial');g.textContent='';(D.tiles||[]).forEach(function(s){var a=el('a','tl'+(s.pin?' pinned':''));a.href=s.u;a.title=s.t+'\\n'+s.u;" +
-                "var i=el('i',null,s.l);i.style.background=s.c;a.appendChild(i);a.appendChild(el('span',null,s.t));" +
+                "var i=el('i',null,s.l);i.style.background=s.c;if(s.i&&s.i.indexOf('ico/')===0){i.textContent='';i.className='lg';var im=el('img');im.setAttribute('src',s.i);im.alt='';im.onerror=function(){i.className='';i.textContent=s.l;};i.appendChild(im);}a.appendChild(i);a.appendChild(el('span',null,s.t));" +   // 1.14: the site's logo
                 "var p=el('button','pn','\u2605');p.title=s.pin?'Unpin':'Pin';p.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-pin\\t')+s.u+'\\t'+s.t);};a.appendChild(p);" +
                 "var x=el('button','x','\u00d7');x.title=s.pin?'Unpin':'Remove from this page';x.onclick=function(e){e.preventDefault();e.stopPropagation();post((s.pin?'hallow:nt-unpin\\t':'hallow:nt-hide\\t')+s.u);};a.appendChild(x);g.appendChild(a);});" +
                 "var f=document.getElementById('fam');f.textContent='';(D.family||[]).forEach(function(s){var d=el('div');var b=el('b',null,s.k+' ');d.appendChild(b);d.appendChild(document.createTextNode(s.v));f.appendChild(d);});" +

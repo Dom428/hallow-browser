@@ -9,6 +9,18 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.14 - SITE LOGOS EVERYWHERE
+- Every bookmark shows its site's logo: on the bookmarks bar and in its folders, in the
+  bookmarks manager, the History page, the new tab tiles, Ctrl+K and the address bar's
+  suggestions. No logo yet? A brand icon for well-known sites, else a coloured letter.
+- Logos are kept from the pages you open (never from private windows), in
+  %LOCALAPPDATA%\HallowBrowser\Profile\favicons.
+- At the next start Hallow takes the logos your old browser (Brave, Chrome, Edge...)
+  already has for your imported bookmarks - from a copy of its icon file, nothing else.
+  If that browser is open, it tries again at a later start.
+- Settings > Privacy & security > Site logos: "Fetch missing site logos" (on) asks each
+  remaining site once for its own icon, when the PC is idle and never during games -
+  through Hallow itself (Shield applies), never a third-party icon service.
 WHAT'S NEW IN 1.13 - A CLEANER MENU, A HISTORY PAGE, IMPORTS THAT LAND WHERE THEY BELONG
 - A short main menu (14 entries instead of about 30): new tab / window / private window,
   History, Downloads, Bookmarks, Reading list & notes, Find in page, Zoom, then View,

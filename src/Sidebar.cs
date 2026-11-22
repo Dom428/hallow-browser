@@ -332,14 +332,18 @@ namespace HallowBrowser
             core.NavigationCompleted += (a, b) => { p.Ready = true; };
             core.FaviconChanged += async (a, b) =>
             {
-                if (SidebarRules.Brand(p.Site.Url) != null || string.IsNullOrEmpty(core.FaviconUri)) return;
+                if (string.IsNullOrEmpty(core.FaviconUri)) return;
+                bool brand = SidebarRules.Brand(p.Site.Url) != null;
                 try
                 {
                     using (var s = await core.GetFaviconAsync(CoreWebView2FaviconImageFormat.Png))
                     {
                         if (s == null || s.Length == 0) return;
+                        var ms = new MemoryStream(); s.CopyTo(ms); var bytes = ms.ToArray();
+                        var src = core.Source; var _s = System.Threading.Tasks.Task.Run(() => SiteIcons.Save(src, bytes, false));   // 1.14: the site logo cache (panels are never private)
+                        if (brand) return;
                         Directory.CreateDirectory(IconDir);
-                        using (var f = File.Create(Path.Combine(IconDir, p.Site.Id + ".png"))) s.CopyTo(f);
+                        File.WriteAllBytes(Path.Combine(IconDir, p.Site.Id + ".png"), bytes);
                     }
                     Refresh(p);
                 }

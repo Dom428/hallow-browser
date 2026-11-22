@@ -62,7 +62,8 @@ namespace HallowBrowser
             foreach (var r in rows)
             {
                 var icon = r.Kind == "tab" ? "window-restore" : r.Kind == "calc" ? "calculator" : r.Kind == "keyword" ? "magnifying-glass" : r.Kind == "history" ? "globe" : "magnifying-glass";
-                var rr = r; var row = Ui.MenuRow(icon, r.Text, r.Kind == "calc" ? "copy" : r.Kind == "tab" ? "switch" : null, () => { suggest.IsOpen = false; rr.Go(); });
+                var rr = r; Action go = () => { suggest.IsOpen = false; rr.Go(); }; var keys = r.Kind == "calc" ? "copy" : r.Kind == "tab" ? "switch" : null;
+                var row = r.Kind == "history" && Omni.IsWeb(r.Fill) ? SiteIcons.MenuRow(r.Fill, r.Text, keys, go) : Ui.MenuRow(icon, r.Text, keys, go);   // 1.14: the site's logo
                 if (r.Kind == "calc") ((Grid)row.Content).Children.OfType<TextBlock>().First().FontWeight = FontWeights.SemiBold;
                 suggestList.Children.Add(row);
             }

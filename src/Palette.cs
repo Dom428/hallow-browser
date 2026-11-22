@@ -13,7 +13,7 @@ namespace HallowBrowser
 {
     public class PaletteItem
     {
-        public string Kind, Title, Sub, Icon, Keys; public Action Run; public int Score;
+        public string Kind, Title, Sub, Icon, Keys; public Action Run; public int Score; public string Url;   // 1.14: a site (its logo instead of the icon)
         public override string ToString() { return Kind + ": " + Title; }
     }
 
@@ -29,7 +29,7 @@ namespace HallowBrowser
             foreach (var t in w.Tabs.ToList())
             {
                 var tt = t;
-                all.Add(new PaletteItem { Kind = "Tab", Title = t.Title, Sub = Omni.Display(t.Url) + (t.Group != null ? "  -  group " + t.Group.Name : ""), Icon = t == w.Active ? "eye" : "globe", Run = () => w.Activate(tt) });
+                all.Add(new PaletteItem { Kind = "Tab", Title = t.Title, Sub = Omni.Display(t.Url) + (t.Group != null ? "  -  group " + t.Group.Name : ""), Icon = t == w.Active ? "eye" : "globe", Url = Omni.IsWeb(t.Url) ? t.Url : null, Run = () => w.Activate(tt) });
             }
             foreach (var p in w.Side.Panels.ToList())
             {
@@ -40,7 +40,7 @@ namespace HallowBrowser
                 foreach (var b in w.Bookmarks.All())
                 {
                     var u = b.Url;
-                    all.Add(new PaletteItem { Kind = "Bookmark", Title = b.Title ?? u, Sub = Omni.Display(u), Icon = "bookmark", Run = () => w.Navigate(u, false) });
+                    all.Add(new PaletteItem { Kind = "Bookmark", Title = b.Title ?? u, Sub = Omni.Display(u), Icon = "bookmark", Url = u, Run = () => w.Navigate(u, false) });
                 }
             all.AddRange(Commands(w));
             // 1.7: every card and setting of the Settings page (opens Settings there, filtered to it)
@@ -55,7 +55,7 @@ namespace HallowBrowser
                 {
                     if (open.Contains(h.Key.Url)) continue;
                     var u = h.Key.Url;
-                    res.Add(new PaletteItem { Kind = "History", Title = string.IsNullOrWhiteSpace(h.Key.Title) ? Omni.Display(u) : h.Key.Title, Sub = Omni.Display(u), Icon = "clock-rotate-left", Score = h.Value, Run = () => w.Navigate(u, false) });
+                    res.Add(new PaletteItem { Kind = "History", Title = string.IsNullOrWhiteSpace(h.Key.Title) ? Omni.Display(u) : h.Key.Title, Sub = Omni.Display(u), Icon = "clock-rotate-left", Url = u, Score = h.Value, Run = () => w.Navigate(u, false) });
                 }
             }
             res = res.OrderByDescending(x => x.Score + (q.Length > 0 ? weight[x.Kind] : 0)).ThenBy(x => x.Title, StringComparer.OrdinalIgnoreCase).Take(max).ToList();
@@ -242,7 +242,7 @@ namespace HallowBrowser
                 var it = shown[i]; int idx = i;
                 var g = new Grid();
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) }); g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                g.Children.Add(Ui.Icon(it.Icon ?? "globe", 13, it.Kind == "Command" ? "Lilac" : "Muted"));
+                g.Children.Add(it.Url != null ? SiteIcons.Element(it.Url, 15) : (FrameworkElement)Ui.Icon(it.Icon ?? "globe", 13, it.Kind == "Command" ? "Lilac" : "Muted"));   // 1.14: site logos
                 var tx = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
                 tx.Children.Add(new TextBlock { Text = it.Title, TextTrimming = TextTrimming.CharacterEllipsis });
                 if (!string.IsNullOrEmpty(it.Sub)) { var s = Ui.Muted(it.Sub, 11); s.TextWrapping = TextWrapping.NoWrap; s.TextTrimming = TextTrimming.CharacterEllipsis; tx.Children.Add(s); }
