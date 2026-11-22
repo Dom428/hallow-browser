@@ -28,6 +28,7 @@ namespace HallowBrowser
         [DataMember] public bool FetchLogos = true;    // 1.14: one quiet fetch per site of its own icon, for bookmarks never opened here
         [DataMember] public bool Logos114;             // 1.14: the one-time "logos from the browser your bookmarks came from" ran
         [DataMember] public int Logos114Tries;         // ... tries that found the other browser's icon file in use
+        [DataMember] public bool Logos1141;            // 1.14.1: the copy from your other browsers ran again (1.14's could skip itself)
         void Defaults114() { FetchLogos = true; }
     }
 
@@ -53,15 +54,27 @@ namespace HallowBrowser
         public static string Key(string urlOrHost)
         {
             if (string.IsNullOrWhiteSpace(urlOrHost)) return null;
-            string host;
-            if (urlOrHost.Contains("://")) { if (!Omni.IsWeb(urlOrHost)) return null; host = Omni.HostOf(urlOrHost); }
+            string host; int port = -1;
+            if (urlOrHost.Contains("://"))
+            {
+                if (!Omni.IsWeb(urlOrHost)) return null; host = Omni.HostOf(urlOrHost);
+                Uri u; if (Uri.TryCreate(urlOrHost, UriKind.Absolute, out u) && !u.IsDefaultPort) port = u.Port;
+            }
             else host = urlOrHost;
             if (string.IsNullOrEmpty(host)) return null;
             host = host.Trim().TrimEnd('.').ToLowerInvariant();
             if (host.StartsWith("www.", StringComparison.Ordinal)) host = host.Substring(4);
-            return host.Length == 0 || host.Contains("/") ? null : host;
+            if (host.Length == 0 || host.Contains("/")) return null;
+            // 1.14.1: several apps on one home server (192.168.1.5:8096, :9443...) each keep their own logo
+            if (port > 0 && (IsIp(host) || !host.Contains("."))) host = host + ":" + port.ToString(CultureInfo.InvariantCulture);
+            return host;
         }
-        static bool IsIp(string key) { var k = Uri.CheckHostName(key.Trim('[', ']')); return k == UriHostNameType.IPv4 || k == UriHostNameType.IPv6; }
+        static bool IsIp(string key)
+        {
+            var h = key.Trim(); var c = h.LastIndexOf(':');
+            if (c > 0 && h.IndexOf(':') == c) h = h.Substring(0, c);   // "192.168.1.5:8096" -> the address (an IPv6 address has several colons)
+            var k = Uri.CheckHostName(h.Trim('[', ']')); return k == UriHostNameType.IPv4 || k == UriHostNameType.IPv6;
+        }
         // the host, then its parent domains down to two labels ("mail.google.com" -> "google.com"); an IP address only itself
         public static IEnumerable<string> Chain(string key)
         {

@@ -157,15 +157,15 @@ namespace HallowBrowser
             SiteIcons.Changed += changed; Closed += (a, b) => SiteIcons.Changed -= changed;
             if (Private || logosStarted || !LogosAuto) return;
             logosStarted = true;
-            int first = LogosFast ? 2 : 20, every = LogosFast ? 3 : 45;
+            int first = LogosFast ? 2 : 8, every = LogosFast ? 3 : 20;   // 1.14.1: sooner and more often (it waited for an idle PC)
             var started = DateTime.Now;
             logoTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(first) };
             logoTimer.Tick += (a, b) =>
             {
                 logoTimer.Interval = TimeSpan.FromSeconds(every);
                 if (!Program.Windows.Contains(this)) { logoTimer.Stop(); return; }
-                if (!S.Logos114 && !logoOnceTried) { if (Game == null) { logoOnceTried = true; LogosOnce(false); } return; }
-                if (LogosFast || (DateTime.Now - started).TotalSeconds >= 120) LogoFetchTick(false);
+                if (!S.Logos1141 && !logoOnceTried) { if (Game == null) { logoOnceTried = true; LogosOnce(false); } return; }
+                LogoFetchTick(false);
             };
             logoTimer.Start();
             Closed += (a, b) => { logoTimer.Stop(); logosStarted = false; };
@@ -185,10 +185,10 @@ namespace HallowBrowser
         // ---- 1. the one-time logos from the browser the bookmarks came from (force = the Settings button: any Chromium browser, now)
         public Task<Importer.LogoResult> LogosOnce(bool force)
         {
-            if (snap || Private || logoImportBusy || (!force && (S.Logos114 || Game != null))) return Task.FromResult<Importer.LogoResult>(null);
+            if (snap || Private || logoImportBusy || (!force && (S.Logos1141 || Game != null))) return Task.FromResult<Importer.LogoResult>(null);
             logoImportBusy = true;
             var bm = BookmarkUrls(); var hist = HistoryUrls(5000); var profiles = FindBrowsers(); var s = S;
-            return Task.Run(() => Importer.LogosFromBrowsers(profiles, bm, hist, !force, !force)).ContinueWith(t =>
+            return Task.Run(() => Importer.LogosFromBrowsers(profiles, bm, hist, false, false)).ContinueWith(t =>
             {
                 logoImportBusy = false;
                 var r = t.Exception == null ? t.Result : new Importer.LogoResult { Skipped = "error: " + t.Exception.GetBaseException().Message };
@@ -198,7 +198,7 @@ namespace HallowBrowser
                     if (!force)
                     {
                         if (r.InUse && r.Saved == 0 && s.Logos114Tries < 7) s.Logos114Tries++;   // the other browser is open - next start
-                        else s.Logos114 = true;
+                        else { s.Logos114 = true; s.Logos1141 = true; }
                         s.Save();
                     }
                     if (r.Saved > 0) Toast("Your bookmarks have their site logos now: " + r.Saved + (r.Saved == 1 ? " logo" : " logos") + " copied from " + string.Join(" and ", r.From) + "'s own icon store (a copy of it; nothing else was read).", 8);
@@ -231,12 +231,12 @@ namespace HallowBrowser
         {
             if (snap || Private || !S.FetchLogos || logoFetchBusy || Game != null) return false;
             if (ignoreIdle || LogosFast) return true;
-            return IdleSeconds() >= 20 && !Tabs.Any(t => t.Loading);
+            return !Tabs.Any(t => t.Loading);
         }
         public Task<List<string>> LogoFetchTick(bool ignoreIdle)
         {
             if (!LogoFetchAllowed(ignoreIdle)) return Task.FromResult<List<string>>(null);
-            var c = LogoCandidates(3); if (c.Count == 0) return Task.FromResult(new List<string>());
+            var c = LogoCandidates(4); if (c.Count == 0) return Task.FromResult(new List<string>());
             return FetchLogos(c);
         }
         // a hidden view (never shown) on this profile: muted, no pop-ups, no downloads, no permissions, scripts off, and only the page

@@ -48,7 +48,12 @@ namespace HallowBrowser.Tests
         static void KeyTests()
         {
             Eq(SiteIcons.Key("https://www.Example.com/a?b"), "example.com", "logos: the key is the host, lower case, without www.");
-            Eq(SiteIcons.Key("http://192.168.1.20:8096/web/index.html"), "192.168.1.20", "logos: a NAS address keys by its IP (the port doesn't matter)");
+            // 1.14.1: one home server runs several apps (Emby on :8096, the NAS's own page on :9443) - each keeps its own logo
+            Eq(SiteIcons.Key("http://192.168.1.20:8096/web/index.html"), "192.168.1.20:8096", "logos: a NAS address keys by its IP and port");
+            Ok(SiteIcons.Key("https://192.168.1.20:9443/") != SiteIcons.Key("http://192.168.1.20:8096/"), "logos: two apps on one NAS (different ports) get different logos");
+            Eq(SiteIcons.Key("http://192.168.1.20/"), "192.168.1.20", "logos: a NAS on the default port is just its IP");
+            Eq(SiteIcons.Key("https://example.com:8443/x"), "example.com", "logos: an internet site's port doesn't matter");
+            Eq(string.Join(",", SiteIcons.Chain("192.168.1.20:8096")), "192.168.1.20:8096", "logos: an IP and port is only itself");
             Eq(SiteIcons.Key("mail.google.com"), "mail.google.com", "logos: a bare host works too");
             Ok(SiteIcons.Key("hallow://bookmarks") == null && SiteIcons.Key("file:///C:/x.html") == null && SiteIcons.Key(null) == null && SiteIcons.Key(Omni.NewTabUrl) == null, "logos: no key for internal pages, files or the new tab page");
             Eq(string.Join(",", SiteIcons.Chain("a.mail.google.com")), "a.mail.google.com,mail.google.com,google.com", "logos: the lookup goes host -> parent domains (down to two labels)");
