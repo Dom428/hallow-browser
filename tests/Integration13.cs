@@ -83,7 +83,9 @@ namespace HallowBrowser.Tests
                 var r3 = J(Cmd("test-m-import-run 4 1 0"));
                 Ok(I(r3, "bookmarks") == 3, "import Firefox (jsonlz4 bookmarks): 3");
                 var st = state(); var tree = Tree(st);
-                Ok(tree.Any(t => t.StartsWith("other/Imported from Chrome/Bookmarks bar/Games|Delta Force|")) && tree.Any(t => t.StartsWith("other/Imported from Firefox/")), "imported into \"Imported from ...\" folders, structure kept");
+                // 1.13: where the other browser had them - Chrome's bar onto the (empty) bar, Firefox's toolbar into a "From Firefox" folder on it
+                Ok(tree.Any(t => t.StartsWith("bar/Games|Delta Force|")) && tree.Any(t => t.StartsWith("bar/From Firefox/")) && !tree.Any(t => t.Contains("Imported from")), "imported where the browsers had them (1.13: Chrome's bar onto the bar, Firefox's toolbar as \"From Firefox\" on it), structure kept");
+                var barBefore = I(st, "barItems");
                 var hist = J(Cmd("test-p-history"));
                 Ok(I(hist, "count") >= 40, "history: the imported pages are there for Ctrl+K (" + I(hist, "count") + ")");
                 var pal = Val(Cmd("test-p-palette Chrome history 17"));
@@ -95,14 +97,14 @@ namespace HallowBrowser.Tests
                 var ids = new List<string>();
                 foreach (var n in new[] { "alpha", "bravo", "charlie" }) ids.Add(Val(Cmd("test-m-bm-add bar " + Lh + "/" + n + ".html " + n + " page")));
                 var fid = Val(Cmd("test-m-bm-folder bar Raid stuff"));
-                st = Wait(state, s => I(s, "barItems") == 4, 5000);
-                Ok(I(st, "barItems") == 4, "the bar shows 3 bookmarks and a folder");
+                st = Wait(state, s => I(s, "barItems") == barBefore + 4, 5000);
+                Ok(I(st, "barItems") == barBefore + 4, "the bar shows the imported ones, 3 bookmarks and a folder (" + I(st, "barItems") + ")");
                 Cmd("test-m-bm-move " + ids[2] + " bar 0");
                 Cmd("test-m-bm-move " + ids[1] + " " + fid + " 0");
                 Cmd("test-m-bm-rename " + fid + " Raid night");
                 st = state(); tree = Tree(st);
                 var barOrder = string.Join(",", tree.Where(t => t.StartsWith("bar|")).Select(t => t.Split('|')[1]));
-                Ok(barOrder == "charlie page,alpha page,Raid night", "drag to reorder and into a folder, rename: " + barOrder);
+                Ok(barOrder.StartsWith("charlie page,") && barOrder.EndsWith(",alpha page,Raid night") && barOrder.Split(',').Length == barBefore + 3, "drag to reorder and into a folder, rename: " + barOrder);
                 Ok(tree.Any(t => t.StartsWith("bar/Raid night|bravo page|")), "the bookmark is inside the renamed folder");
                 var before = Tabs().Count; Cmd("test-m-bm-click " + ids[0]);
                 Ok(Wait(Tabs, t => t.Count == before + 1, 5000).Count == before + 1, "clicking a bar bookmark opens it");
@@ -121,7 +123,7 @@ namespace HallowBrowser.Tests
                 var tiles = nt.ContainsKey("tiles") ? ((System.Collections.ArrayList)nt["tiles"]).Cast<Dictionary<string, object>>().ToList() : new List<Dictionary<string, object>>();
                 var fam = nt.ContainsKey("family") ? ((System.Collections.ArrayList)nt["family"]).Cast<Dictionary<string, object>>().ToList() : new List<Dictionary<string, object>>();
                 Ok(tiles.Count == NewTabData.MaxTiles && tiles.All(t => ((string)t["u"]).StartsWith("http")), "new tab data: speed-dial tiles from the history, imported pages included (" + tiles.Count + ")");
-                Ok(fam.Any(f => (string)f["k"] == "GUARD" && ((string)f["v"]).StartsWith("88/100")) && fam.Any(f => (string)f["k"] == "SHIELD" && ((string)f["v"]).StartsWith("4,321")), "new tab data: Guard score and Shield's blocked today from their status files");
+                Ok(fam.Any(f => (string)f["k"] == "GUARD" && ((string)f["v"]).StartsWith("88/100")) && fam.Any(f => (string)f["k"] == "SHIELD" && ((string)f["v"]).StartsWith("4,321")), "new tab data: Guard score and Shield's blocked today from their status files" + (fam.Count == 0 ? " (no strip: " + js.Serialize(nt).Substring(0, Math.Min(300, js.Serialize(nt).Length)) + ")" : " " + js.Serialize(fam)));
                 var ni = Val(Cmd("test-new")); int nti = ni == null ? -1 : int.Parse(ni);
                 var shown = Wait(() => Eval(nti, "document.querySelectorAll('.tl').length"), v => v != null && v != "0" && v != "1", 8000);
                 Ok(shown != null && int.Parse(shown) >= 2, "the new tab page draws the tiles (" + shown + ")");
@@ -168,7 +170,7 @@ namespace HallowBrowser.Tests
                 Cmd("quit"); br.WaitForExit(15000); Ok(br.HasExited, "PC A: quit");
                 br = launch(pcA, ""); Ok(up(), "PC A: up again");
                 st = Wait(state, s => B(s, "loaded") && I(s, "barItems") > 0, 10000);
-                Ok(B(st, "barShown") && I(st, "barItems") == 3, "the bookmarks bar is back after a restart (" + I(st, "barItems") + " items)");
+                Ok(B(st, "barShown") && I(st, "barItems") == barBefore + 3, "the bookmarks bar is back after a restart (" + I(st, "barItems") + " items)");
                 var countA = I(st, "count");
                 Cmd("quit"); br.WaitForExit(15000);
 

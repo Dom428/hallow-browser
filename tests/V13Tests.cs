@@ -250,10 +250,10 @@ namespace HallowBrowser.Tests
             hist.Add("https://chist1.example/", "Mine", DateTime.Now.AddDays(-30));
             var r1 = Importer.Run(ch, true, true, store, hist);
             Ok(r1.Bookmarks == 4 && r1.History == 39, "import Chrome: 4 bookmarks, 39 new pages (one was already in the history)");
-            var folder = store.Children(BookmarkStore.OtherId).FirstOrDefault(x => x.Folder && x.Title == "Imported from Chrome");
-            Ok(folder != null, "import: into \"Imported from Chrome\" under Other bookmarks");
+            // 1.13: where Chrome had them - its bar onto the (empty) bar, its other bookmarks into Other bookmarks (1.3 - 1.12: "Imported from Chrome")
+            Ok(!store.Children(BookmarkStore.OtherId).Any(x => x.Folder && x.Title == "Imported from Chrome"), "import: no \"Imported from Chrome\" folder any more (1.13)");
             var paths = Tree(store);
-            Ok(paths.Contains("other/Imported from Chrome/Bookmarks bar/Games|Delta Force|https://deltaforce.example/") && paths.Contains("other/Imported from Chrome/Other bookmarks|Chrome other|https://chromeother.example/"), "import: the other browser's folders kept inside");
+            Ok(paths.Contains("bar/Games|Delta Force|https://deltaforce.example/") && paths.Contains("other|Chrome other|https://chromeother.example/"), "import: Chrome's bar onto the bar (its folders kept), its other bookmarks into Other bookmarks (1.13)");
             Ok(!paths.Any(p => p.Contains("Mobile bookmarks")), "import: empty roots aren't made");
             var r2 = Importer.Run(ch, true, true, store, hist);
             Ok(r2.Bookmarks == 0 && r2.SkippedBookmarks == 4 && r2.History == 0 && store.Count == 4, "import again: no duplicates (bookmarks or history)");
@@ -265,7 +265,7 @@ namespace HallowBrowser.Tests
             var c1 = hist.All().First(h => h.Url == "https://chist1.example/");
             Ok(r4.History == 1 && c1.Visits == 50, "import Opera GX (profile in its root folder): history merged - most visits kept");
             var r5 = Importer.Run(fx, true, true, store, hist);
-            Ok(r5.Bookmarks == 3 && Tree(store).Contains("other/Imported from Firefox/Bookmarks Toolbar/Fox folder|In folder|https://foxfolder.example/") && !store.All().Any(b => b.Url.StartsWith("place:")), "import Firefox: jsonlz4 bookmarks (toolbar, folders; place: queries left out)");
+            Ok(r5.Bookmarks == 3 && Tree(store).Contains("bar/From Firefox/Fox folder|In folder|https://foxfolder.example/") && !store.All().Any(b => b.Url.StartsWith("place:")), "import Firefox: jsonlz4 bookmarks (toolbar, folders; place: queries left out)");
             var after = Hashes(dir);
             Ok(before.Count == after.Count && before.All(kv => after.ContainsKey(kv.Key) && after[kv.Key] == kv.Value), "import: the browser profiles are unchanged (nothing written, nothing added)");
             Ok(!Directory.GetDirectories(Path.GetTempPath(), "HallowBrowserImport-*").Any(d => Directory.GetLastWriteTimeUtc(d) > DateTime.UtcNow.AddMinutes(-2)), "import: the temp copies are deleted");

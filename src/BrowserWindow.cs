@@ -166,7 +166,7 @@ namespace HallowBrowser
             quickBtn = Ui.Tool("gamepad", "Game and Hallow panel", () => Panels.Quick(this, quickBtn), 15);
             menuBtn = Ui.Tool("bars", "Menu", () => Panels.Menu(this, menuBtn), 14);
             right.Children.Add(BuildMediaButton());   // 1.5: media playing in any tab
-            right.Children.Add(shieldBtn); right.Children.Add(dlBtn); right.Children.Add(quickBtn); right.Children.Add(menuBtn);
+            right.Children.Add(shieldBtn); right.Children.Add(dlBtn); right.Children.Add(quickBtn); right.Children.Add(BuildSettingsButton()); right.Children.Add(menuBtn);   // 1.13: Settings one click away
             bar.Children.Add(right);
             // 1.3: the toolbar and, under it, the bookmarks bar (Ctrl+Shift+B)
             var row1 = new StackPanel(); Grid.SetRow(row1, 1); toolbarRow = row1; A11y.Scaled(row1); row1.Children.Add(bar); row1.Children.Add(BuildBookmarksBar());
@@ -204,12 +204,15 @@ namespace HallowBrowser
 
             // ---- toast and suggestions
             toastText = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 420 };
-            var tb = Ui.Flyout(toastText, double.NaN); tb.Padding = new Thickness(14, 9, 14, 9); tb.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
+            toastActions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };   // 1.13: buttons on a toast
+            var toastBox = new StackPanel(); toastBox.Children.Add(toastText); toastBox.Children.Add(toastActions);
+            var tb = Ui.Flyout(toastBox, double.NaN); tb.Padding = new Thickness(14, 9, 14, 9); tb.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
             toast = new Popup { Child = tb, PlacementTarget = content, Placement = PlacementMode.Bottom, AllowsTransparency = true, StaysOpen = true };
             toast.Opened += (a, b) => { toast.HorizontalOffset = 16; toast.VerticalOffset = -((FrameworkElement)toast.Child).ActualHeight - 16; };
             suggestList = new StackPanel();
             suggest = new Popup { Child = Ui.Flyout(suggestList, double.NaN), PlacementTarget = addressBox, Placement = PlacementMode.Bottom, AllowsTransparency = true, StaysOpen = true, VerticalOffset = 4 };
             Deactivated += (a, b) => { suggest.IsOpen = false; };
+            HookDefaultCheck();   // 1.13: back from Windows Settings - the default-browser hint follows Windows' choice
         }
         static void Chrome(UIElement e) { WindowChrome.SetIsHitTestVisibleInChrome(e, true); }
         Button Caption(string icon, string tip, Action click)
@@ -415,7 +418,7 @@ namespace HallowBrowser
         {
             if (t.Favicon != null) t.IconHost.Content = new Image { Source = t.Favicon, Width = 16, Height = 16 };
             else if (t.Loading) t.IconHost.Content = Ui.Icon("arrows-rotate", 12, "AccentBrush");
-            else if (t.Internal) t.IconHost.Content = Ui.Icon(t.Url == Omni.BookmarksUrl ? "bookmark" : t.Url == Omni.ExtensionsUrl ? "puzzle-piece" : t.Url == Omni.SitesUrl ? "sliders" : t.Url == Omni.DownloadsUrl ? "download" : t.Url == Omni.AppsUrl ? "table-cells-large" : "gear", 13, "Lilac");
+            else if (t.Internal) t.IconHost.Content = Ui.Icon(t.Url == Omni.BookmarksUrl ? "bookmark" : t.Url == Omni.ExtensionsUrl ? "puzzle-piece" : t.Url == Omni.SitesUrl ? "sliders" : t.Url == Omni.DownloadsUrl ? "download" : t.Url == Omni.AppsUrl ? "table-cells-large" : t.Url == Omni.HistoryUrl ? "clock-rotate-left" : "gear", 13, "Lilac");
             else if (Private && Omni.IsNewTab(t.Url)) t.IconHost.Content = Ui.Icon("mask", 13, "Lilac");
             else if (Omni.IsNewTab(t.Url)) t.IconHost.Content = new Image { Source = Ui.AppIcon(), Width = 16, Height = 16 };
             else t.IconHost.Content = Ui.Icon("globe", 13, "Muted");
@@ -798,6 +801,7 @@ namespace HallowBrowser
                     case Key.F: act = ShowFind; break;
                     case Key.G: act = () => FindNext(!shift); break;
                     case Key.J: act = () => Panels.DownloadsFlyout(this, dlBtn); break;
+                    case Key.H: act = ShowHistory; break;                                                  // 1.13: the History page
                     case Key.P: act = () => { if (Active != null && Active.Core != null) Active.Core.ShowPrintUI(); }; break;
                     case Key.D0: case Key.NumPad0: act = () => SetZoom(1.0); break;
                     case Key.OemPlus: case Key.Add: act = () => Zoom(1); break;
@@ -990,11 +994,27 @@ namespace HallowBrowser
         DispatcherTimer toastTimer;
         public void Toast(string text, int seconds)
         {
-            toastText.Text = text; toast.IsOpen = false; toast.IsOpen = true;
+            toastText.Text = text; toastActions.Children.Clear(); toastActions.Visibility = Visibility.Collapsed; toast.IsOpen = false; toast.IsOpen = true;
             if (toastTimer == null) { toastTimer = new DispatcherTimer(); toastTimer.Tick += (a, b) => { toastTimer.Stop(); toast.IsOpen = false; }; }
             toastTimer.Stop(); toastTimer.Interval = TimeSpan.FromSeconds(seconds); toastTimer.Start();
         }
         public string LastToast { get { return toastText.Text; } }
+        // 1.13: a toast with buttons (each closes the toast and does its thing); it stays a little longer
+        StackPanel toastActions;
+        public List<string> LastToastActions { get { return toastActions == null ? new List<string>() : toastActions.Children.OfType<Button>().Select(b => b.Tag as string).ToList(); } }
+        public bool PressToastAction(string label) { var b = toastActions == null ? null : toastActions.Children.OfType<Button>().FirstOrDefault(x => (x.Tag as string) == label); if (b == null) return false; b.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)); return true; }
+        public void ToastWith(string text, int seconds, params Tuple<string, string, Action>[] actions)
+        {
+            Toast(text, seconds);
+            foreach (var a in actions)
+            {
+                var act = a.Item3;
+                var b = Ui.Btn(a.Item1, () => { toast.IsOpen = false; act(); }, toastActions.Children.Count == 0, a.Item2); b.Tag = a.Item1; b.Margin = new Thickness(0, 0, 8, 0);
+                toastActions.Children.Add(b);
+            }
+            toastActions.Visibility = actions.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            toast.IsOpen = false; toast.IsOpen = true;
+        }
 
         void BackgroundChecks()
         {
@@ -1062,8 +1082,9 @@ namespace HallowBrowser
             bool ex = t.Url == Omni.ExtensionsUrl, si = t.Url == Omni.SitesUrl;   // 1.4: extensions, site settings
             bool dl = t.Url == Omni.DownloadsUrl;                                  // 1.5: downloads
             bool ap = t.Url == Omni.AppsUrl;                                       // 1.6: installed sites
-            t.Url = bm ? Omni.BookmarksUrl : ex ? Omni.ExtensionsUrl : si ? Omni.SitesUrl : dl ? Omni.DownloadsUrl : ap ? Omni.AppsUrl : Omni.SettingsUrl; t.Title = bm ? "Bookmarks" : ex ? "Extensions" : si ? "Site settings" : dl ? "Downloads" : ap ? "Apps" : "Settings"; t.TitleBlock.Text = t.Title; t.Discarded = false;
-            t.Page = bm ? BookmarksPage() : ex ? ExtensionsPage() : si ? SitesPage() : dl ? DownloadsPage() : ap ? AppsPage() : Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
+            bool hi = t.Url == Omni.HistoryUrl;                                    // 1.13: history
+            t.Url = bm ? Omni.BookmarksUrl : ex ? Omni.ExtensionsUrl : si ? Omni.SitesUrl : dl ? Omni.DownloadsUrl : ap ? Omni.AppsUrl : hi ? Omni.HistoryUrl : Omni.SettingsUrl; t.Title = bm ? "Bookmarks" : ex ? "Extensions" : si ? "Site settings" : dl ? "Downloads" : ap ? "Apps" : hi ? "History" : "Settings"; t.TitleBlock.Text = t.Title; t.Discarded = false;
+            t.Page = bm ? BookmarksPage() : ex ? ExtensionsPage() : si ? SitesPage() : dl ? DownloadsPage() : ap ? AppsPage() : hi ? HistoryPage() : Panels.SettingsPage(this); t.Page.Visibility = Visibility.Collapsed;
             content.Children.Add(t.Page); SetTabIcon(t); LayoutSplit();
         }
         public void ReloadSettings()

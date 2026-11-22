@@ -25,7 +25,8 @@ namespace HallowBrowser
         public const string PrivateTabUrl = "https://newtab.hallow/private.html";   // 1.4: a private window's new tab page
         public const string DownloadsUrl = "hallow://downloads";            // 1.5: every download, with Show in folder and Defender's answer
         public const string AppsUrl = "hallow://apps";                      // 1.6: sites installed as apps
-        public static bool IsInternal(string url) { return url == SettingsUrl || url == BookmarksUrl || url == ExtensionsUrl || url == SitesUrl || url == DownloadsUrl || url == AppsUrl; }
+        public const string HistoryUrl = "hallow://history";                // 1.13: every page you visited, by day
+        public static bool IsInternal(string url) { return url == SettingsUrl || url == BookmarksUrl || url == ExtensionsUrl || url == SitesUrl || url == DownloadsUrl || url == AppsUrl || url == HistoryUrl; }
 
         public static string EngineName(string e)
         {
@@ -62,6 +63,7 @@ namespace HallowBrowser
             if (s.Equals(SitesUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://sites", StringComparison.OrdinalIgnoreCase)) return SitesUrl;
             if (s.Equals(DownloadsUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://downloads/", StringComparison.OrdinalIgnoreCase)) return DownloadsUrl;
             if (s.Equals(AppsUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://apps/", StringComparison.OrdinalIgnoreCase)) return AppsUrl;
+            if (s.Equals(HistoryUrl, StringComparison.OrdinalIgnoreCase) || s.Equals("hallow://history/", StringComparison.OrdinalIgnoreCase)) return HistoryUrl;
             var m = Regex.Match(s, @"^([a-zA-Z][a-zA-Z0-9+.\-]*):");
             if (m.Success && !LooksLikeHostPort(s))
             {

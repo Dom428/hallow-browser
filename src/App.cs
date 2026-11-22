@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.12.1.0")]
-[assembly: AssemblyFileVersion("1.12.1.0")]
+[assembly: AssemblyVersion("1.13.0.0")]
+[assembly: AssemblyFileVersion("1.13.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.12.1";
+        public const string Version = "1.13";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -343,6 +343,11 @@ namespace HallowBrowser
                 shot("apps", w => { w.SnapApps(); });
                 shot("app-window", w => w.SnapAppWindow());
                 shot("sleeping-tabs", w => w.SnapSleeping());
+                // 1.13: the cleaner menu, two of its submenus and the History page (made-up)
+                shot("menu", w => Menu113.Snap(w, null));
+                shot("menu-view", w => Menu113.Snap(w, "view"));
+                shot("menu-more", w => Menu113.Snap(w, "more"));
+                shot("history", w => w.SnapHistory());
                 Profiles = BrowserWindow.SnapProfiles();
                 var ws = new BrowserWindow(s, true) { Width = 1280, Height = 800 };
                 ws.SnapFill("news", false, false);

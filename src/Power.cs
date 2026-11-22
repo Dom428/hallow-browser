@@ -104,7 +104,7 @@ namespace HallowBrowser
 
     // the pages you visited (address, title, last visit, visits), newest first, at most 5,000 - in the profile folder
     // (%LOCALAPPDATA%\HallowBrowser\Profile\hallow-history.json). Ctrl+K searches it; "Clear history" empties it.
-    public class HistoryStore
+    public partial class HistoryStore
     {
         public const int Max = 5000;
         readonly string path; readonly object gate = new object();

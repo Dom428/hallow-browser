@@ -9,6 +9,22 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.13 - A CLEANER MENU, A HISTORY PAGE, IMPORTS THAT LAND WHERE THEY BELONG
+- A short main menu (14 entries instead of about 30): new tab / window / private window,
+  History, Downloads, Bookmarks, Reading list & notes, Find in page, Zoom, then View,
+  More tools and Profiles, and Settings, Help & about, Exit at the bottom. The rest is
+  in submenus that open to the side. If the window is short the menu scrolls, so
+  Settings is always reachable - and there is a Settings (gear) button on the toolbar.
+- Shortcuts are unchanged and shown in the submenus; Ctrl+K still finds every action.
+- History page (Ctrl+H, or Menu > History): every page you visited by day, with search,
+  remove, and Clear history for the last hour / day / week / 4 weeks / all time.
+  History imported from another browser shows with its own dates.
+- Importing from another browser puts its bookmarks bar on your bookmarks bar (in a
+  "From Brave" folder if yours already has bookmarks) and switches the bar on; the rest
+  goes to Other bookmarks. The message has "Show bookmarks" and "Open history" buttons.
+- An earlier import that left the bar's bookmarks deep in Other bookmarks is fixed once
+  at start (a copy of your bookmarks is kept as bookmarks.before-1.13.json).
+- The new tab page's "make Hallow your default browser" note goes away as soon as it is.
 WHAT'S NEW IN 1.12.1 - A FIX FOR A WHITE TWITCH PLAYER
 - Fixed: on a live Twitch channel the video area could show as a plain white box. Twitch
   draws ad layers on top of the video during a break (and the 1.10 hide rules could in

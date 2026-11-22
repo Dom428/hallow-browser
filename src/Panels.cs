@@ -33,65 +33,8 @@ namespace HallowBrowser
         static TextBlock Head(string text) { var t = Ui.Label(text); t.Margin = new Thickness(12, 8, 12, 6); return t; }
 
         // ---------------------------------------------------------------- the menu
-        public static void Menu(BrowserWindow w, UIElement at)
-        {
-            var sp = new StackPanel(); Popup p = null;
-            Action<Action> run = a => { p.IsOpen = false; a(); };
-            sp.Children.Add(Ui.MenuRow("plus", "New tab", "Ctrl+T", () => run(() => w.NewTab(Omni.NewTabUrl, true))));
-            sp.Children.Add(Ui.MenuRow("window-restore", "New window", "Ctrl+N", () => run(() => Program.OpenWindow(false, null, null))));          // 1.4
-            sp.Children.Add(Ui.MenuRow("mask", "New private window", "Ctrl+Shift+N", () => run(() => Program.OpenWindow(true, null, null))));
-            var re = Ui.MenuRow("rotate-left", "Reopen closed tab", "Ctrl+Shift+T", () => run(w.ReopenClosed)); re.IsEnabled = w.ClosedCount > 0; sp.Children.Add(re);
-            var rw = Ui.MenuRow("window-restore", "Reopen closed window", null, () => run(() => Program.ReopenClosedWindow())); rw.IsEnabled = Program.ClosedWindows.Count > 0; sp.Children.Add(rw);   // 1.5
-            sp.Children.Add(Sep());
-            sp.Children.Add(Ui.MenuRow("download", "Downloads", "Ctrl+J", () => run(() => DownloadsFlyout(w, at))));
-            sp.Children.Add(Ui.MenuRow("magnifying-glass", "Find in page", "Ctrl+F", () => run(w.ShowFind)));
-            sp.Children.Add(Ui.MenuRow("up-right-from-square", "Pop out video", null, () => run(() => { if (w.Active != null) Pip.PopOut(w, w.Active); })));
-            sp.Children.Add(Ui.MenuRow("table-columns", w.S.SidebarOn ? "Hide the sidebar" : "Show the sidebar", "Ctrl+Shift+S", () => run(() => w.Side.Toggle())));
-            sp.Children.Add(Ui.MenuRow("fire", "Hot tabs (CPU and memory)", "Shift+Esc", () => run(() => HotTabs.Flyout(w, at))));
-            // 1.5: dark pages
-            sp.Children.Add(Ui.MenuRow("moon", w.S.ForceDark ? "Show pages as sites draw them" : "Make pages dark", null, () => run(w.ToggleForceDark)));
-            if (w.Active != null && Omni.IsWeb(w.Active.Url)) { var host = Omni.HostOf(w.Active.Url); sp.Children.Add(Ui.MenuRow("circle-half-stroke", w.WantsDark(w.Active.Url) ? "Don't make " + host + " dark" : "Make " + host + " dark", null, () => run(() => w.ToggleSiteDark(w.Active)))); }
-            sp.Children.Add(Sep());
-            // 1.2: the power features
-            sp.Children.Add(Ui.MenuRow("terminal", "Command palette", "Ctrl+K", () => run(() => Palette.Show(w))));
-            sp.Children.Add(Ui.MenuRow("layer-group", "Group tabs", null, () => run(() => w.GroupTabsFlyout(at))));   // 1.9
-            sp.Children.Add(Ui.MenuRow("table-list", w.S.VerticalTabs ? "Tabs in the title bar" : "Vertical tabs", null, () => run(w.ToggleVerticalTabs)));
-            sp.Children.Add(Ui.MenuRow("table-columns", w.SplitOn ? "Close split view" : "Split view with the next tab", "Ctrl+click", () => run(() => { if (w.SplitOn) w.CloseSplit(); else if (w.Active != null && w.Tabs.Count > 1) w.AddToSplit(w.Tabs[(w.Tabs.IndexOf(w.Active) + 1) % w.Tabs.Count]); })));
-            sp.Children.Add(Ui.MenuRow("camera", "Screenshot", "Ctrl+Shift+X", () => run(w.ShowScreenshot)));
-            var rd = Ui.MenuRow("book-open", w.Active != null && w.Active.ReaderOn ? "Leave reader mode" : "Reader mode", "F9", () => run(() => w.ToggleReader(w.Active))); rd.IsEnabled = w.Active != null && (w.Active.Readable || w.Active.ReaderOn); sp.Children.Add(rd);
-            sp.Children.Add(Ui.MenuRow("bookmark", "Bookmarks manager", "Ctrl+Shift+O", () => run(w.ShowBookmarks)));
-            sp.Children.Add(Ui.MenuRow("bookmark", w.S.BookmarksBar ? "Hide the bookmarks bar" : "Show the bookmarks bar", "Ctrl+Shift+B", () => run(w.ToggleBookmarksBar)));
-            sp.Children.Add(Ui.MenuRow("file-import", "Import from another browser...", null, () => run(() => w.ShowImport(at))));
-            sp.Children.Add(Ui.MenuRow("briefcase", "Workspaces and saved sessions", null, () => run(() => w.ShowWorkspaces(false))));
-            // 1.6: reading list, install a site, apps, profiles
-            sp.Children.Add(Ui.MenuRow("book-bookmark", "Save for later", "Ctrl+Shift+D", () => run(() => w.SaveForLater(w.Active))));
-            sp.Children.Add(Ui.MenuRow("book-bookmark", "Reading list", null, () => run(() => w.Side.ShowNative("reading"))));
-            if (w.Active != null && Omni.IsWeb(w.Active.Url)) { sp.Children.Add(Ui.MenuRow("language", w.Active.Translated ? "Show original" : "Translate...", null, () => run(() => w.TranslateFlyout(w.Active)))); sp.Children.Add(Ui.MenuRow("tv", "Cast... (open in Edge)", null, () => run(() => w.OpenInEdgeToCast(w.Active)))); }   // 1.7
-            sp.Children.Add(Ui.MenuRow("note-sticky", "Notes for this page", null, () => run(() => w.Side.ShowNative("notes"))));
-            var ins = Ui.MenuRow("square-plus", "Install this site...", null, () => run(() => { var _ = w.InstallSite(w.Active); })); ins.IsEnabled = !w.Private && w.Active != null && Omni.IsWeb(w.Active.Url); sp.Children.Add(ins);
-            sp.Children.Add(Ui.MenuRow("table-cells-large", "Apps", null, () => run(() => w.NewTab(Omni.AppsUrl, true))));
-            sp.Children.Add(Sep());
-            foreach (var r in w.ProfileMenuRows(run)) sp.Children.Add(r);
-            // zoom row
-            var zg = new Grid { Margin = new Thickness(12, 4, 8, 4) };
-            zg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); zg.ColumnDefinitions.Add(new ColumnDefinition()); zg.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            zg.Children.Add(Ui.Icon("magnifying-glass-plus", 13, "Lilac"));
-            var zl = new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(zl, 1); zg.Children.Add(zl);
-            var zv = new TextBlock { Text = Math.Round(w.CurrentZoom * 100) + "%", VerticalAlignment = VerticalAlignment.Center, Width = 44, TextAlignment = TextAlignment.Center };
-            var zr = Ui.Row(Ui.Tool("minus", "Zoom out (Ctrl+-)", () => { w.Zoom(-1); zv.Text = Math.Round(w.CurrentZoom * 100) + "%"; }, 11), zv, Ui.Tool("plus", "Zoom in (Ctrl++)", () => { w.Zoom(1); zv.Text = Math.Round(w.CurrentZoom * 100) + "%"; }, 11));
-            Grid.SetColumn(zr, 2); zg.Children.Add(zr); sp.Children.Add(zg);
-            sp.Children.Add(Ui.MenuRow("star", "Print...", "Ctrl+P", () => run(() => { if (w.Active != null && w.Active.Core != null) w.Active.Core.ShowPrintUI(); })));
-            sp.Children.Add(Sep());
-            sp.Children.Add(Ui.MenuRow("shield-halved", "Hallow Shield settings", null, () => run(() => OpenShieldSettings(w))));
-            sp.Children.Add(Ui.MenuRow("puzzle-piece", "Extensions", null, () => run(() => w.NewTab(Omni.ExtensionsUrl, true))));              // 1.4
-            sp.Children.Add(Ui.MenuRow("sliders", "Site settings", null, () => run(() => w.NewTab(Omni.SitesUrl, true))));
-            sp.Children.Add(Ui.MenuRow("broom", "Clear browsing data...", "Ctrl+Shift+Del", () => run(() => ClearData(w))));
-            sp.Children.Add(Ui.MenuRow("gear", "Settings", "Ctrl+,", () => run(() => w.NewTab(Omni.SettingsUrl, true))));
-            if (w.Update != null) sp.Children.Add(Ui.MenuRow("download", "Update to " + w.Update.Version.ToString(2), null, () => run(() => DoUpdate(w))));
-            sp.Children.Add(Sep());
-            sp.Children.Add(Ui.MenuRow("xmark", "Exit", null, () => run(Program.Quit)));   // 1.4: every window (their tabs are kept for next time)
-            p = Show(at, sp, 290);
-        }
+        // 1.13: the menu is Menu113 (a short top level with submenus; it scrolls when the window is short)
+        public static void Menu(BrowserWindow w, UIElement at) { Menu113.Open(w, at); }
         public static void DoUpdate(BrowserWindow w)
         {
             w.SaveSession(); Program.Updating = true;   // 1.6: no startup boost across an update

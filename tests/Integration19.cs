@@ -259,7 +259,8 @@ namespace HallowBrowser.Tests
                 Cmd("test-a-open tabmenu"); var tm = L2(Cmd("test-a-flyout-names"));
                 Ok(tm.Contains("Add tab to new group") && tm.Contains("Auto-group tabs by site"), "groups: the tab menu offers \"Add tab to new group\" and \"Auto-group tabs by site\"");
                 Cmd("test-a-open menu"); var mm = L2(Cmd("test-a-flyout-names"));
-                Ok(mm.Contains("Group tabs"), "groups: the main menu has \"Group tabs\"");
+                var vw = Val(Cmd("test-h-model")) ?? "";   // 1.13: in the menu's View submenu
+                Ok(mm.Any(x => x.StartsWith("View")) && vw.Contains("\"view\":[") && vw.Substring(vw.IndexOf("\"view\":[")).Split(']')[0].Contains("\"Group tabs\""), "groups: the main menu has \"Group tabs\" (1.13: under View)");
                 while (Tabs().Count < 6) NewTab(U + "/page" + Tabs().Count);
                 NewTab("http://localhost:" + srv.Port + "/pageA");
                 var tip = J(Cmd("test-a-grouptip")); Ok(B(tip, "shown") && (S(tip, "toast") ?? "").Contains("group"), "groups: a one-time tip once there are 6+ tabs (" + S(tip, "toast") + ")");

@@ -61,7 +61,11 @@ namespace HallowBrowser
         public string FolderName { get { return "Imported from " + Label; } }
     }
 
-    public class ImportResult { public int Bookmarks, History, SkippedBookmarks; public List<string> Notes = new List<string>(); }
+    public class ImportResult
+    {
+        public int Bookmarks, History, SkippedBookmarks; public List<string> Notes = new List<string>();
+        public int OnBar, InOther; public string BarFolder, ShowAt;   // 1.13: where they went (ShowAt = the folder to open the manager at)
+    }
 
     public static class Importer
     {
@@ -317,7 +321,40 @@ namespace HallowBrowser
             finally { try { Directory.Delete(tmp, true); } catch { } }
         }
 
-        // the import itself: bookmarks into "Imported from <browser>" under Other bookmarks (no duplicates), history merged
+        // 1.13: bookmarks go where the other browser had them (1.3 - 1.12 put everything into "Imported from <browser>" under Other
+        // bookmarks, so a bar full of bookmarks ended up three folders deep and nothing showed). Its bookmarks bar -> Hallow's bar (straight
+        // onto it when the bar is empty, otherwise into one folder on the bar, "From <browser>"); its other bookmarks -> Other bookmarks;
+        // mobile / menu bookmarks -> a folder of that name in Other bookmarks. Never a page twice (one already bookmarked is skipped).
+        public static void Place(BookmarkStore store, IList<ImportNode> tree, string browser, ImportResult res)
+        {
+            var total = tree.Sum(n => n.Count); int added = 0;
+            foreach (var root in tree.Where(n => n != null))
+            {
+                if (root.Folder && root.Toolbar)
+                {
+                    bool empty = store.Children(BookmarkStore.BarId).Count == 0;
+                    string into = empty ? BookmarkStore.BarId : store.FolderNamed(BookmarkStore.BarId, "From " + (browser ?? "another browser"), true);
+                    int n = store.ImportTree(into, root.Children);
+                    if (!empty && n == 0 && store.Children(into).Count == 0) store.Delete(into);
+                    if (n > 0) { res.OnBar += n; res.BarFolder = empty ? null : into; res.ShowAt = into; }
+                    added += n;
+                }
+                else if (root.Folder && IsOtherRoot(root.Title))
+                {
+                    int n = store.ImportTree(BookmarkStore.OtherId, root.Children);
+                    res.InOther += n; added += n; if (n > 0 && res.ShowAt == null) res.ShowAt = BookmarkStore.OtherId;
+                }
+                else
+                {
+                    int n = store.ImportTree(BookmarkStore.OtherId, new List<ImportNode> { root });
+                    res.InOther += n; added += n; if (n > 0 && res.ShowAt == null) res.ShowAt = BookmarkStore.OtherId;
+                }
+            }
+            res.Bookmarks += added; res.SkippedBookmarks += total - added;
+        }
+        public static bool IsOtherRoot(string title) { return string.Equals(title, "Other bookmarks", StringComparison.OrdinalIgnoreCase); }
+
+        // the import itself: bookmarks where the other browser had them (no duplicates), history merged
         public static ImportResult Run(FoundProfile p, bool bookmarks, bool history, BookmarkStore store, HistoryStore hist)
         {
             var res = new ImportResult(); var tmp = TempDir();
@@ -328,14 +365,7 @@ namespace HallowBrowser
                     try
                     {
                         var tree = Bookmarks(p, tmp);
-                        if (tree != null && tree.Count > 0)
-                        {
-                            var total = tree.Sum(n => n.Count);
-                            var folder = store.FolderNamed(BookmarkStore.OtherId, p.FolderName, true);
-                            res.Bookmarks = store.ImportTree(folder, tree);
-                            res.SkippedBookmarks = total - res.Bookmarks;
-                            if (res.Bookmarks == 0 && store.Children(folder).Count == 0) store.Delete(folder);
-                        }
+                        if (tree != null && tree.Count > 0) Place(store, tree, p.Browser, res);   // 1.13: where the other browser had them
                         else res.Notes.Add(p.Label + " has no bookmarks to import.");
                     }
                     catch (IOException) { res.Notes.Add(p.Browser + " is using its bookmarks file - close it and try again."); }

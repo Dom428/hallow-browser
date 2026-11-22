@@ -22,8 +22,10 @@ namespace HallowBrowser
 
         void StoresLoaded()
         {
+            RepairBarOnce();   // 1.13: a 1.3 - 1.12 import's bookmarks bar onto the bar, once
             AutoBookmarksBar(); RenderBookmarksBar(); RefreshNewTabData(); StartSync();
-            if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => RefreshNewTabData(); ntTimer.Start(); }
+            DefaultCheck();   // 1.13: what Windows says now (the default-browser hint follows it)
+            if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => { if (!DefaultCheck()) RefreshNewTabData(); }; ntTimer.Start(); }
         }
         DispatcherTimer ntTimer;
         void BookmarksChanged()
@@ -53,6 +55,11 @@ namespace HallowBrowser
             bmBar.Drop += (a, b) => { var id = b.Data.GetData(DragFormat) as string; if (id != null && Bookmarks != null) Bookmarks.Move(id, BookmarkStore.BarId, -1); b.Handled = true; };
             return bmBar;
         }
+        // 1.13: the bookmarks bar on / off without the toggle's toast (an import turns it on)
+        public void SetBookmarksBar(bool on) { if (Private || S.BookmarksBar == on) return; S.BookmarksBar = on; S.BookmarksBarHidden = !on; S.Save(); ApplyBookmarksBar(); ApplyBookmarksBarAll(); SyncSoon(8); }
+        // 1.13: the bookmarks manager open at a folder
+        public void ShowBookmarksAt(string folder) { bmFolder = folder ?? BookmarkStore.BarId; bmQuery = ""; if (bmSearch != null) bmSearch.Text = ""; NewTab(Omni.BookmarksUrl, true); RefreshBookmarksPage(); }
+        public string BookmarksPageFolder { get { return bmFolder; } }
         public void ToggleBookmarksBar() { if (Private) { Toast("The bookmarks bar can't be changed from a private window.", 3); return; } S.BookmarksBar = !S.BookmarksBar; S.BookmarksBarHidden = !S.BookmarksBar; /* 1.9: hidden on purpose = never shown by itself again */ S.Save(); ApplyBookmarksBar(); ApplyBookmarksBarAll(); Toast(S.BookmarksBar ? "Bookmarks bar on (Ctrl+Shift+B hides it)." : "Bookmarks bar off (Ctrl+Shift+B shows it).", 3); SyncSoon(8); }
         public void ApplyBookmarksBar() { if (bmBar == null) return; bmBar.Visibility = (S.BookmarksBar || snapBar) && !fullscreen && !Private ? Visibility.Visible : Visibility.Collapsed; RenderBookmarksBar(); }
         public void ApplyBookmarksBarAll() { foreach (var w in Program.Windows) if (w != this) w.ApplyBookmarksBar(); }
@@ -373,7 +380,7 @@ namespace HallowBrowser
             EnsureStores();
             var sp = new StackPanel { Margin = new Thickness(6) }; Popup pop = null;
             sp.Children.Add(Ui.Label("Import from another browser"));
-            sp.Children.Add(Ui.Muted("Bookmarks go into an \"Imported from ...\" folder (nothing twice); history joins the pages Ctrl+K finds. Read from copies - the other browser is never changed.", 11.5, 8));
+            sp.Children.Add(Ui.Muted("Bookmarks go where the other browser had them: its bookmarks bar onto yours (into a \"From ...\" folder on it if yours already has bookmarks), the rest into Other bookmarks - nothing twice. History shows on the History page (Ctrl+H) with its own dates. Read from copies - the other browser is never changed.", 11.5, 8));
             var warn = Ui.T("Passwords and cookies are never imported. Passwords belong in Hallow Keys - it has its own importer.", 11.5, true, "AccentLight", 10);
             sp.Children.Add(warn);
             var list = new StackPanel(); sp.Children.Add(list);
@@ -421,12 +428,19 @@ namespace HallowBrowser
         public string LastImport;
         void ShowImportResult(FoundProfile p, ImportResult r)
         {
+            // 1.13: says where things went, turns the bookmarks bar on when bar items came in, and has buttons to see them
             var parts = new List<string>();
-            if (r.Bookmarks > 0) parts.Add(r.Bookmarks + " bookmarks into \"" + p.FolderName + "\"");
+            if (r.OnBar > 0) parts.Add(r.OnBar + (r.OnBar == 1 ? " bookmark" : " bookmarks") + " on your bookmarks bar" + (r.BarFolder != null ? " (in the \"From " + p.Browser + "\" folder)" : ""));
+            if (r.InOther > 0) parts.Add(r.InOther + " in Other bookmarks");
             if (r.SkippedBookmarks > 0) parts.Add(r.SkippedBookmarks + " you already had skipped");
-            if (r.History > 0) parts.Add(r.History + " pages of history");
+            if (r.History > 0) parts.Add(r.History.ToString("N0") + " pages of history");
             var msg = (parts.Count > 0 ? "Imported from " + p.Label + ": " + string.Join(", ", parts) + "." : "Nothing new to import from " + p.Label + ".") + (r.Notes.Count > 0 ? " " + string.Join(" ", r.Notes) : "");
-            LastImport = msg; Toast(msg, 8);
+            if (r.OnBar > 0 && !S.BookmarksBar && !Private) { SetBookmarksBar(true); msg += " The bookmarks bar is on (Ctrl+Shift+B hides it)."; }
+            LastImport = msg;
+            var acts = new List<Tuple<string, string, Action>>();
+            if (r.Bookmarks > 0) { var at = r.ShowAt ?? BookmarkStore.BarId; acts.Add(Tuple.Create("Show bookmarks", "bookmark", (Action)(() => ShowBookmarksAt(at)))); }
+            if (r.History > 0) acts.Add(Tuple.Create("Open history", "clock-rotate-left", (Action)ShowHistory));
+            ToastWith(msg, acts.Count > 0 ? 14 : 8, acts.ToArray());
         }
 
         // ================================================================ the new tab page's tiles and strip

@@ -110,6 +110,8 @@ namespace HallowBrowser
                 foreach (var g in w.Groups.ToList()) { var gg = g; if (a.Group != g) C("Add tab to group " + g.Name, null, "layer-group", () => w.AddToGroup(a, gg)); C((g.Collapsed ? "Expand" : "Collapse") + " group " + g.Name, null, "layer-group", () => w.ToggleCollapse(gg)); C("Put group " + g.Name + " to sleep", null, "moon", () => w.SleepGroup(gg)); }
             }
             C("Downloads", "Ctrl+J", "download", () => w.ShowDownloads());
+            C("History (hallow://history)", "Ctrl+H", "clock-rotate-left", w.ShowHistory);   // 1.13
+            foreach (var r in HistoryPageRules.Ranges) { var rr = r; C("Clear history: " + r[1].ToLowerInvariant(), null, "broom", () => { var n = w.ClearHistory(rr[0]); w.Toast(n.ToString("N0") + " pages cleared from history.", 4); }); }
             // 1.5
             C("All downloads (hallow://downloads)", null, "download", () => w.NewTab(Omni.DownloadsUrl, true));
             C("Reopen closed window", null, "window-restore", () => Program.ReopenClosedWindow());
@@ -190,6 +192,9 @@ namespace HallowBrowser
             T("Live notifications", S.LiveOn, v => S.LiveOn = v, null);
             T("Get new Shield versions between browser updates", S.ShieldAutoUpdate, v => S.ShieldAutoUpdate = v, null);
             T("Fill logins from Hallow Keys", S.KeysOn, v => S.KeysOn = v, null);
+            // 1.13: every action of the main menu is here too (the ones not listed above under their own name)
+            var have = new HashSet<string>(l.Select(x => x.Title), StringComparer.OrdinalIgnoreCase);
+            foreach (var it in Menu113.Leaves(Menu113.Model(w))) if (it.Run != null && it.Enabled && have.Add(it.Text)) C(it.Text, it.Keys, it.Icon, it.Run);
             return l;
         }
 

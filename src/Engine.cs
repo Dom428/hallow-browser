@@ -243,6 +243,7 @@ namespace HallowBrowser
                 "var go=el('button','go','Choose in Windows Settings');go.title='Opens Windows\u2019 Default apps page for Hallow Browser - you choose there';go.onclick=function(){post('hallow:nt-default');};dh.appendChild(go);" +
                 "var hx=el('button','x','\u00d7');hx.title='Don\u2019t show this again';hx.setAttribute('aria-label','Don\u2019t show this again');hx.onclick=function(){dh.textContent='';post('hallow:nt-default-off');};dh.appendChild(hx);}c();}" +
                 "window.hallowRefresh=function(){return fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){D=j||{};draw();return (D.tiles||[]).length;}).catch(function(){return -1;});};" +
+                "document.addEventListener('visibilitychange',function(){if(!document.hidden)hallowRefresh();});" +   // 1.13: shown again (a pre-warmed page, back from Windows Settings): read data.json again
                 NewTabFamily.Script +
                 "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden){hallowRefresh();if(window.hallowFamily)hallowFamily();}});</script></body></html>";
         }

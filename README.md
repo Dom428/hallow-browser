@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,49 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.13: a cleaner menu, a History page, imports that land where they belong
+
+From real use: "this dropdown got way too much going", Settings couldn't be found (the menu was about 30 rows and ran off the
+bottom of the screen past Zoom), and an import from Brave "did not work at all - I see nothing" (the 17 bookmarks of Brave's bar were
+three folders deep in Other bookmarks, the bar was off, and there was nowhere to see the imported history).
+
+![Hallow Browser 1.13: the menu with More tools open (made-up page)](docs/menu.png)
+
+- **A short menu, Brave / Chrome style.** On top: New tab, New window, New private window; then **History**, **Downloads**,
+  **Bookmarks**, **Reading list & notes**, **Find in page** and the **Zoom** row (with full screen); then **View** (sidebar, vertical
+  tabs, group tabs, split view, dark pages, reader mode, full screen), **More tools** (pop out video, hot tabs, screenshot, command
+  palette, print, translate, cast, install this site, apps, workspaces, Shield settings, extensions, site settings, developer tools)
+  and **Profiles**; at the bottom **Settings** (Ctrl+,), **Help & about** and **Exit**. 14 entries plus the zoom row, where 1.12 had
+  about 30. Submenus open to the side on hover, click, Enter or the right arrow (left arrow / Esc goes back); items you can rarely use
+  (Reopen closed window, Reader mode on a page without an article...) wait greyed out in their submenu instead of the top.
+- **It always fits.** The menu is never taller than the window: if the window is short it scrolls, so Settings is always reachable.
+- **Settings is one click away**: a gear button on the toolbar, next to the menu.
+- **Shortcuts are the same** and shown in the submenus; **Ctrl+K lists every action** of the menu too.
+- **History page** (`hallow://history`, **Ctrl+H**, Menu > History): every page you visited, newest first, **grouped by day** - imported
+  history shows with its own dates; **search**, click to open, **x to remove** a page, **Clear history...** for the last hour, 24 hours,
+  7 days, 4 weeks or all time. Only the rows on screen are drawn, so the 5,000 pages the browser keeps stay fast.
+- **Imports put things where your old browser had them.** Its **bookmarks bar goes onto Hallow's bookmarks bar** (straight onto it if
+  the bar is empty, otherwise into one folder on it named "From Brave"), its other bookmarks into Other bookmarks, mobile bookmarks
+  into a folder there. The **bookmarks bar is switched on** when bar items came in, and the message says where everything went, with
+  **Show bookmarks** (opens the manager at that spot) and **Open history** buttons.
+- **A one-time repair of an earlier import**: if an "Imported from <browser>" folder holds a "Bookmarks bar" folder and Hallow's bar
+  is empty, its bookmarks move onto the bar once (same order), the empty folders go and the bar is switched on. `bookmarks.json` is
+  copied first (`bookmarks.before-1.13.json`); no bookmark is ever deleted.
+- **The new tab page's "make Hallow your default browser" bar goes away** once Hallow is the default: Windows' answer
+  (`UserChoiceLatest\ProgId`, then `UserChoice`) is read again whenever a browser window gets the focus back - e.g. after Windows
+  Settings - and every minute, and the new tab page reads it again whenever it is shown.
+
+![Hallow Browser 1.13: the History page (made-up pages)](docs/history.png)
+
+Tests: 1.13 adds (unit) the import placement with fixtures in Brave's "Bookmarks" JSON shape (bar / other / synced roots, made-up),
+the bar repair (in order, nothing lost, a backup first, idempotent, a bar with bookmarks left alone), the History page's rows (days,
+imported dates, search, ranges, remove, 5,000 pages) and the list of the 1.12 menu's items; and (integration "v113", a test profile
+only) the repair at start, the menu's shape (at most 14 entries, every 1.12 item and every action in Ctrl+K, shortcuts), the menu at
+768 px (fits) and 520 px (scrolls, Settings reachable), submenus, the Settings button, the History page with 5,000 made-up pages (listed
+in milliseconds, about 17 rows drawn), search / remove / clear by range, an import of a made-up Brave file with the toast's "Show
+bookmarks", and the default-browser hint following a made-up Windows answer. `--snap` draws the menu, two submenus and the History page
+in dark and light.
 
 ## What's new in 1.12.1: a fix for a white Twitch player
 
@@ -1035,6 +1078,7 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.10: a newer Twitch script from the release (when there is one) | `%LOCALAPPDATA%\HallowBrowser\Twitch\hallow-twitch.js` (the built-in one is inside HallowBrowser.exe) |
 | 1.8: SponsorBlock's answers | in memory only (30 minutes), never written to disk |
 | 1.12: the registration with Windows (a browser you can pick - never your default) | `HKCU\Software\Classes\HallowBrowserURL`, `...\HallowBrowserHTML`, `...\.html\OpenWithProgids` (and the other file types), `HKCU\Software\Clients\StartMenuInternet\HallowBrowser`, `HKCU\Software\RegisteredApplications` |
+| 1.13: a copy of your bookmarks from before the one-time bookmarks bar repair (only if it moved something) | `%APPDATA%\HallowBrowser\bookmarks.before-1.13.json` |
 | 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
