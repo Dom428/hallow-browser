@@ -1,5 +1,7 @@
 ﻿// Hallow Browser 1.10 - integration test, off-screen like the others (never shown, never focused, below-normal priority), its own
-// test folder, engine and pipes, and a LOCAL fake Twitch only: player pages whose worker fetches HLS playlists (a master and media
+// test folder, engine and pipes, and a LOCAL fake Twitch only (1.11: shaped like the real one as seen in Nov 2026 - a classic Worker
+// from a blob: address that importScripts() the player worker, usher's master at /api/v2/channel/hls/<channel>.m3u8, media playlists
+// at /v1/playlist/<opaque> with no ".m3u8", and a front page whose worker keeps playing after in-page navigation to a channel): player pages whose worker fetches HLS playlists (a master and media
 // playlists with stitched-ad #EXT-X-DATERANGE segments), a fake usher, a fake GraphQL endpoint that hands out tokens for other player
 // types, chat / emote / beacon stand-ins and a GitHub release stand-in - all on 127.0.0.1. The browser is pointed at them with its
 // test switches; the real Twitch and GitHub are never contacted.
@@ -89,8 +91,12 @@ namespace HallowBrowser.Tests
                 "<script>(function(){var rate=8000,sec=60,n=rate*sec,buf=new ArrayBuffer(44+n),d=new DataView(buf);function s(o,t){for(var i=0;i<t.length;i++)d.setUint8(o+i,t.charCodeAt(i));}" +
                 "s(0,'RIFF');d.setUint32(4,36+n,true);s(8,'WAVEfmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,rate,true);d.setUint32(28,rate,true);d.setUint16(32,1,true);d.setUint16(34,8,true);s(36,'data');d.setUint32(40,n,true);" +
                 "new Uint8Array(buf,44).fill(128);document.getElementById('v').src=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));})();" +
-                "window.wlog=[];var bu=URL.createObjectURL(new Blob([\"importScripts('" + U + "/tw-worker.js?ch=" + ch + "')\"],{type:'text/javascript'}));var wk=new Worker(bu);URL.revokeObjectURL(bu);" +
+                "window.wlog=[];var bu=URL.createObjectURL(new Blob([\"importScripts('" + U + "/tw-worker.js?ch=" + (ch == "" ? "plainstream" : ch) + "')\"],{type:'text/javascript'}));var wk=new Worker(bu);URL.revokeObjectURL(bu);" +
                 "wk.onmessage=function(e){window.wlog.push(e.data);if(window.wlog.length>200)window.wlog.shift();};" +
+                // 1.11: Twitch's in-page navigation - the address changes and the SAME worker is told to play another channel
+                "window.go=function(c){history.pushState({},'','" + U + "/tw/'+c);wk.postMessage({ch:c});};" +
+                // 1.11: the player's own ad label, with playlists that carry no marker (the second signal)
+                (ch == "domad" ? "setTimeout(function(){var l=document.createElement('div');l.setAttribute('data-a-target','video-ad-label');l.textContent='Ad';document.querySelector('.video-player').appendChild(l);setTimeout(function(){l.remove();window.labelGone=Date.now();},4000);},1500);" : "") +
                 "fetch('/tw/chat-api?ch=" + ch + "').then(function(r){return r.text()}).then(function(t){document.getElementById('chatstate').textContent=t});" +
                 "fetch('" + U + "/gql',{method:'POST',body:JSON.stringify([{operationName:'ChannelPointsContext',variables:{channelLogin:'" + ch + "'}}])}).then(function(r){return r.json()}).then(function(j){window.points=j});" +
                 "fetch('" + U + "/gql',{method:'POST',body:JSON.stringify([{operationName:'ClientSideAdEventHandling_RecordAdEvent',variables:{input:{eventName:'video_ad_impression'}}}])}).then(function(r){return r.json()}).then(function(j){window.adEvent=j});" +
@@ -100,11 +106,12 @@ namespace HallowBrowser.Tests
         }
         static string WorkerJs(string U, string ch)
         {
-            return "(async function(){var seen={};try{var m=await (await fetch('" + U + "/usher/api/channel/hls/" + ch + ".m3u8?allow_source=true&fast_bread=true&player_backend=mediaplayer&sig=s0&token=type%3Dsite')).text();" +
-                "var media=m.split('\\n').filter(function(l){return l.indexOf('http')===0})[0];postMessage({ev:'master',media:media});" +
-                "for(;;){try{var t=await (await fetch(media)).text();var segs=t.split('\\n').filter(function(l){return l.indexOf('http')===0});" +
+            return "var gen=0;onmessage=function(e){gen++;play(e.data.ch,gen);};play('" + ch + "',0);" +
+                "async function play(ch,g){var seen={};try{var m=await (await fetch('" + U + "/usher/api/v2/channel/hls/'+ch+'.m3u8?allow_source=true&fast_bread=true&platform=web&player_backend=mediaplayer&sig=s0&token=type%3Dsite')).text();" +
+                "var media=m.split('\\n').filter(function(l){return l.indexOf('http')===0})[0];postMessage({ev:'master',ch:ch,media:media});" +
+                "while(g===gen){try{var t=await (await fetch(media)).text();var segs=t.split('\\n').filter(function(l){return l.indexOf('http')===0});" +
                 "segs.forEach(function(s){if(!seen[s]){seen[s]=1;fetch(s).then(function(r){return r.arrayBuffer()}).catch(function(){});}});" +
-                "postMessage({ev:'pl',ad:/stitched/.test(t),last:segs[segs.length-1]});}catch(e){postMessage({ev:'err',e:String(e)})}await new Promise(function(r){setTimeout(r,1000)});}}catch(e){postMessage({ev:'fatal',e:String(e)})}})();";
+                "postMessage({ev:'pl',ch:ch,ad:/stitched/.test(t),last:segs[segs.length-1]});}catch(e){postMessage({ev:'err',e:String(e)})}await new Promise(function(r){setTimeout(r,1000)});}}catch(e){postMessage({ev:'fatal',e:String(e)})}}";
         }
         // which streams carry an ad: per channel and player type
         static readonly Dictionary<string, DateTime> firstSeen = new Dictionary<string, DateTime>();
@@ -115,7 +122,7 @@ namespace HallowBrowser.Tests
             var el = (DateTime.Now - t0).TotalSeconds;
             switch (ch)
             {
-                case "adstreamer": case "privtest": return type != "popout";        // the "popout" stream is clean
+                case "adstreamer": case "privtest": case "spastreamer": return type != "popout";        // the "popout" stream is clean
                 case "allads": return el < AllAdsSecs;                               // every stream has the ad for 6 s
                 case "friendly": return type == "site";
                 default: return false;                                               // plainstream
@@ -148,7 +155,7 @@ namespace HallowBrowser.Tests
             {
                 if ((type == "autoplay" || type == "picture-by-picture") && q[0] != "360p30") continue;   // like the real ones: 360p at most
                 sb.Append("#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID=\"" + q[0] + "\",NAME=\"" + q[0] + "\",AUTOSELECT=YES,DEFAULT=YES\n#EXT-X-STREAM-INF:BANDWIDTH=" + q[2] + ",RESOLUTION=" + q[1] + ",CODECS=\"avc1.64002A,mp4a.40.2\",VIDEO=\"" + q[0] + "\"\n");
-                sb.Append(U + "/hls/" + ch + "/" + type + "/" + q[0] + ".m3u8\n");
+                sb.Append(U + "/v1/playlist/" + ch + "~" + type + "~" + q[0] + "\n");
             }
             return sb.ToString();
         }
@@ -171,13 +178,13 @@ namespace HallowBrowser.Tests
                 if (pure.StartsWith("/tw/")) return T("text/html; charset=utf-8", Player(U, pure.Substring(4)));
                 if (pure == "/tw-worker.js") return T("text/javascript", WorkerJs(U, Qs(path, "ch")));
                 if (pure == "/static/emote.svg") return T("image/svg+xml", "<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='14' cy='14' r='12' fill='#9146ff'/></svg>");
-                if (pure.StartsWith("/usher/api/channel/hls/"))
+                if (pure.StartsWith("/usher/api/channel/hls/") || pure.StartsWith("/usher/api/v2/channel/hls/"))
                 {
-                    var ch = pure.Substring(23).Replace(".m3u8", ""); var tok = Qs(path, "token") ?? "";
+                    var ch = pure.Substring(pure.IndexOf("/hls/") + 5).Replace(".m3u8", ""); var tok = Qs(path, "token") ?? "";
                     var type = tok.StartsWith("type=") ? tok.Substring(5) : "site";
                     return T("application/vnd.apple.mpegurl", Master(U, ch, type));
                 }
-                if (pure.StartsWith("/hls/")) { var p = pure.Substring(5).Split('/'); return T("application/vnd.apple.mpegurl", Media(U, p[0], p[1], p[2].Replace(".m3u8", ""))); }
+                if (pure.StartsWith("/v1/playlist/")) { var p = pure.Substring(13).Split('~'); return T("application/vnd.apple.mpegurl", Media(U, p[0], p[1], p[2])); }
                 if (pure.StartsWith("/seg/")) return T("video/mp2t", "segment");
                 if (pure == "/gql")
                 {
@@ -237,7 +244,7 @@ namespace HallowBrowser.Tests
                 Ok(tokens.Count > 0 && tokens.All(r => r.ClientId == TwitchAdRules.ClientId && r.Cookie == null), "stitched ads: GraphQL asked with Twitch's public web client id and no cookies");
                 var altMasters = Hits("/usher/").Where(r => (Qs(r.Path, "token") ?? "").StartsWith("type=popout")).ToList();
                 Ok(altMasters.Count >= 1 && altMasters.All(r => Qs(r.Path, "sig") == "fakesig" && Qs(r.Path, "allow_source") == "true"), "stitched ads: the alternative master is the player's own usher address with the new token");
-                Ok(Hits("/hls/adstreamer/popout/1080p60").Count > 0 && Hits("/hls/adstreamer/popout/720p60").Count == 0 && Hits("/hls/adstreamer/popout/360p30").Count == 0, "stitched ads: the same quality as the player's (1080p60) is used from the alternative");
+                Ok(Hits("/v1/playlist/adstreamer~popout~1080p60").Count > 0 && Hits("/v1/playlist/adstreamer~popout~720p60").Count == 0 && Hits("/v1/playlist/adstreamer~popout~360p30").Count == 0, "stitched ads: the same quality as the player's (1080p60) is used from the alternative");
                 var wl = Eval(0, tw, "JSON.stringify(window.wlog.slice(-3))") ?? "";
                 Ok(wl.Contains("\"ad\":false") && wl.Contains("/popout/live-"), "stitched ads: the player sees playlists without ad markers: " + wl.Substring(0, Math.Min(160, wl.Length)));
                 var s1 = Wait(() => St(0, tw), x => S(x, "note") != null, 5000);
@@ -253,6 +260,32 @@ namespace HallowBrowser.Tests
                 Ok(Hits("/h/edge.ads.twitch.tv").Count == 0 && Eval(0, tw, "String(window.adHost)") != "200", "beacons: the ad host is blocked by the browser (" + Eval(0, tw, "String(window.adHost)") + ")");
                 Ok(Hits("/h/spade.twitch.tv").Count == 1 && Eval(0, tw, "String(window.spade)") == "200", "beacons: spade (watch time for channel points and drops) is left alone");
                 Ok(I(St(0, tw), "blocked") >= 1, "beacons: counted as blocked (" + I(St(0, tw), "blocked") + ")");
+
+                // ================= 1.11: the real-Twitch case 1.10 missed - the worker is made on the front page (playing a featured stream),
+                // then the user clicks a stream: in-page navigation, the SAME worker plays the new channel
+                Clear();
+                int fp = NewTab(U + "/tw/");
+                Wait(() => Hits("/seg/plainstream/site/live-").Count, n => n >= 3, 12000);
+                Ok(Hits("/seg/plainstream/site/live-").Count >= 3 && Hits("/gql").Count(r => (r.Body ?? "").Contains("PlaybackAccessToken")) == 0, "in-page navigation: the front page's player plays its featured stream, nothing asked for");
+                Clear();
+                Eval(0, fp, "go('spastreamer')");
+                Wait(() => Hits("/seg/spastreamer/popout/live-").Count, n => n >= 6, 15000);
+                var spaAd = Hits("/seg/spastreamer/").Count(r => r.Path.Contains("/ad-"));
+                Ok(spaAd == 0 && Hits("/seg/spastreamer/popout/live-").Count >= 6, "in-page navigation: the stream opened from the front page is swapped too - no ad segment (" + spaAd + " ad, " + Hits("/seg/spastreamer/popout/live-").Count + " swapped)");
+                var spaTok = Hits("/gql").Where(r => (r.Body ?? "").Contains("PlaybackAccessToken")).ToList();
+                Ok(spaTok.Count > 0 && spaTok.All(r => r.Body.Contains("\"login\":\"spastreamer\"")), "in-page navigation: the alternative is the channel the worker plays now (never the front page's stream)");
+                Ok(Hits("/usher/api/v2/channel/hls/spastreamer").Count >= 1 && Hits("/v1/playlist/spastreamer~popout~1080p60").Count > 0, "in-page navigation: usher's v2 master is understood and the same quality is kept");
+                Cmd("test-close " + fp); Thread.Sleep(500);
+
+                // ================= 1.11: the second signal - the player's own ad label (with playlists that carry no marker)
+                Clear();
+                int da = NewTab(U + "/tw/domad");
+                var dcov = Wait(() => Eval(0, da, "JSON.stringify(window.__hallowTwitch.cover())"), x => x != null && x.Contains("\"shown\":true"), 6000) ?? "";
+                Ok(dcov.Contains("\"shown\":true") && Eval(0, da, "String(document.getElementById('v').muted)") == "true", "ad label: the player's own ad label -> covered and muted: " + dcov);
+                Ok(B(Wait(() => St(0, da), x => B(x, "coreMuted"), 3000), "coreMuted"), "ad label: the browser mutes the tab too");
+                var dgone = Wait(() => Eval(0, da, "JSON.stringify(window.__hallowTwitch.cover())"), x => x == "null", 9000);
+                Ok(dgone == "null" && Eval(0, da, "String(window.labelGone>0)") == "true" && Eval(0, da, "String(document.getElementById('v').muted)") == "false", "ad label: gone -> the cover lifts and the video is unmuted");
+                Cmd("test-close " + da); Thread.Sleep(500);
 
                 // ================= every alternative has the ad: covered and muted, lifted after the DATERANGE's duration
                 Clear();

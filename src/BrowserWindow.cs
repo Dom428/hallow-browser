@@ -291,6 +291,7 @@ namespace HallowBrowser
             catch (Exception e) { Toast("A page couldn't start: " + e.Message, 8); return; }
             if (t.View != v) return;
             Hook(t, v.CoreWebView2);
+            if (nw == null && t.PendingUrl != null && TwitchAdRules.IsTwitch(t.PendingUrl)) { await TwReady(v.CoreWebView2); if (t.View != v) return; }   // 1.11
             if (nw == null && t.PendingUrl != null) { var u = t.PendingUrl; t.PendingUrl = null; Go(t, u); }
         }
         void Go(Tab t, string url)

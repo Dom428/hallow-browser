@@ -1,4 +1,4 @@
-// hallow-twitch 1
+// hallow-twitch 2
 // Hallow Browser's Twitch ad handling - the page part. Hallow Browser's own code (github.com/Dom428/hallow-browser), no third-party
 // code. The browser runs it at document start on twitch.tv pages as (function(CFG){ ...this file... })(settings), in the page itself
 // (not an extension, so it works in private windows too). Newer copies can come from the browser's GitHub release (asset
@@ -14,6 +14,14 @@
 // cookies or sign-in go with those requests. If every alternative has the ad too, the ad plays muted under a Hallow "Ad break - back
 // in 0:28" cover (the length comes from the DATERANGE tag), which lifts when the break is over. Channels on your allow list are left
 // alone: their ads play and are counted, so the streamer is paid.
+//
+// Version 2 (checked against the real twitch.tv, Nov 2026): the player makes classic Workers from blob: addresses that only
+// importScripts() Twitch's amazon-ivs worker, and fetches usher's master playlist at /api/v2/channel/hls/<channel>.m3u8 and the media
+// playlists from <cluster>.playlist.ttvnw.net/v1/playlist/... (no ".m3u8" in that address). Version 1 only knew /api/channel/hls/,
+// so it never learnt which channel a worker was playing: opening a stream from the front page or the directory (Twitch keeps the
+// worker across its in-page navigation) let the ad play. The channel now always comes from the worker's own last master playlist -
+// never from the page address, which can be stale after in-page navigation. Second signal: when the player shows its own ad label
+// or countdown anyway, the video is covered and muted until the label goes away.
 'use strict';
 if (!CFG || window.__hallowTwitch) return;
 var HERE = location.href;
@@ -40,6 +48,7 @@ function core(G, CFG, post) {
     var inAd = {};       // channel -> true while its playlists carry an ad
     var noAlt = {};      // channel -> until when not to look again (every alternative had the ad a moment ago)
     var lastCh = null;
+    var onAlt = {};      // channel -> the player type the player is on now (it stays there until its next master playlist)
 
     function allowed(ch) { return (CFG.allow || []).indexOf(ch) >= 0; }
     function hasAd(text) {
@@ -87,11 +96,17 @@ function core(G, CFG, post) {
         }
         return list.slice().sort(function (a, b) { return b.bw - a.bw; })[0];
     }
+    // usher's master playlist address: /api/channel/hls/<channel>.m3u8 or (what twitch.tv uses now) /api/v2/channel/hls/<channel>.m3u8
     function channelOf(url) {
-        if (url.indexOf(USHER + '/api/channel/hls/') !== 0) return null;
-        var m = /\/api\/channel\/hls\/([A-Za-z0-9_]+)\.m3u8/.exec(url);
+        if (url.indexOf(USHER + '/api/') !== 0) return null;
+        var m = /^\/api\/(?:v\d+\/)?channel\/hls\/([A-Za-z0-9_]+)\.m3u8/.exec(url.slice(USHER.length));
         return m ? m[1].toLowerCase() : null;
     }
+    // a media playlist address: one the master listed, a .m3u8, or Twitch's playlist hosts (<cluster>.playlist.ttvnw.net/v1/playlist/...)
+    function playlistish(url) {
+        return !!variants[url] || url.indexOf('.m3u8') >= 0 || /^https:\/\/[a-z0-9-]+\.playlist\.ttvnw\.net\/v\d+\/playlist\//i.test(url);
+    }
+    function dbg(m) { if (CFG.diag) post({ ev: 'dbg', m: m }); }
     function token(ch, type) {
         var body = JSON.stringify({ operationName: 'PlaybackAccessToken_Template', query: Q,
             variables: { isLive: true, login: ch, isVod: false, vodID: '', playerType: type, platform: 'web' } });
@@ -102,7 +117,8 @@ function core(G, CFG, post) {
     }
     // the same channel as another player type: token -> usher -> the matching quality's media playlist (its text)
     function alt(ch, type, want) {
-        var k = ch + '|' + type, a = alts[k], fresh = a && Date.now() - a.t < 8 * 60000;
+        // (one per quality too: the player switches quality, and each needs its own media playlist from the alternative)
+        var k = ch + '|' + type + '|' + (want ? want.res + '@' + want.bw : ''), a = alts[k], fresh = a && Date.now() - a.t < 8 * 60000;
         var media = fresh ? Promise.resolve(a.media) : token(ch, type).then(function (t) {
             if (!t) return null;
             var u = new URL(masters[ch] || (USHER + '/api/channel/hls/' + ch + '.m3u8?allow_source=true&fast_bread=true&player_backend=mediaplayer&playlist_include_framerate=true&reassignments_supported=true&supported_codecs=avc1'));
@@ -139,8 +155,9 @@ function core(G, CFG, post) {
             }
             var type = order[i++];
             return alt(ch, type, want).then(function (t) {
+                dbg('alt ' + ch + ' ' + type + ': ' + (t ? (t.match(/#EXTINF/g) || []).length + ' segments, ad=' + hasAd(t) : 'nothing'));
                 if (t && /#EXTINF/.test(t) && !hasAd(t)) {
-                    sticky[ch] = type; ST.swaps++;
+                    sticky[ch] = type; onAlt[ch] = type; ST.swaps++;
                     post({ ev: 'swap', ch: ch, type: type });
                     return asResponse(t, url);
                 }
@@ -153,24 +170,42 @@ function core(G, CFG, post) {
     G.fetch = function (input, init) {
         var url;
         try { url = typeof input === 'string' ? input : input instanceof URL ? input.href : input && input.url; } catch (e) { }
-        if (!url || url.indexOf('.m3u8') < 0 && !variants[url]) return realFetch(input, init);
+        if (!url || !playlistish(url)) return realFetch(input, init);
         var ch = channelOf(url);
         return realFetch(input, init).then(function (resp) {
             if (!resp.ok) return resp;
             return resp.clone().text().then(function (text) {
                 if (text.indexOf('#EXT-X-STREAM-INF') >= 0) {   // a master playlist: remember which quality is which
+                    // (the worker plays one stream at a time: its newest master says which channel - an unknown one forgets the old)
+                    lastCh = ch;
+                    dbg('master ' + (ch || '?') + ' ' + url.split('?')[0].slice(0, 90));
                     if (ch) {
-                        masters[ch] = url; lastCh = ch;
+                        masters[ch] = url; delete onAlt[ch];   // a new session of the player's own: it starts on the original
                         var list = parseMaster(text, url);
                         for (var i = 0; i < list.length; i++) variants[list[i].uri] = { ch: ch, res: list[i].res, bw: list[i].bw };
                     }
                     return resp;
                 }
                 if (text.indexOf('#EXTINF') < 0) return resp;
-                var v = variants[url], c = v ? v.ch : lastCh || CFG.ch;
-                if (!c) return resp;
-                if (!hasAd(text)) {
+                var v = variants[url], c = v ? v.ch : lastCh, ad = hasAd(text);
+                dbg('media ' + (c || '?') + (v ? ' ' + v.res : ' (not in master)') + ' ad=' + ad);
+                if (!c) {   // an ad on a stream we can't name: no swap (never another channel's stream) - the page covers it
+                    if (ad) { var inf = adInfo(text); ST.covers++; post({ ev: 'cover', ch: null, secs: inf.secs, ids: inf.ids }); }
+                    return resp;
+                }
+                if (!ad) {
                     if (inAd[c]) { inAd[c] = false; post({ ev: 'clean', ch: c }); }
+                    // After a swap the player STAYS on the alternative: on the real Twitch, going back to the original stream mid-session
+                    // stalls the player for good (checked Nov 2026: paused, buffer empty, never recovers). The alternative is the same
+                    // live stream at the same quality, so nothing is lost; the player's next master playlist starts over.
+                    if (onAlt[c]) {
+                        var type = onAlt[c];
+                        return alt(c, type, v).then(function (t) {
+                            if (t && /#EXTINF/.test(t) && !hasAd(t)) return asResponse(t, url);
+                            if (t && hasAd(t)) { inAd[c] = true; return onAd(c, url, t); }   // the alternative has its own ad now
+                            delete onAlt[c]; dbg('alternative gone - back to the original'); return resp;
+                        });
+                    }
                     return resp;
                 }
                 var first = !inAd[c]; inAd[c] = true;
@@ -227,7 +262,7 @@ if (CFG.on && AD_OPS.length && window.fetch) {
 }
 
 // the cover: muted video under a Hallow panel with the break's countdown
-var cover = { end: 0, ids: {}, host: null, root: null, muted: [], timer: 0, ch: null };
+var cover = { end: 0, ids: {}, host: null, root: null, muted: [], timer: 0, ch: null, dom: false };
 function bigVideo() {
     var vs = document.querySelectorAll('video'), best = null, area = 0;
     for (var i = 0; i < vs.length; i++) { var r = vs[i].getBoundingClientRect(), a = r.width * r.height; if (a > area) { area = a; best = vs[i]; } }
@@ -253,18 +288,20 @@ function drawCover() {
     var vs = document.querySelectorAll('video');
     for (var i = 0; i < vs.length; i++) if (!vs[i].muted) { vs[i].muted = true; cover.muted.push(vs[i]); }
 }
+function allowedHere(ch) { return (CFG.allow || []).indexOf(ch || CH_NOW()) >= 0; }
 function showCover(m) {
+    if (allowedHere(m.ch)) return;
     var add = 0, fresh = !cover.end;
     for (var id in m.ids || {}) if (!(id in cover.ids)) { cover.ids[id] = 1; add += m.ids[id] || 0; }
     if (fresh) { cover.end = Date.now() + Math.max(m.secs || 0, add, 3) * 1000; cover.ch = m.ch; }
     else if (add > 0) cover.end += add * 1000;
     if (!cover.timer) cover.timer = setInterval(drawCover, 250);
     drawCover();
-    if (fresh) toHost({ ev: 'cover', ch: m.ch, secs: Math.round((cover.end - Date.now()) / 1000) });
+    if (fresh) toHost({ ev: 'cover', ch: m.ch || CH_NOW(), secs: Math.round((cover.end - Date.now()) / 1000), why: m.why || 'playlist' });
 }
 function liftCover(why) {
     if (!cover.end) return;
-    clearInterval(cover.timer); cover.timer = 0; cover.end = 0;
+    clearInterval(cover.timer); cover.timer = 0; cover.end = 0; cover.ids = {}; cover.dom = false;
     if (cover.host && cover.host.parentNode) cover.host.parentNode.removeChild(cover.host);
     for (var i = 0; i < cover.muted.length; i++) try { cover.muted[i].muted = false; } catch (e) { }
     cover.muted = [];
@@ -272,21 +309,87 @@ function liftCover(why) {
 }
 window.__hallowTwitch.cover = function () { return cover.end ? { left: (cover.end - Date.now()) / 1000, shown: !!(cover.host && cover.host.isConnected), text: cover.root && cover.root.getElementById('t').textContent } : null; };
 
+// after a swapped break the player goes back to its own stream; on the real Twitch it can stop there (paused, nothing more played).
+// For 20 s after the break, a video that stops moving is nudged: Twitch's own player is paused and played again, and if that
+// doesn't help its source is loaded again (as the player's own error recovery would). Found through React's tree on #root.
+var swappedSince = 0, watch = 0;
+function reactRoot() {
+    var el = document.getElementById('root'); if (!el) return null;
+    for (var k in el) if (k.indexOf('__reactContainer') === 0 && el[k]) return el[k];
+    var rc = el._reactRootContainer; return rc && rc._internalRoot && rc._internalRoot.current || null;
+}
+function findState(test) {
+    var root = reactRoot(); if (!root) return null;
+    var stack = [root], n = 0;
+    while (stack.length && n++ < 300000) {
+        var f = stack.pop();
+        try { if (f.stateNode && test(f.stateNode)) return f.stateNode; } catch (e) { }
+        if (f.sibling) stack.push(f.sibling); if (f.child) stack.push(f.child);
+    }
+    return null;
+}
+function nudge(hard) {
+    var how = 'video';
+    try {
+        if (!hard) {
+            var host = findState(function (s) { return s.props && s.props.mediaPlayerInstance && typeof s.props.mediaPlayerInstance.play === 'function'; });
+            var p = host && host.props.mediaPlayerInstance;
+            if (p) { p.pause(); p.play(); how = 'player'; }
+            else { var v = bigVideo(); if (v) { v.play(); } }
+        } else {
+            var st = findState(function (s) { return typeof s.setSrc === 'function' && typeof s.setInitialPlaybackSettings === 'function'; });
+            if (st) { st.setSrc({ isNewMediaPlayerInstance: true, refreshAccessToken: true }); how = 'reload'; }
+            else { var v2 = bigVideo(); if (v2) { v2.pause(); v2.play(); } }
+        }
+    } catch (e) { how += '-failed'; }
+    log({ ev: 'resync', type: how }); window.__hallowTwitch.resyncs = (window.__hallowTwitch.resyncs || 0) + 1;
+}
+function afterBreak() {
+    clearInterval(watch);
+    var start = Date.now(), last = -1, stuck = 0, tries = 0;
+    watch = setInterval(function () {
+        var v = bigVideo();
+        if (!v || Date.now() - start > 20000 || tries > 2) { clearInterval(watch); return; }
+        var moved = last >= 0 && v.currentTime - last > 0.25; last = v.currentTime;
+        if (moved && !v.paused) { stuck = 0; return; }
+        if (++stuck >= 3) { stuck = 0; tries++; nudge(tries > 1); }
+    }, 1000);
+}
+
 function onMsg(m) {
     if (!m || !m.ev) return;
+    if (m.ev === 'swap') swappedSince = swappedSince || Date.now();
+    if (m.ev === 'clean' && swappedSince) { swappedSince = 0; afterBreak(); }
+    if (m.ev === 'dbg') { var d = window.__hallowTwitch.diag; if (d) { d.push(Math.round(performance.now()) + ' ' + m.m); if (d.length > 400) d.shift(); } return; }
     log(m);
     if (m.ev === 'cover') { showCover(m); return; }
+    if (m.ev === 'clean' && cover.end && !cover.dom) liftCover('clean');   // the playlist has no ad any more
     if (m.ev === 'swap' || m.ev === 'allowed' || m.ev === 'clean') toHost(m);
 }
+if (CFG.diag) window.__hallowTwitch.diag = [];
+
+// second signal: the player's own ad label / countdown (it shows them whenever an ad really plays - hidden by the CSS above, but
+// still there). While one is on the page the video stays covered and muted, whatever the playlists said.
+var AD_UI = '[data-a-target="video-ad-label"],[data-a-target="video-ad-countdown"],[data-a-target="video-ad-countdown-container"]';
+function domAd() {
+    if (!CFG.on || !document.documentElement) return;
+    var el = document.querySelector(AD_UI);
+    if (!el || allowedHere(null)) { if (cover.dom) { cover.dom = false; cover.end = Math.min(cover.end, Date.now() + 1000); } return; }
+    var cd = document.querySelector('[data-a-target="video-ad-countdown"]'), m = cd && /(\d+):(\d\d)/.exec(cd.textContent || ''), secs = m ? +m[1] * 60 + +m[2] : 0;
+    if (!cover.dom) { cover.dom = true; log({ ev: 'dom-ad' }); }
+    if (!cover.end) showCover({ ev: 'cover', ch: CH_NOW(), secs: Math.max(secs, 2), why: 'dom' });
+    var until = Date.now() + Math.max(secs * 1000, 1500);
+    if (until > cover.end) cover.end = until;
+}
+if (CFG.on) setInterval(domAd, 500);
 try { new BroadcastChannel(NONCE).onmessage = function (e) { onMsg(e.data); }; } catch (e) { }
 
 if (CFG.on) {
     core(window, CFG, onMsg);
-    // every classic worker starts with the same prelude (Twitch's player fetches its playlists in one)
-    // (with the page's channel at that moment, in case the player fetched its master playlist outside the worker)
+    // every classic worker starts with the same prelude (Twitch's player fetches its playlists in one: a blob: worker whose code is
+    // importScripts(<amazon-ivs worker>) - read here and run after the prelude)
     var prelude = function () {
-        var c = {}; for (var k in CFG) c[k] = CFG[k]; c.ch = CH_NOW();
-        return '(' + core.toString() + ')(self,' + JSON.stringify(c) + ',(function(){var bc;try{bc=new BroadcastChannel(' + JSON.stringify(NONCE) + ')}catch(e){}return function(m){try{bc&&bc.postMessage(m)}catch(e){}}})());\n';
+        return '(' + core.toString() + ')(self,' + JSON.stringify(CFG) + ',(function(){var bc;try{bc=new BroadcastChannel(' + JSON.stringify(NONCE) + ')}catch(e){}return function(m){try{bc&&bc.postMessage(m)}catch(e){}}})());\n';
     };
     var OW = window.Worker;
     var source = function (u) {

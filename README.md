@@ -24,7 +24,8 @@ follows Windows' text size, **high contrast** and **reduced motion** from Window
 real use (the Overlay switch's label, the bookmarks bar showing once you have bookmarks, tab groups easier to find, a smaller game-mode
 icon). 1.10 handles **Twitch ads** (on by default): ads stitched into a stream are swapped for Twitch's own ad-free stream of the
 same channel while the break lasts, or covered and muted when there's no way around them; display ads and ad beacons are blocked -
-only Twitch's own servers are contacted, it works in private windows, and channels you want to support can keep their ads. It runs on **Microsoft Edge WebView2** - the Evergreen
+only Twitch's own servers are contacted, it works in private windows, and channels you want to support can keep their ads. 1.11 makes
+that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -43,6 +44,33 @@ choose it yourself in Windows Settings > Apps > Default apps.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
+
+## What's new in 1.11: Twitch ad handling, fixed on the real Twitch
+
+1.10's Twitch ad handling had only been tested against a local fake Twitch, and on the real site **an ad could still play**. 1.11 was
+debugged against the real twitch.tv (signed out, a throw-away test profile, off-screen) and fixed:
+
+- **What was wrong.** Twitch's player does fetch its playlists in a classic Web Worker (made from a `blob:` address that only
+  `importScripts()` Twitch's amazon-ivs worker), and 1.10's prelude did run in it. But Twitch now asks usher for the master playlist
+  at `/api/v2/channel/hls/<channel>.m3u8` and fetches the media playlists from `<cluster>.playlist.ttvnw.net/v1/playlist/...` (no
+  `.m3u8` in the address). 1.10 only knew `/api/channel/hls/`, so it never learnt which channel a worker was playing. Opening a
+  channel's address directly happened to work (it fell back to the page address), but **opening a stream from the front page or the
+  directory** - Twitch keeps the same worker across its in-page navigation - let the ad play, unmuted and uncovered (reproduced).
+- **The fix.** The channel always comes from the worker's own latest master playlist (both usher addresses), never from the page
+  address, which is stale after in-page navigation (it could even have swapped in another channel's stream). Media playlists are
+  recognised by the master's list or Twitch's playlist hosts. The alternative is fetched per quality.
+- **Staying on the ad-free stream.** On the real Twitch, the player **stalls for good** if it is handed its own stream again after a
+  swapped break (paused, buffer empty, never recovers - seen every time). So after a swap the player now **stays on Twitch's ad-free
+  stream** (the same live stream at the same quality) until its next master playlist (a reload or another channel); if that stream
+  gets an ad of its own, another clean one is looked for. If the video still stops after a break, Twitch's own player is nudged
+  (pause / play, then a reload of its source).
+- **A second signal.** When Twitch's player shows its own ad label or countdown anyway, the video is covered and muted until the label
+  goes away.
+- **Early enough.** A tab that opens straight onto twitch.tv now waits for the script to be registered before it loads.
+- **Results on the real twitch.tv** (each load a fresh profile, so Twitch shows prerolls): 12 loads of big live channels (kaicenat, xqc, hasanabi, stableronaldo), half opened directly and half from the front page by Twitch's in-page navigation: **6 had an ad served and all 6 were skipped via the swap** (3 direct, 3 from the front page) - no ad label, nothing covered, no stall through the end of the break (pods of 30-75 s); the other 6 got no ad. With 1.10's script the front-page case played the ad (reproduced), and before the "stay on the ad-free stream" change the player stalled at the end of the break in 2 of 2 runs. Not seen on the real site in these runs: a break where every alternative had the ad, so the cover and the ad-label signal are tested only against the fake Twitch. The front-page "click" was Twitch's in-page navigation triggered from a script, not a real mouse click.
+- Hallow Shield 1.7 was on (as an extension) in these runs and didn't get in the way.
+- 1.10 installs get the fix without updating the browser: the fixed script (version 2) is the `hallow-twitch.js` asset on the
+  release, which 1.10 checks about once a day.
 
 ## What's new in 1.10: Twitch ad handling
 
@@ -85,8 +113,7 @@ Honestly:
   autoplay and picture-by-picture only 360p), and switching streams can stutter for a second.
 - **Ads pay streamers.** That's why there's a per-channel allow list - use it for the channels you want to support.
 - **Twitch's terms discourage blocking its ads.** Using this is your choice; switch it off any time.
-- Tested only against a local fake Twitch (playlists, usher, GraphQL, beacons, chat - see Build). The real usher playlist format was
-  checked once by hand (read-only) for the tag names; the real twitch.tv player wasn't driven in a test.
+- 1.10 was tested only against a local fake Twitch and did not work on the real site in every case - see 1.11 above.
 
 ## What's new in 1.9: speed and accessibility
 

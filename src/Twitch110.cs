@@ -39,6 +39,8 @@ namespace HallowBrowser
 
         // 1.10 tests: local stand-ins for Twitch's GraphQL and usher (never the real ones)
         public static readonly string TwitchApiTest = Env("HALLOW_BROWSER_TESTDIR") != null ? Env("HALLOW_BROWSER_TWITCH_API") : null;
+        // 1.11 tests: the page part writes what it sees (worker playlists, alternatives tried) to window.__hallowTwitch.diag - never in normal use
+        public static readonly bool TwitchDiag = Env("HALLOW_BROWSER_TESTDIR") != null && Env("HALLOW_BROWSER_TWITCH_DIAG") == "1";
 
         void Defaults110() { TwitchAds = true; TwitchAllow = new List<string>(); TwitchFixes = true; }
         void Fix110()
@@ -150,6 +152,7 @@ namespace HallowBrowser
                 { "version", CurrentVersion }, { "on", s.TwitchAds }, { "allow", s.TwitchAllow ?? new List<string>() },
                 { "gql", api != null ? api + "/gql" : Gql }, { "usher", api != null ? api + "/usher" : Usher }, { "clientId", ClientId }, { "types", PlayerTypes },
                 { "hide", string.Join(",", Hide) }, { "adOps", AdOps }, { "accent", Program.AccentHex ?? "#9B6BFF" }, { "test", BrowserSettings.TwitchTest } };
+            if (BrowserSettings.TwitchDiag) d["diag"] = true;
             return new JavaScriptSerializer().Serialize(d);
         }
         public static string Compose(BrowserSettings s) { return "(function(CFG){\n" + Current + "\n})(" + Config(s) + ");"; }
@@ -184,6 +187,14 @@ namespace HallowBrowser
     {
         public static int TwBlocked;   // requests to ad hosts blocked (tests, Settings)
         readonly Dictionary<CoreWebView2, string> twScripts = new Dictionary<CoreWebView2, string>();
+        readonly Dictionary<CoreWebView2, Task> twPending = new Dictionary<CoreWebView2, Task>();
+        // 1.11: a tab that opens straight onto twitch.tv waits for the page part to be registered first (else its first page could
+        // load without it - the registration is asynchronous)
+        public async Task TwReady(CoreWebView2 c)
+        {
+            Task p; if (c == null || !twPending.TryGetValue(c, out p)) return;
+            try { await Task.WhenAny(p, Task.Delay(3000)); } catch { }
+        }
 
         void Hook110(CoreWebView2 c)
         {
@@ -202,7 +213,7 @@ namespace HallowBrowser
                 if (x.TwMutedByUs) { try { c.IsMuted = false; } catch { } x.TwMutedByUs = false; }
                 x.TwCovered = false;
             };
-            var _ = TwRegister(c);
+            twPending[c] = TwRegister(c);
         }
         // the sidebar's panels (Twitch chat): only the blocking
         void HookPanel110(CoreWebView2 c)

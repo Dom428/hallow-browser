@@ -9,6 +9,15 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.11 - TWITCH AD HANDLING THAT WORKS ON THE REAL TWITCH
+- Fixed: in 1.10 an ad could play when you opened a stream from Twitch's front page or
+  directory. Twitch now asks for its playlists at a new address (usher's /api/v2/), which
+  1.10 didn't recognise, so it never knew which channel the player was on. Checked against
+  the real twitch.tv (signed out): ads are now swapped for Twitch's own ad-free stream.
+- Second safety net: if Twitch's own "Ad" label shows up anyway, the video is covered and
+  muted until it goes away.
+- A tab that opens straight onto twitch.tv waits for the ad handling to be in place first.
+
 WHAT'S NEW IN 1.10 - TWITCH AD HANDLING
 - Twitch ads don't play (on by default): an ad Twitch stitches into the stream is swapped
   for Twitch's own ad-free stream of the same channel while the break lasts. When there is
