@@ -1,13 +1,29 @@
 HALLOW BROWSER - a fast Chromium browser for gamers, with Hallow Shield built in
 
 Hallow Browser shows pages with Microsoft Edge WebView2, the runtime that comes with
-Windows 11 (Microsoft's, not ours). It never makes itself your default browser - pick
-it yourself in Windows Settings > Apps > Default apps if you want it for links.
+Windows 11 (Microsoft's, not ours). It never makes itself your default browser - you
+choose that in Windows (Hallow Browser's Settings > General > Default browser takes you there).
 
 HOW TO INSTALL
 1. Right-click the zip > Properties > tick "Unblock" > OK
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
+
+WHAT'S NEW IN 1.12 - READY TO BE YOUR DEFAULT BROWSER
+- Hallow Browser now registers with Windows like Chrome and Brave do (per user, no admin):
+  for web links (http, https) and for .html, .htm, .shtml, .xht, .xhtml, .svg, .pdf and .webp
+  files, so it shows up in Windows' Default apps and in "Open with". It still never makes
+  itself the default - Windows keeps that choice for you to make.
+- To make it your default browser: Settings > General > Default browser > "Make Hallow my
+  default browser". Windows' Default apps page for Hallow Browser opens: click "Set default"
+  at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+- The card shows which browser is your default now ("Your default browser is Brave"), and
+  "Import from Brave..." brings your bookmarks and history over.
+- A small, one-time note on the new tab page while it isn't the default - close it once and
+  it never comes back. Never during a game.
+- Links and files open as a new tab in the browser you already have open (no second window).
+  Local files with spaces, # or accents in their names open correctly; PDFs open in the
+  built-in PDF viewer. Anything that isn't an address or a file is ignored - never searched.
 
 WHAT'S NEW IN 1.11 - TWITCH AD HANDLING THAT WORKS ON THE REAL TWITCH
 - Fixed: in 1.10 an ad could play when you opened a stream from Twitch's front page or

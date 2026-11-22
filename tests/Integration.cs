@@ -77,7 +77,8 @@ namespace HallowBrowser.Tests
             if (mode == "v17") return Integration17.Main(exe, dir);       // 1.7: translate (stand-ins), settings search, jump list (test id), taskbar tabs, cast, My filters / history sync
             if (mode == "v16") return Integration16.Main(exe, dir);       // 1.6: profiles, family rows, apps, spell check, memory saver / battery / boost, sounds, reading list and notes
             if (mode.StartsWith("bench")) return Bench19.Main(exe, dir, mode);   // 1.9: the speed benchmark (start-up, new tab, memory, scrolling, game impact)
-            if (mode == "v110") return Integration110.Main(exe, dir);     // 1.10: Twitch ad handling against a local fake Twitch (HLS, usher, GraphQL, beacons, chat)
+            if (mode == "v110") return Integration110.Main(exe, dir);
+            if (mode == "v112") return Integration112.Main(exe, dir);     // 1.12: files / links from Windows, the default-browser card and hint, the registration CLI (sandbox key)     // 1.10: Twitch ad handling against a local fake Twitch (HLS, usher, GraphQL, beacons, chat)
             if (mode == "v19") return Integration19.Main(exe, dir);       // 1.9: accessibility (UIA walk, F6, UI scale, high contrast, reduced motion) and the speed changes
             if (mode == "power") return Integration12.Main(exe, dir);    // 1.2: vertical tabs, groups, workspaces, split, Ctrl+K, screenshots, reader, mute
             // everything goes to the test folder: settings, profile, pipes (".test-<leaf>"), the Keys stand-in's pipe

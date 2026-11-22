@@ -25,7 +25,10 @@ real use (the Overlay switch's label, the bookmarks bar showing once you have bo
 icon). 1.10 handles **Twitch ads** (on by default): ads stitched into a stream are swapped for Twitch's own ad-free stream of the
 same channel while the break lasts, or covered and muted when there's no way around them; display ads and ad beacons are blocked -
 only Twitch's own servers are contacted, it works in private windows, and channels you want to support can keep their ads. 1.11 makes
-that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). It runs on **Microsoft Edge WebView2** - the Evergreen
+that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
+default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
+Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
+the one place in Windows where you choose it. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -40,7 +43,55 @@ Get **Hallow.Browser.zip** from the [latest release](https://github.com/Dom428/h
 Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/hallow-setup).
 
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
-choose it yourself in Windows Settings > Apps > Default apps.
+choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
+for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.12: ready to be your default browser
+
+![Hallow Browser 1.12: Settings > General > Default browser (made-up answer: Brave is the default)](docs/default-browser.png)
+
+- **Registered with Windows like Chrome and Brave** - per user, no admin: a web-address ProgID (`HallowBrowserURL`) and a file
+  ProgID (`HallowBrowserHTML`), each with an `Application` key (name, icon, description); `Capabilities` with URL associations
+  (http, https), **file associations (.htm, .html, .shtml, .xht, .xhtml, .svg, .pdf, .webp)** and `StartMenu`; `OpenWithProgids` for
+  those file types (so "Open with" lists it); `InstallInfo`; `RegisteredApplications`; then Windows is told to refresh
+  (`SHChangeNotify(SHCNE_ASSOCCHANGED)`). 1.11 registered http / https only and no file types at all.
+- **It still never sets itself as the default.** Windows 11 protects your choice (`UserChoice` carries a hash) - Hallow Browser
+  never writes it and never tries to get around it. It only reads it, to tell you which browser is the default.
+- **Settings > General > Default browser**: "Hallow Browser is your default browser" or "Your default browser is Brave" (read from
+  Windows' choice - `UserChoiceLatest` on newer Windows 11, else `UserChoice` - and named: Brave, Chrome, Edge, Firefox, Opera,
+  Vivaldi...; it also says when HTTP links still go elsewhere). **"Make Hallow my default browser"** opens
+  `ms-settings:defaultapps?registeredAppUser=Hallow%20Browser` (Windows' Default apps page for Hallow Browser; plain Default apps if
+  that fails) with one line on what to click there. **"Import from Brave..."** for moving in (bookmarks and history, as in 1.3).
+- **A one-time note on the new tab page** while Hallow Browser isn't the default, with a button to the same Windows page. Close it
+  once and it never comes back (Settings can turn it on again). Never shown while a game runs; nothing ever pops up.
+- **Links and files open properly.** What Windows hands the browser becomes a **new tab in the window you already have open** (the
+  single-instance pipe; no second window): http / https addresses, local files - turned into an exact `file:///` address
+  (spaces, `#`, `%`, accents and other unicode escaped like Chromium does, network paths as `file://server/share/...`), also a path
+  Windows split at its spaces - and `file:` addresses. PDFs open in WebView2's own PDF viewer, SVG and WebP as images.
+  **Fixed:** 1.11 read a local path like `C:\page.html` as a search for "C:\page.html" (its "C:" looked like a scheme) and sent
+  it to the search engine; anything that isn't an address or a file is now **refused, never searched**. The ProgIDs start the
+  browser with `--single-argument %1` (like Chrome), so a crafted link can't smuggle in switches such as `--cmd quit`.
+- **Stays registered**: at start the browser checks its registration (a few registry reads on a background thread) and
+  re-registers only when something is missing, the registered exe is gone (a moved install) or this is the installed copy (an
+  update) - a copy run from elsewhere never takes it over. The installer runs `HallowBrowser.exe --register`, the uninstaller
+  `--unregister` (only our own entries; other browsers' stay). `--hide-icons` / `--show-icons` are Windows' InstallInfo commands.
+
+![The new tab page's one-time note (local test page; made-up default: Brave)](docs/newtab-hint.png)
+
+### Making it your default
+
+1. Hallow Browser: **Settings > General > Default browser > Make Hallow my default browser** (or the note on the new tab page).
+2. Windows opens **Settings > Apps > Default apps > Hallow Browser**. Click **Set default** at the top.
+   If your Windows has no such button: click **HTTPS**, choose **Hallow Browser**; then **HTTP**; then **.html** (and .htm / .pdf
+   if you like).
+3. Back in Hallow Browser the card says "Hallow Browser is your default browser" ("Check again" if it was open).
+
+Tests: 1.12 adds (unit) the registration written to an in-memory fake and to a sandbox key under `HKCU\Software\HallowBrowserTests`
+(deleted after; the real HKCU keys and your `UserChoice` compared before / after), re-registration decisions, the status for
+Brave / Chrome / Edge / Hallow / Firefox / Vivaldi / Store / unknown / none, command-line arguments (addresses, paths with spaces,
+`#`, `%` and unicode, split paths, network paths, junk) and the hint's rules; and (integration "v112", off-screen) second starts with
+files and links becoming tabs in the running window, `--single-argument`, PDF / SVG / WebP, junk refused, the card and the hint
+(both looks) with Windows Settings never opened, and the `--register` / `--unregister` / icons commands against a sandbox key.
 
 Needs: Windows 10/11 x64 with the **Microsoft Edge WebView2 Runtime** (Windows 11 has it). If it's missing, Hallow Browser says so and
 opens Microsoft's WebView2 page when you click - it never downloads the runtime itself.
@@ -948,6 +999,7 @@ Tests use a stand-in Keys on a separate test pipe with one made-up login - never
 | 1.7: your translation API keys (protected by Windows for your user; never synced) | `%LOCALAPPDATA%\HallowBrowser\translate-keys.bin` (another profile: its own Local folder) |
 | 1.10: a newer Twitch script from the release (when there is one) | `%LOCALAPPDATA%\HallowBrowser\Twitch\hallow-twitch.js` (the built-in one is inside HallowBrowser.exe) |
 | 1.8: SponsorBlock's answers | in memory only (30 minutes), never written to disk |
+| 1.12: the registration with Windows (a browser you can pick - never your default) | `HKCU\Software\Classes\HallowBrowserURL`, `...\HallowBrowserHTML`, `...\.html\OpenWithProgids` (and the other file types), `HKCU\Software\Clients\StartMenuInternet\HallowBrowser`, `HKCU\Software\RegisteredApplications` |
 | 1.7: the jump list | Windows keeps it (`%APPDATA%\Microsoft\Windows\Recent\CustomDestinations`); Settings > Appearance > Taskbar turns it off (an empty list) |
 
 Uninstall from Windows Settings > Apps; it asks whether to remove your browsing data too.
@@ -960,7 +1012,7 @@ Nothing to install: `build.ps1` uses the C# compiler that comes with Windows (.N
 .\tools\get-shield.ps1     # Shield 1.7's Chrome build into package\shield (from its GitHub release, sha256-pinned)
 .\build.ps1 -Tests         # HallowBrowser.exe (x64) and tests\BrowserTests.exe (1.6: runs tools\gen-sounds.ps1 first - the sounds are synthesised, then embedded)
 tests\BrowserTests.exe     # unit tests
-tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18|v19|v110|bench
+tests\BrowserTests.exe --integration HallowBrowser.exe <work folder> main|fallback|sidebar|power|movein|v14|v15|v16|v17|v18|v19|v110|v112|bench
 ```
 
 The WebView2 SDK DLLs are in `lib\`: **Microsoft.Web.WebView2 1.0.4314.35** (NuGet), package sha256

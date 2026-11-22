@@ -93,7 +93,7 @@ namespace HallowBrowser
         static string ReadSmall(string path) { try { var f = new FileInfo(path); return f.Exists && f.Length < 1024 * 1024 ? Encoding.UTF8.GetString(Importer.ReadShared(path)) : null; } catch { return null; } }
 
         // the whole data.json
-        public static string Build(BrowserSettings s, IEnumerable<HistoryEntry> history, string playingFallback, DateTime now)
+        public static string Build(BrowserSettings s, IEnumerable<HistoryEntry> history, string playingFallback, DateTime now, bool inGame = false)
         {
             var tiles = new List<Dictionary<string, object>>();
             if (s.NewTabTopSites)
@@ -113,7 +113,9 @@ namespace HallowBrowser
             }
             // 1.4: the game corner (only when it's on; from its local copy - the page itself never contacts Steam or Epic)
             var games = s.GameCorner ? GameCorner.ForPage(GameCorner.Load()) : null;
-            return js.Serialize(new Dictionary<string, object> { { "tiles", tiles }, { "clock", s.NewTabClock }, { "family", fam ?? new List<Dictionary<string, string>>() }, { "games", games } });
+            // 1.12: the one-time "make Hallow your default browser" hint (read-only check of Windows' choice; none during games)
+            var hint = s.DefaultHintDismissed || inGame ? null : NewTabDefault.Hint(s, inGame, DefaultBrowser.Status());
+            return js.Serialize(new Dictionary<string, object> { { "tiles", tiles }, { "clock", s.NewTabClock }, { "family", fam ?? new List<Dictionary<string, string>>() }, { "games", games }, { "defaultHint", hint } });
         }
         static string last;
         public static bool Write(string json)

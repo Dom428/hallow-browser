@@ -436,8 +436,8 @@ namespace HallowBrowser
             if (snap) return;
             string playing = null;
             try { var p = Side == null ? null : Side.Panels.FirstOrDefault(x => x.Audible && x.View != null); if (p != null) { var t = p.View.CoreWebView2 == null ? null : p.View.CoreWebView2.DocumentTitle; if (!string.IsNullOrWhiteSpace(t)) playing = t + " (" + p.Site.Name + ")"; } } catch { }
-            var hist = History; var s = S;
-            Task.Run(() => { lock (ntLock) NewTabData.Write(NewTabData.Build(s, hist != null && hist.Loaded ? hist.All() : new List<HistoryEntry>(), playing, DateTime.Now)); });
+            var hist = History; var s = S; bool inGame = Game != null;   // 1.12: no default-browser hint while a game runs
+            Task.Run(() => { lock (ntLock) NewTabData.Write(NewTabData.Build(s, hist != null && hist.Loaded ? hist.All() : new List<HistoryEntry>(), playing, DateTime.Now, inGame)); });
             RefreshFamily(Engine.SinceStart() < 5000 ? 1500 : 0);   // 1.6: your games, clips and the Overlay switch - after the first paint
             GameCornerTick(false);   // 1.4: when it is on and due
         }
@@ -445,6 +445,7 @@ namespace HallowBrowser
         {
             if (FamilyMessage(m, source)) return;   // 1.6: Play, a clip, the Overlay switch
             if (source == null || !Omni.IsNewTab(source) || Private) return;   // only the new tab page itself (1.4: never from a private window)
+            if (DefaultHintMessage(m)) return;   // 1.12: the "make Hallow your default" hint
             var p = m.Split('\t'); var url = p.Length > 1 ? p[1] : null; if (!Omni.IsWeb(url)) return;
             if (p[0] == "hallow:nt-hide") { if (!S.NewTabHidden.Contains(url)) S.NewTabHidden.Add(url); }
             else if (p[0] == "hallow:nt-pin") { PinToNewTab(url, p.Length > 2 ? p[2] : null); return; }
@@ -478,7 +479,7 @@ namespace HallowBrowser
             try { if (System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(sub); } catch { }   // only inside a folder that's there (a sync drive that's away stays away)
             return sub;
         }
-        public string NewTabJson() { return NewTabData.Build(S, History != null && History.Loaded ? History.All() : new List<HistoryEntry>(), null, DateTime.Now); }
+        public string NewTabJson() { return NewTabData.Build(S, History != null && History.Loaded ? History.All() : new List<HistoryEntry>(), null, DateTime.Now, Game != null); }
 
         // --snap: made-up bookmarks (never yours) on the bar, and the manager page
         public void SnapBookmarks(bool manager)

@@ -12,9 +12,14 @@ foreach ($dir in [Environment]::GetFolderPath('Programs'), [Environment]::GetFol
 # 1.6: the Start menu shortcuts of sites you installed as apps (only the .lnk files the browser made there)
 $apps = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hallow Browser Apps'
 if (Test-Path $apps) { Get-ChildItem $apps -Filter *.lnk | Remove-Item -ErrorAction SilentlyContinue; if (-not (Get-ChildItem $apps -ErrorAction SilentlyContinue)) { Remove-Item $apps -ErrorAction SilentlyContinue } }
+# 1.12: the browser removes its own registration (ProgIDs, OpenWithProgids, Capabilities) and tells Windows; the lines after it are a fallback
+$exe = Join-Path $dest 'HallowBrowser.exe'
+if (Test-Path $exe) { try { Start-Process $exe -ArgumentList '--unregister' -Wait } catch { } }
 Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\HallowBrowser' -Recurse -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Clients\StartMenuInternet\HallowBrowser' -Recurse -ErrorAction SilentlyContinue
 Remove-Item 'HKCU:\Software\Classes\HallowBrowserURL' -Recurse -ErrorAction SilentlyContinue
+Remove-Item 'HKCU:\Software\Classes\HallowBrowserHTML' -Recurse -ErrorAction SilentlyContinue
+foreach ($x in '.htm', '.html', '.shtml', '.xht', '.xhtml', '.svg', '.pdf', '.webp') { Remove-ItemProperty "HKCU:\Software\Classes\$x\OpenWithProgids" -Name 'HallowBrowserHTML' -ErrorAction SilentlyContinue }
 Remove-ItemProperty 'HKCU:\Software\RegisteredApplications' -Name 'Hallow Browser' -ErrorAction SilentlyContinue
 if ($data -eq 'Yes') {
     Remove-Item (Join-Path $env:APPDATA 'HallowBrowser') -Recurse -Force -ErrorAction SilentlyContinue

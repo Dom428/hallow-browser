@@ -220,7 +220,11 @@ namespace HallowBrowser
                 "#gc h2{font:600 11px 'Cascadia Mono',Consolas,monospace;letter-spacing:.12em;color:" + head + ";margin:2px 0 8px}#gc a{display:block;color:" + fg + ";text-decoration:none;font-size:12.5px;padding:4px 0;border-top:1px solid " + line + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
                 "#gc a:first-of-type{border-top:0}#gc a:hover{color:" + head + "}#gc a small{color:" + muted + ";margin-right:6px}#gc .note{color:" + muted + ";font-size:11px;margin-top:6px}" +
                 NewTabFamily.Css(fg, muted, line, tile, tileHover, head) +   // 1.6: the Hallow family rows
-                "</style></head><body><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
+                // 1.12: the one-time "make Hallow your default browser" note (a quiet bar at the top; closed once = never again)
+                "#dh{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 8px 7px 16px;border-radius:12px;border:1px solid " + line + ";background:" + tile + ";color:" + fg + ";font-size:13px;max-width:92vw;box-shadow:0 4px 18px #0003}#dh:empty{display:none}" +
+                "#dh button{border:0;border-radius:8px;white-space:nowrap;font:600 12.5px 'Segoe UI',system-ui,sans-serif;cursor:pointer;padding:6px 12px}#dh .go{background:" + head + ";color:" + (light ? "#FFFFFF" : bg) + "}#dh .go:hover,#dh .go:focus{filter:brightness(1.1);outline:2px solid " + head + ";outline-offset:2px}" +
+                "#dh .x{background:transparent;color:" + muted + ";font-size:16px;padding:2px 8px;line-height:20px}#dh .x:hover,#dh .x:focus{background:" + line + ";color:" + fg + ";outline:none}" +
+                "</style></head><body><div id=dh role=region aria-label=\"Default browser\"></div><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
                 "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=hf></div><div id=gc></div><div id=fam></div><div id=t></div>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +
                 "var D={};function c(){var d=new Date(),s=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);document.getElementById('t').textContent=D.clock?'':s;document.getElementById('clk').textContent=D.clock?s:'';}c();setInterval(c,15000);" +
@@ -234,7 +238,10 @@ namespace HallowBrowser
                 "var gc=document.getElementById('gc');gc.textContent='';var G=D.games;if(G&&((G.news||[]).length||(G.free||[]).length)){" +
                 "var sn=el('section');sn.appendChild(el('h2',null,'GAME NEWS'));(G.news||[]).forEach(function(n){var a=el('a');a.href=n.u;a.title=n.t;a.appendChild(el('small',null,n.g));a.appendChild(document.createTextNode(n.t));sn.appendChild(a);});if(!(G.news||[]).length)sn.appendChild(el('div','note','No news for the games in your Hallow Hub library.'));gc.appendChild(sn);" +
                 "var sf=el('section');sf.appendChild(el('h2',null,'FREE GAMES'));(G.free||[]).forEach(function(n){var a=el('a');a.href=n.u;a.title=n.t;a.appendChild(el('small',null,n.w));a.appendChild(document.createTextNode(n.t));sf.appendChild(a);});if(!(G.free||[]).length)sf.appendChild(el('div','note','No free games right now.'));" +
-                "sf.appendChild(el('div','note',G.note||''));gc.appendChild(sf);}c();}" +
+                "sf.appendChild(el('div','note',G.note||''));gc.appendChild(sf);}" +
+                "var dh=document.getElementById('dh');dh.textContent='';var H=D.defaultHint;if(H){dh.appendChild(el('span',null,'Make Hallow Browser your default browser?'+(H.name?' Your links open in '+H.name+' now.':'')));" +
+                "var go=el('button','go','Choose in Windows Settings');go.title='Opens Windows\u2019 Default apps page for Hallow Browser - you choose there';go.onclick=function(){post('hallow:nt-default');};dh.appendChild(go);" +
+                "var hx=el('button','x','\u00d7');hx.title='Don\u2019t show this again';hx.setAttribute('aria-label','Don\u2019t show this again');hx.onclick=function(){dh.textContent='';post('hallow:nt-default-off');};dh.appendChild(hx);}c();}" +
                 "window.hallowRefresh=function(){return fetch('data.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){D=j||{};draw();return (D.tiles||[]).length;}).catch(function(){return -1;});};" +
                 NewTabFamily.Script +
                 "hallowRefresh();document.addEventListener('visibilitychange',function(){if(!document.hidden){hallowRefresh();if(window.hallowFamily)hallowFamily();}});</script></body></html>";

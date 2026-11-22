@@ -37,7 +37,7 @@ namespace HallowBrowser.Tests
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);
             try
             {
-                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All(); V13.All(); V14.All(); V15.All(); V16.All(); V17.All(); V18.All(); V19.All(); V110.All();
+                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All(); V13.All(); V14.All(); V15.All(); V16.All(); V17.All(); V18.All(); V19.All(); V110.All(); V112.All();
             }
             catch (Exception e) { fail++; Console.WriteLine("FAIL crashed: " + e); }
             finally { try { Directory.Delete(dir, true); } catch { } }
@@ -230,7 +230,7 @@ namespace HallowBrowser.Tests
             var ping = Program.Command(null, "ping");
             Ok(ping.StartsWith("ok {") && ping.Contains("\"app\":\"Browser\"") && ping.Contains("\"version\":\"" + Program.Version + "\""), "ping");
             Ok(Program.Command(null, "open javascript:alert(1)").StartsWith("error"), "open: javascript: refused");
-            Ok(Program.Command(null, "open file:///C:/Windows/win.ini").StartsWith("error"), "open: file: refused");
+            string fo; Ok(DefaultBrowser.Openable("file:///C:/Windows/win.ini", out fo), "open: 1.12 accepts file: addresses (a local file handed over by a second start; 1.11 refused them)");
             Ok(Program.Command(null, "open ftp://x.com/").StartsWith("error"), "open: ftp refused");
             Eq(Program.Command(null, "frobnicate"), "error unknown command", "unknown command");
         }

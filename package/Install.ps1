@@ -1,6 +1,8 @@
 # Hallow Browser installer: copies the browser to your user folder (no admin needed) and adds Start menu + Desktop shortcuts.
 # It registers Hallow Browser with Windows as a browser you CAN pick (per user), but it never makes itself your default browser:
-# if you want that, choose it yourself in Windows Settings > Apps > Default apps.
+# if you want that, choose it yourself in Windows Settings > Apps > Default apps (Hallow Browser's Settings > General > Default browser
+# takes you there). 1.12: the registration is done by "HallowBrowser.exe --register" (URL and file ProgIDs, Capabilities,
+# OpenWithProgids, RegisteredApplications - never your choice of default, which Windows protects).
 #   Install.ps1 [-NoStart]   (-NoStart: don't open the browser afterwards)
 param([switch]$NoStart)
 $ErrorActionPreference = 'Stop'
@@ -30,26 +32,10 @@ $vals = @{ DisplayName = 'Hallow Browser'; DisplayVersion = $ver; Publisher = 'H
 foreach ($k in $vals.Keys) { Set-ItemProperty $u -Name $k -Value $vals[$k] }
 Set-ItemProperty $u -Name NoModify -Value 1 -Type DWord; Set-ItemProperty $u -Name NoRepair -Value 1 -Type DWord
 Set-ItemProperty $u -Name EstimatedSize -Value ([int]((Get-ChildItem $dest -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)) -Type DWord
-# "a browser you can pick" (Default apps lists it) - this does NOT change which browser opens your links
-$cls = 'HKCU:\Software\Classes\HallowBrowserURL'
-New-Item "$cls\shell\open\command" -Force | Out-Null
-Set-ItemProperty $cls -Name '(default)' -Value 'Hallow Browser web address'
-Set-ItemProperty $cls -Name 'URL Protocol' -Value ''
-New-Item "$cls\DefaultIcon" -Force | Out-Null; Set-ItemProperty "$cls\DefaultIcon" -Name '(default)' -Value "`"$exe`",0"
-Set-ItemProperty "$cls\shell\open\command" -Name '(default)' -Value "`"$exe`" `"%1`""
-$cap = 'HKCU:\Software\Clients\StartMenuInternet\HallowBrowser'
-New-Item "$cap\Capabilities\URLAssociations" -Force | Out-Null
-New-Item "$cap\shell\open\command" -Force | Out-Null
-New-Item "$cap\DefaultIcon" -Force | Out-Null
-Set-ItemProperty $cap -Name '(default)' -Value 'Hallow Browser'
-Set-ItemProperty "$cap\DefaultIcon" -Name '(default)' -Value "`"$exe`",0"
-Set-ItemProperty "$cap\shell\open\command" -Name '(default)' -Value "`"$exe`""
-Set-ItemProperty "$cap\Capabilities" -Name 'ApplicationName' -Value 'Hallow Browser'
-Set-ItemProperty "$cap\Capabilities" -Name 'ApplicationDescription' -Value 'A fast browser for gamers with Hallow Shield built in'
-Set-ItemProperty "$cap\Capabilities" -Name 'ApplicationIcon' -Value "`"$exe`",0"
-foreach ($p in 'http', 'https') { Set-ItemProperty "$cap\Capabilities\URLAssociations" -Name $p -Value 'HallowBrowserURL' }
-New-Item 'HKCU:\Software\RegisteredApplications' -Force -ErrorAction SilentlyContinue | Out-Null
-Set-ItemProperty 'HKCU:\Software\RegisteredApplications' -Name 'Hallow Browser' -Value 'Software\Clients\StartMenuInternet\HallowBrowser\Capabilities'
+# "a browser you can pick" (Default apps lists it for http, https, .html, .htm, .pdf, .svg ...) - this does NOT change which
+# browser opens your links: that stays your choice in Windows Settings. The browser writes it (and tells Windows to refresh).
+$reg = Start-Process $exe -ArgumentList '--register' -Wait -PassThru
+if ($reg.ExitCode -ne 0) { Write-Host "Note: Hallow Browser couldn't register itself with Windows (exit $($reg.ExitCode)). It still works; it may not be listed in Default apps." }
 $w = New-Object -ComObject WScript.Shell
 foreach ($dir in [Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop')) {
     $s = $w.CreateShortcut((Join-Path $dir 'Hallow Browser.lnk'))

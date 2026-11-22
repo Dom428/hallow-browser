@@ -331,6 +331,7 @@ namespace HallowBrowser
             Func<string, UIElement[], Border> card = (title, items) => { var sp = new StackPanel(); sp.Children.Add(Ui.Label(title)); foreach (var i in items) sp.Children.Add(i); var b = Ui.Card(sp); cards.Add(Tuple.Create(title, b)); return b; };
             Action save = () => S.Save();
 
+            col.Children.Add(card("Default browser", w.DefaultBrowserSettings()));   // 1.12
             col.Children.Add(card("Search", new UIElement[] {
                 Ui.Muted("What the address bar searches with.", 12, 8),
                 Ui.Chips(BrowserSettings.Engines.Select(e => new KeyValuePair<string, string>(e, Omni.EngineName(e))).ToList(), S.Search, v => { S.Search = v; save(); Engine.WriteNewTab(S, Program.AccentHex); w.ReloadSettings(); }) }));
@@ -417,7 +418,7 @@ namespace HallowBrowser
 
             col.Children.Add(card("About", new UIElement[] {
                 Ui.Muted("Hallow Browser " + Program.Version + " - a Chromium browser on Microsoft Edge WebView2 (runtime " + (Engine.RuntimeVersion ?? "?") + ", SDK " + Program.SdkVersion + ").", 12, 4),
-                Ui.Muted("Hallow Browser never makes itself your default browser. To use it for links, pick it in Windows Settings > Apps > Default apps.", 12, 8),
+                Ui.Muted("Hallow Browser never makes itself your default browser. To use it for links, choose it in Windows: Settings > General > Default browser takes you there.", 12, 8),
                 Ui.Row(Ui.Btn("Check for updates", () => { w.Toast("Checking...", 2); Task.Run(() => Updater.Latest()).ContinueWith(r => w.Dispatcher.BeginInvoke(new Action(() => { if (Updater.IsNewer(r.Result)) { w.Update = r.Result; w.Toast("Hallow Browser " + r.Result.Version.ToString(2) + " is out - open the menu to update.", 6); } else w.Toast(r.Result == null ? "GitHub couldn't be reached." : "You have the newest version.", 4); }))); }, false, "arrows-rotate"),
                         Ui.Btn("Open data folder", () => { try { Process.Start(BrowserSettings.Dir); } catch { } }, false, "folder-open")),
                 new Border { Height = 8 },

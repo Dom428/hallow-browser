@@ -1,6 +1,7 @@
 ﻿// Hallow Browser - a fast Chromium browser for gamers in the Hallow style, on Microsoft Edge WebView2 (the Evergreen runtime
 // that comes with Windows 11). Hallow Shield is built in, Hallow Keys fills logins when you click, and gaming-light mode puts
-// background tabs to sleep while you play. It never makes itself the default browser and has no server of its own.
+// background tabs to sleep while you play. It never makes itself the default browser (1.12: you can choose it in Windows' Default
+// apps - Settings > General > Default browser takes you there) and has no server of its own.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.11.0.0")]
-[assembly: AssemblyFileVersion("1.11.0.0")]
+[assembly: AssemblyVersion("1.12.0.0")]
+[assembly: AssemblyFileVersion("1.12.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.11";
+        public const string Version = "1.12";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -36,8 +37,14 @@ namespace HallowBrowser
         public static int Main(string[] args)
         {
             Engine.Mark("main");
+            // 1.12: "--single-argument" (what the ProgIDs pass, like Chrome): everything after it is ONE address - a crafted link can't
+            // add switches (not even --cmd); only what comes before it is read as switches
+            string singleArg = null;
+            { int sa = Array.IndexOf(args, "--single-argument"); if (sa >= 0) { singleArg = DefaultBrowser.SingleArgument(Environment.CommandLine); args = args.Take(sa).ToArray(); } }
             int ci = Array.IndexOf(args, "--cmd");
             if (ci >= 0) return Family.RunCmd(ci + 1 < args.Length ? args[ci + 1] : "");
+            // 1.12: the installer / uninstaller / Windows' InstallInfo commands (registration only - never the default browser itself)
+            foreach (var rc in new[] { "--register", "--unregister", "--hide-icons", "--show-icons" }) if (Array.IndexOf(args, rc) >= 0) return DefaultBrowser.RunCli(rc);
             try { SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }
             int si = Array.IndexOf(args, "--snap");
             if (si >= 0 && si + 1 < args.Length) { BrowserSettings.Frozen = true; A11y.ForceTextScale = 100; A11y.ForceHighContrast = false; var sa = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; LoadTheme(sa); SnapAll(args[si + 1]); return 0; }
@@ -47,7 +54,11 @@ namespace HallowBrowser
             string jump = null; { int ji = Array.IndexOf(args, "--jump"); if (ji >= 0) { if (ji + 1 < args.Length) jump = JumpInvoke(args[ji + 1]); var al = args.ToList(); al.RemoveRange(ji, Math.Min(2, args.Length - ji)); args = al.ToArray(); } }
             PendingJump = jump;
             string wantProfile, appArg; List<string> rest; ParseArgs(args, out wantProfile, out appArg, out rest);
-            var urls = rest.Select(a => Omni.Interpret(a, "duckduckgo")).Where(u => u != null && Omni.IsWeb(u)).ToList();
+            // 1.12: http / https addresses, local files (-> file:///, also a path split at its spaces) and file: addresses; the rest is
+            // refused, never searched (1.11 searched a local path like "C:\x.html" - its scheme looked like "c:")
+            string cwd = null; try { cwd = Environment.CurrentDirectory; } catch { }
+            var urls = DefaultBrowser.UrlsFromArgs(rest, cwd, File.Exists);
+            if (singleArg != null) { var one = DefaultBrowser.ArgToUrl(singleArg, cwd, File.Exists); if (one != null) urls.Add(one); }
             var appUrl = appArg == null ? null : Omni.Interpret(appArg, "duckduckgo"); if (appUrl != null && !Omni.IsWeb(appUrl)) appUrl = null;
             Profiles = ProfileStore.EnsureMigrated();   // 1.6: the data from before profiles is the "Default" profile (nothing moves)
             var prof = (wantProfile != null ? Profiles.Find(wantProfile) : null) ?? Profiles.Find(Profiles.StartWith) ?? Profiles.Items[0];
@@ -95,6 +106,7 @@ namespace HallowBrowser
             var app0 = appUrl == null ? null : SiteApps.ForUrl(appUrl);   // 1.6: an installed site opens as its app window
             if (appUrl != null) w.MakeAppWindow(app0 ?? SiteApps.Adhoc(appUrl));
             Family.Serve(PipeApp(prof.Id), line => Command(Win ?? w, line));
+            DefaultBrowser.EnsureAtStart();   // 1.12: registered as a browser you can pick (a few reads on a worker; writes only when needed)
             accentWatch = Accent.Watch(() => app.Dispatcher.BeginInvoke(new Action(ReloadTheme)));
             WatchMode(app);
             w.Loaded += async (s, e) => { if (w.AppMode) await w.StartApp(); else { await w.Start(urls); CrashNotice(w); } };
@@ -171,9 +183,10 @@ namespace HallowBrowser
             // 1.6: startup boost - no window is open: the first "open" (a new start of the browser) makes one at once
             if (Boosted && (cmd == "open" || cmd == "app" || cmd == "invoke"))
             {
-                if (cmd == "open" && arg.Length > 0) { Uri bu; if (!Uri.TryCreate(arg, UriKind.Absolute, out bu) || (bu.Scheme != "http" && bu.Scheme != "https")) return "error only http and https addresses can be opened"; }
+                string bn = null;
+                if (cmd == "open" && arg.Length > 0 && !DefaultBrowser.Openable(arg, out bn)) return "error only http, https and file addresses can be opened";
                 if (cmd == "app" && !Omni.IsWeb(arg)) return "error not a web address";
-                return OnUi(w, () => { Wake(cmd == "open" && arg.Length > 0 ? new List<string> { new Uri(arg).AbsoluteUri } : new List<string>(), cmd == "app" ? arg : null); return "ok"; });
+                return OnUi(w, () => { Wake(cmd == "open" && arg.Length > 0 ? new List<string> { bn } : new List<string>(), cmd == "app" ? arg : null); return "ok"; });
             }
             switch (cmd)
             {
@@ -184,9 +197,9 @@ namespace HallowBrowser
                 case "status": return "ok " + OnUi(w, () => StatusJson(w));
                 case "open":
                     if (arg.Length == 0) return OnUi(w, () => { ShowWindow(w); return "ok"; });
-                    Uri u;
-                    if (!Uri.TryCreate(arg, UriKind.Absolute, out u) || (u.Scheme != "http" && u.Scheme != "https")) return "error only http and https addresses can be opened";
-                    return OnUi(w, () => { w.NewTab(u.AbsoluteUri, true); ShowWindow(w); return "ok"; });
+                    string on;   // 1.12: file: too (a local file Windows handed to a second start of the browser)
+                    if (!DefaultBrowser.Openable(arg, out on)) return "error only http, https and file addresses can be opened";
+                    return OnUi(w, () => { w.NewTab(on, true); ShowWindow(w); return "ok"; });
                 case "menu":
                     return "ok " + OnUi(w, () => Family.Json(new Dictionary<string, object> { { "app", "Browser" }, { "items", new object[] {
                         new Dictionary<string, object> { { "id", "new-tab" }, { "label", "New tab" } },
@@ -358,6 +371,15 @@ namespace HallowBrowser
                 ws5.ContentGrid.Children.Add(Panels.SettingsPage(ws5));
                 Snap.Save(ws5, Path.Combine(dir, "twitch-ads" + sfx + ".png"), 1280, 800); ws5.Close();
                 s.TwitchAllow = new List<string>();
+                // 1.12: Settings > General > Default browser - made-up answers (Brave is the default / Hallow is), nothing read or opened
+                foreach (var pid in new[] { "BraveHTML", "HallowBrowserURL" })
+                {
+                    DefaultBrowser.ProgIdOverride = pid;
+                    var ws6 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws6.SnapFill("news", false, false); ws6.SettingsQuery = "Default browser";
+                    ws6.ContentGrid.Children.Add(Panels.SettingsPage(ws6));
+                    Snap.Save(ws6, Path.Combine(dir, (pid == "BraveHTML" ? "default-browser" : "default-browser-on") + sfx + ".png"), 1280, 800); ws6.Close();
+                }
+                DefaultBrowser.ProgIdOverride = null;
                 A11y.SetScale(1.5);
                 shot("ui-scale-150", null);
                 A11y.SetScale(1.0);
