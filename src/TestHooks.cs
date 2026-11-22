@@ -152,6 +152,7 @@ namespace HallowBrowser
                     return Program.OnUi(w, () => { string scheme = null; try { var p = w.Profile; if (p != null) scheme = p.PreferredColorScheme.ToString(); } catch { } return "ok " + js.Serialize(new Dictionary<string, object> { { "light", Look.IsLight }, { "scheme", scheme }, { "bg", ((System.Windows.Media.SolidColorBrush)Application.Current.FindResource("Bg")).Color.ToString() } }); });
             }
             if (cmd.StartsWith("test-p-")) return Power(w, cmd.Substring(7), arg);
+            if (cmd.StartsWith("test-mm-")) return V1121(w, cmd.Substring(8), arg);   // 1.12.1 (before test-m-)
             if (cmd.StartsWith("test-m-")) return MoveIn(w, cmd.Substring(7), arg);   // 1.3
             if (cmd.StartsWith("test-v-")) return V14(w, cmd.Substring(7), arg);      // 1.4
             if (cmd.StartsWith("test-x-")) return V15(w, cmd.Substring(7), arg);      // 1.5

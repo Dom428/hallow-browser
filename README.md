@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,41 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.12.1: a fix for a white Twitch player
+
+Real use, 1.12: on a live channel the **video area sometimes showed as a plain white box** while the rest of Twitch looked normal.
+Debugged against the real twitch.tv (signed out, throw-away test profiles, off-screen, about 25 loads of 10 big live channels, 6 to 30 minutes each, plus game mode, tab switching and a GPU-process crash):
+
+- **What a white player is.** Twitch's player area is drawn by layers on top of the `<video>`: the player's overlay, extension
+  iframes, and - during an ad break - Twitch's ad layers (a display-ad "squeezeback" wrapper inside the player, and now a second
+  **picture-by-picture** player that Twitch prepares in the chat column, seen live). With the ad swap switched off on purpose, a real
+  ad that played came out as a **95 % white** player rectangle for seconds at a time (a white ad creative under Twitch's ad layer) -
+  so a white box is what an ad, or an ad frame whose content is blocked, looks like. The hide rules from 1.10 also had two broad
+  selectors (`[aria-label="Advertisement"]`, `div[class*="StreamDisplayAd"]`) that would hide **the player itself** if Twitch ever wraps
+  the video in such a box. And in game mode the browser set **every** tab - also the stream you're watching - to the engine's "low"
+  memory target, which is meant for pages nobody sees.
+- **The player is never hidden.** Each hide rule now only matches a box *without* a `<video>` in it, and a guard shows a box around the
+  video again if an ad rule (or an ad filter) hid it.
+- **Nothing empty sits on top of it.** Once a second, on a channel page, the browser looks at what covers the middle of the video: an
+  empty ad frame (an iframe from an ad host or with no address, a box named like an ad - display ad, squeezeback, picture-by-picture,
+  outstream - or an empty opaque white box) is hidden. Twitch's own overlays stay: controls, extensions, the mature-content gate, error
+  screens, chat, emotes, channel points.
+- **A stuck video is nudged.** If the video stops moving for ~3.5 s while it should play (not when you paused it), Twitch's player is
+  paused and played, then its source is reloaded - at most 3 tries until it moves again. Each fix is logged in the page
+  (`window.__hallowTwitch.events`: `guard`, `unblock`, `stall`).
+- **Game mode no longer lowers the memory target of the page you're looking at** - only of pages nobody sees, and a page you switch to
+  gets the normal target back at once (the same on battery saver).
+- **Ads stay blocked as in 1.11 / 1.12**: 6 fresh loads of live channels with 1.12.1 on the real twitch.tv: 5 got a preroll and all 5 were swapped for Twitch's own ad-free stream (nothing covered, no ad frame shown), the video kept moving, and the watchdog never stepped in - no false alarms on real pages.
+- **Honestly**: the exact white box from the screenshot did not show up in the off-screen runs with 1.12's code (Twitch only shows some ad layouts now and then, and signed-in users can get others), so the fix covers each way a white box can come about rather than one reproduced case. If it still happens, `window.__hallowTwitch.events` in that tab says what the watchdog saw.
+- 1.10 - 1.12 installs get the page part without updating: it is version 3 of the `hallow-twitch.js` asset on this release.
+
+Tests: 1.12.1 adds (unit) the version-3 script (hide rules that skip a box with the video, the guard, the watchdog's timings), which
+class names count as an ad box (from the real player's markup) and which never do (player, chat, extensions, the mature gate), and the
+memory-target rule; and (integration "v1121", a local fake Twitch with the real player's markup, anonymous) an empty ad frame and an
+empty white box over the video hidden within seconds, Twitch's own overlays (extension iframe, mature-content gate) left alone, a hide
+rule matching a box around the video not hiding the stream (and the display-ad box beside it still hidden), the guard, a stuck video
+nudged at most 3 times, a paused one and a normal one left alone, and the memory target per tab with a (fake) game running.
 
 ## What's new in 1.12: ready to be your default browser
 

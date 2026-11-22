@@ -63,7 +63,7 @@ namespace HallowBrowser
                 foreach (var p in Side.Panels) { var c = p.Core; if (c != null && !p.Shown && !p.Audible && !p.Asleep) want.Add(c); }
             }
             foreach (var c in slowed.Where(c => !want.Contains(c)).ToList()) { slowed.Remove(c); try { var _ = c.CallDevToolsProtocolMethodAsync("Emulation.setCPUThrottlingRate", "{\"rate\":1}"); } catch { } }
-            foreach (var c in want.Where(c => !slowed.Contains(c)).ToList()) { slowed.Add(c); try { var _ = c.CallDevToolsProtocolMethodAsync("Emulation.setCPUThrottlingRate", "{\"rate\":" + Power16.BatteryThrottle + "}"); c.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low; } catch { } }
+            foreach (var c in want.Where(c => !slowed.Contains(c)).ToList()) { slowed.Add(c); try { var _ = c.CallDevToolsProtocolMethodAsync("Emulation.setCPUThrottlingRate", "{\"rate\":" + Power16.BatteryThrottle + "}"); } catch { } }   // 1.12.1: the memory target is ApplyMemoryTargets' (normal again once shown)
             if (on != BatteryMode) { BatteryMode = on; WriteStatus(); }
         }
 

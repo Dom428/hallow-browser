@@ -1,4 +1,4 @@
-// hallow-twitch 2
+// hallow-twitch 3
 // Hallow Browser's Twitch ad handling - the page part. Hallow Browser's own code (github.com/Dom428/hallow-browser), no third-party
 // code. The browser runs it at document start on twitch.tv pages as (function(CFG){ ...this file... })(settings), in the page itself
 // (not an extension, so it works in private windows too). Newer copies can come from the browser's GitHub release (asset
@@ -22,6 +22,10 @@
 // worker across its in-page navigation) let the ad play. The channel now always comes from the worker's own last master playlist -
 // never from the page address, which can be stale after in-page navigation. Second signal: when the player shows its own ad label
 // or countdown anyway, the video is covered and muted until the label goes away.
+//
+// Version 3 (Hallow Browser 1.12.1, real use: the player sometimes showed as a plain white box): no hide rule can hide a box that
+// holds the video any more, and a once-a-second watchdog on channel pages shows the player again if something hid it, hides an empty
+// ad frame laid over it, and nudges a video that is stuck while it should play (see "the player guard and watchdog" below).
 'use strict';
 if (!CFG || window.__hallowTwitch) return;
 var HERE = location.href;
@@ -222,12 +226,18 @@ var CH_NOW = function () { var p = location.pathname; if (CFG.test && HERE.index
 function toHost(m) { try { window.chrome.webview.postMessage('hallow:twitch\t' + JSON.stringify(m)); } catch (e) { } }
 function log(m) { var e = window.__hallowTwitch.events; e.push(m.ev + (m.type ? ':' + m.type : '') + (m.secs ? ':' + m.secs : '')); if (e.length > 100) e.shift(); }
 
-// display ads and ad labels: hidden (never chat, emotes or channel points)
+// display ads and ad labels: hidden (never chat, emotes or channel points). Version 3: never a box that holds the video - each
+// selector only hides an element without a <video> inside (:has), so a display-ad layout that wraps the player can't hide the stream.
+function hideRule(list) {
+    var hasOk = false; try { hasOk = CSS.supports('selector(:not(:has(video)))'); } catch (e) { }
+    if (!hasOk) return list + '{display:none!important}';
+    return list.split(',').map(function (s) { return ':is(' + s.trim() + '):not(:has(video))'; }).join(',') + '{display:none!important}';
+}
 if (CFG.on) {
     var css = CFG.hide || '';
     if (css) {
         var st = document.createElement('style'); st.id = 'hallow-twitch-css';
-        st.textContent = css + '{display:none!important}';
+        st.textContent = hideRule(css);
         // Twitch moves between channels without loading a page: on a channel you allow ads on, its display ads show too.
         // (At document start there is no <html> element yet: the style goes in as soon as there is one.)
         var cssFor = function () {
@@ -344,8 +354,9 @@ function nudge(hard) {
     } catch (e) { how += '-failed'; }
     log({ ev: 'resync', type: how }); window.__hallowTwitch.resyncs = (window.__hallowTwitch.resyncs || 0) + 1;
 }
+var afterUntil = 0;
 function afterBreak() {
-    clearInterval(watch);
+    clearInterval(watch); afterUntil = Date.now() + 21000;
     var start = Date.now(), last = -1, stuck = 0, tries = 0;
     watch = setInterval(function () {
         var v = bigVideo();
@@ -355,6 +366,101 @@ function afterBreak() {
         if (++stuck >= 3) { stuck = 0; tries++; nudge(tries > 1); }
     }, 1000);
 }
+
+// ---------------------------------------------------------------- version 3 (Hallow Browser 1.12.1): the player guard and watchdog
+// Real use showed the player as a plain white box now and then. Three things are watched, once a second, on a channel page:
+//  1. The player is never hidden: an element around the main <video> that an ad rule (ours, or an ad filter's) hid is shown again.
+//  2. Nothing empty sits on top of it: an ad frame over the video - an iframe from an ad host or with no address, an element named
+//     like an ad box (display ad, squeezeback, picture-by-picture, outstream...), or an empty opaque white box - is hidden. Twitch's own
+//     overlays (controls, extensions from ext-twitch.tv, the mature-content gate, error screens) have text or a twitch address and stay.
+//  3. A video that stays stuck for more than ~3.5 s while it should play (not paused by you) is nudged like after an ad break: Twitch's
+//     player is paused and played, then its source is loaded again. At most 3 tries until it moves again.
+var AD_NAME = /(^|[\s_-])ads?([\s_-]|$)|display-?ad|displayad|(^|[\s_-])sda([\s_-]|$)|squeezeback|pbyp|picture-by-picture|outstream|commercial-break|advertis|amazon/i;
+var AD_SRC = /^https?:\/\/([a-z0-9-]+\.)*(amazon-adsystem\.com|doubleclick\.net|googlesyndication\.com|googletagservices\.com|imasdk\.googleapis\.com|ads\.twitch\.tv|ads\.ttvnw\.net|adnxs\.com|adsrvr\.org)\//i;
+var WD = { guards: 0, unblocks: 0, stalls: 0, last: null, stuckSince: 0, lastT: -1, tries: 0, lastTry: 0 };
+window.__hallowTwitch.watch = WD;
+function nameOf(el) {
+    var s = '';
+    try { s = (typeof el.className === 'string' ? el.className : (el.getAttribute('class') || '')) + ' ' + (el.id || '') + ' ' + (el.getAttribute('data-a-target') || '') + ' ' + (el.getAttribute('data-test-selector') || '') + ' ' + (el.getAttribute('aria-label') || ''); } catch (e) { }
+    return s;
+}
+function adish(el) { return AD_NAME.test(nameOf(el)); }
+function hiddenByRule(el) { try { return !!CFG.hide && el.matches(CFG.hide); } catch (e) { return false; } }
+function playerVideo() {
+    var v = bigVideo();
+    if (v && v.getBoundingClientRect().width > 0) return v;
+    return document.querySelector('[data-a-target="video-ref"] video, .video-player video') || v;
+}
+function wdEvent(what) { WD.last = what + ' ' + new Date().toISOString().slice(11, 19); log({ ev: what }); }
+// 1. an ancestor of the video (or the video) hidden by an ad rule is shown again (inline !important beats any page rule)
+function guardPlayer(v) {
+    var fixed = 0;
+    for (var p = v; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+        var cs = getComputedStyle(p);
+        if (cs.display !== 'none' && cs.visibility !== 'hidden') continue;
+        if (p !== v && !hiddenByRule(p) && !adish(p)) continue;   // hidden by Twitch itself (a layout it isn't using): left alone
+        if (cs.display === 'none') p.style.setProperty('display', 'block', 'important');
+        if (cs.visibility === 'hidden') p.style.setProperty('visibility', 'visible', 'important');
+        p.setAttribute('data-hallow-keep', '');
+        fixed++;
+    }
+    if (fixed) { WD.guards += fixed; wdEvent('guard'); }
+    return fixed;
+}
+function overlap(a, b) {
+    var w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    return w > 0 && h > 0 ? (w * h) / Math.max(1, b.width * b.height) : 0;
+}
+function emptyWhite(el, cs) {
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(cs.backgroundColor || '');
+    if (!m || +m[1] < 235 || +m[2] < 235 || +m[3] < 235 || (m[4] !== undefined && +m[4] < 0.9)) return false;
+    return !(el.innerText || '').trim() && !el.querySelector('img,video,canvas,button,svg,input');
+}
+function isBlocker(el, v, vr) {
+    if (el === v || el.contains(v) || el.tagName === 'HALLOW-ADBREAK' || overlap(el.getBoundingClientRect(), vr) < 0.5) return false;
+    if (el.tagName === 'IFRAME') { var src = el.getAttribute('src') || ''; return !src || src === 'about:blank' || AD_SRC.test(el.src); }
+    if (el.closest && el.closest('[data-a-target="player-controls"],.player-controls,.extension-view__iframe')) return false;
+    var cs = getComputedStyle(el);
+    if (emptyWhite(el, cs)) return true;
+    for (var p = el, i = 0; p && i < 4 && !p.contains(v); p = p.parentElement, i++) if (adish(p)) return true;
+    return false;
+}
+// 2. what covers the middle of the video, if it is an empty ad frame: hidden (the frame itself, or its ad-named box)
+function unblock(v) {
+    var vr = v.getBoundingClientRect(); if (vr.width < 160 || vr.height < 90) return 0;
+    var pts = [[0.5, 0.5], [0.3, 0.35], [0.7, 0.65]], n = 0;
+    for (var i = 0; i < pts.length; i++) {
+        var stack = document.elementsFromPoint(vr.left + vr.width * pts[i][0], vr.top + vr.height * pts[i][1]);
+        for (var j = 0; j < stack.length && stack[j] !== v; j++) {
+            var el = stack[j];
+            if (!isBlocker(el, v, vr)) continue;
+            var box = el; for (var p = el.parentElement, k = 0; p && k < 4 && !p.contains(v); p = p.parentElement, k++) if (adish(p)) box = p;
+            box.style.setProperty('display', 'none', 'important'); box.setAttribute('data-hallow-unblocked', '');
+            n++; break;
+        }
+    }
+    if (n) { WD.unblocks += n; wdEvent('unblock'); }
+    return n;
+}
+// 3. a stuck video that should be playing
+function stuck(v) {
+    var now = Date.now();
+    if (v.paused || v.ended || document.hidden || cover.end || now < afterUntil) { WD.stuckSince = 0; WD.lastT = v.currentTime; return; }
+    if (v.currentTime - WD.lastT > 0.1 || v.currentTime < WD.lastT) { WD.stuckSince = 0; WD.tries = 0; WD.lastT = v.currentTime; return; }
+    if (!WD.stuckSince) { WD.stuckSince = now; return; }
+    if (now - WD.stuckSince >= 3500 && now - WD.lastTry >= 4000 && WD.tries < 3) {
+        WD.tries++; WD.lastTry = now; WD.stalls++; wdEvent('stall');
+        nudge(WD.tries > 1);
+    }
+}
+function watchdog() {
+    if (!document.body || !CH_NOW()) return;
+    var v = playerVideo(); if (!v) return;
+    try { guardPlayer(v); } catch (e) { }
+    try { if (CFG.on && !allowedHere(null)) unblock(v); } catch (e) { }
+    try { stuck(v); } catch (e) { }
+}
+if (CFG.on) setInterval(watchdog, 1000);
 
 function onMsg(m) {
     if (!m || !m.ev) return;

@@ -9,6 +9,16 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.12.1 - A FIX FOR A WHITE TWITCH PLAYER
+- Fixed: on a live Twitch channel the video area could show as a plain white box. Twitch
+  draws ad layers on top of the video during a break (and the 1.10 hide rules could in
+  theory hide the player itself). Now no hide rule can hide the player, an empty ad frame
+  over the video is removed within about a second, and a video that stays stuck for more
+  than ~3.5 s (while you didn't pause it) is nudged and, if needed, reloaded.
+- Game mode no longer lowers the memory of the page you are watching - only of the pages
+  you can't see.
+- Twitch ads stay blocked as before. Installs of 1.10 - 1.12 get the Twitch part of this
+  fix from the release on their next daily check.
 WHAT'S NEW IN 1.12 - READY TO BE YOUR DEFAULT BROWSER
 - Hallow Browser now registers with Windows like Chrome and Brave do (per user, no admin):
   for web links (http, https) and for .html, .htm, .shtml, .xht, .xhtml, .svg, .pdf and .webp

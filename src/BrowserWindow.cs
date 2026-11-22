@@ -453,6 +453,7 @@ namespace HallowBrowser
                 if (x.Suspended && x.Core != null) { try { x.Core.Resume(); } catch { } x.Suspended = false; x.SleptByGame = false; }
                 if (x != t) SetTabIcon(x);
             }
+            ApplyMemoryTargets();   // 1.12.1: a page that is shown gets the normal memory target back at once
             LayoutSplit();
             SetTabIcon(t); FitTabs();
             UpdateBar();
@@ -922,6 +923,7 @@ namespace HallowBrowser
             Side.Tick(Game != null);
             ApplyCap(Throttle.Want(S.BandwidthKBps, S.BandwidthGameOnly, Game != null));
             BatteryTick();   // 1.6: on battery, background tabs and panels are slowed down
+            ApplyMemoryTargets();   // 1.12.1
             if (changed || force) WriteStatus();
         }
         double capApplied = -1; readonly HashSet<CoreWebView2> capped = new HashSet<CoreWebView2>();
@@ -967,7 +969,7 @@ namespace HallowBrowser
             try { Process.GetCurrentProcess().PriorityClass = want; } catch { }
             try { foreach (var p in Engine.Env.GetProcessInfos()) try { using (var pr = Process.GetProcessById(p.ProcessId)) pr.PriorityClass = want; } catch { } } catch { }
             // background tabs use less memory while a game runs or the CPU limiter is on
-            foreach (var t in Tabs) { var c = t.Core; if (c != null) try { c.MemoryUsageTargetLevel = want == ProcessPriorityClass.Normal ? CoreWebView2MemoryUsageTargetLevel.Normal : CoreWebView2MemoryUsageTargetLevel.Low; } catch { } }
+            ApplyMemoryTargets();   // 1.12.1: only the pages nobody sees (it used to be every tab, the one you watch too)
         }
         public string PriorityName { get { return appliedPriority.HasValue ? appliedPriority.Value.ToString() : "Normal"; } }
 

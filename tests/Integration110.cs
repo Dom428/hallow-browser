@@ -46,7 +46,7 @@ namespace HallowBrowser.Tests
         static readonly List<Req> reqs = new List<Req>();
         static List<Req> Hits(string prefix) { lock (reqs) return reqs.Where(r => r.Path.StartsWith(prefix)).ToList(); }
         static void Clear() { lock (reqs) reqs.Clear(); }
-        class Server
+        internal class Server
         {
             public int Port; TcpListener l; volatile bool stop;
             public Func<Req, Tuple<int, string, byte[]>> Route;
