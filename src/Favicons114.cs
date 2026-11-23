@@ -161,7 +161,7 @@ namespace HallowBrowser
         }
         static string[] Files() { try { return Directory.Exists(Dir) ? Directory.GetFiles(Dir, "*.png") : new string[0]; } catch { return new string[0]; } }
         public static int Count() { lock (gate) { if (Fake != null) return Fake.Count; if (count < 0) count = Files().Length; return count; } }
-        // least recently used first, down to 90 % of the limit (the file's write time is its last use: reading touches it, once a session)
+        // least recently used first, down to 90% of the limit (the file's write time is its last use: reading touches it, once a session)
         static void Evict()
         {
             var files = Files().Select(x => new FileInfo(x)).OrderBy(x => x.LastWriteTimeUtc).ToList();

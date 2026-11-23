@@ -2,7 +2,7 @@
 // engine's preference files are written on another core at start (App.cs / Engine.cs), the theme reuses the settings already read,
 // your own extensions load after the first page, and pictures don't keep their source data. Tried and dropped because they measured
 // no better: a low memory target for pages off screen a minute (suspended tabs kept the same memory), and putting the pre-warmed tab
-// to sleep / slowing background players in game mode (the browser already sat at ~0.2 % of one core there).
+// to sleep / slowing background players in game mode (the browser already sat at ~0.2% of one core there).
 using System;
 using System.Linq;
 using System.Threading.Tasks;

@@ -9,6 +9,9 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.14.3
+- Percentages read 45% instead of 45 %.
+
 WHAT'S NEW IN 1.14.2 - NO MORE WHITE TWITCH PLAYER AFTER AN AD
 - An ad that gets through on Twitch is covered ("Ad break - back in 0:28") and muted,
   whichever way it shows itself (playlist markers, the player's ad label, Twitch's own
@@ -101,7 +104,7 @@ WHAT'S NEW IN 1.9 - SPEED AND ACCESSIBILITY
   F6 / Shift+F6 move between the address bar, the tabs, the page and the sidebar; Tab moves
   within; the arrow keys move between tabs; Esc closes a menu; Shift+F10 opens a tab's menu.
 - A visible focus outline; the toolbar's buttons are keyboard stops now.
-- Bigger text and controls: Settings > Appearance > Accessibility, 100-200 %, separate from
+- Bigger text and controls: Settings > Appearance > Accessibility, 100-200%, separate from
   page zoom. By default it follows Windows' Text size.
 - Windows' high-contrast themes switch the browser to their colours; Windows' "Animation
   effects" off means nothing in the browser moves.

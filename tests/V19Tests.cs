@@ -1,4 +1,4 @@
-﻿// Hallow Browser 1.9 - unit tests: names and keys made from tool tips, the UI scale (Windows' text size by default, 100-200 %), the
+﻿// Hallow Browser 1.9 - unit tests: names and keys made from tool tips, the UI scale (Windows' text size by default, 100-200%), the
 // high-contrast theme (every colour a system colour, nothing of the Hallow palette left, still a valid theme), the new setting's
 // defaults, the memory-target rule and pictures that drop their source data, the settings card, and the tab's UI Automation peer.
 using System;
@@ -60,14 +60,14 @@ namespace HallowBrowser.Tests
 
         static void ScaleTests()
         {
-            Eq(A11y.ScaleFor(0, 100), 1.0, "scale: like Windows at 100 % text = 1.0");
-            Eq(A11y.ScaleFor(0, 150), 1.5, "scale: follows Windows' text size (150 %)");
-            Eq(A11y.ScaleFor(0, 225), 2.0, "scale: Windows' 225 % is held at 200 %");
+            Eq(A11y.ScaleFor(0, 100), 1.0, "scale: like Windows at 100% text = 1.0");
+            Eq(A11y.ScaleFor(0, 150), 1.5, "scale: follows Windows' text size (150%)");
+            Eq(A11y.ScaleFor(0, 225), 2.0, "scale: Windows' 225% is held at 200%");
             Eq(A11y.ScaleFor(125, 225), 1.25, "scale: a chosen size wins over Windows'");
-            Eq(A11y.ScaleFor(90, 100), 1.0, "scale: never below 100 %");
-            Ok(A11y.ScaleChoices.SequenceEqual(new[] { 0, 100, 125, 150, 175, 200 }), "scale: the choices (0 = like Windows) - 100 to 200 %");
+            Eq(A11y.ScaleFor(90, 100), 1.0, "scale: never below 100%");
+            Ok(A11y.ScaleChoices.SequenceEqual(new[] { 0, 100, 125, 150, 175, 200 }), "scale: the choices (0 = like Windows) - 100 to 200%");
             A11y.ForceTextScale = 175; Eq(A11y.WindowsTextScale(), 175, "scale: tests can stand in for Windows' text size (the real setting is only read)"); A11y.ForceTextScale = null;
-            var w = A11y.WindowsTextScale(); Ok(w >= 100 && w <= 225, "scale: Windows' text size read (" + w + " %)");
+            var w = A11y.WindowsTextScale(); Ok(w >= 100 && w <= 225, "scale: Windows' text size read (" + w + "%)");
         }
 
         static string Theme() { using (var s = typeof(Program).Assembly.GetManifestResourceStream("HallowBrowser.Theme.xaml")) using (var r = new System.IO.StreamReader(s)) return r.ReadToEnd(); }

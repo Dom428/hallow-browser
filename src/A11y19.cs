@@ -35,7 +35,7 @@ namespace HallowBrowser
         static int? TestTextScale() { int v; return BrowserSettings.TestDir != null && int.TryParse(Environment.GetEnvironmentVariable("HALLOW_BROWSER_TEXTSCALE"), out v) ? (int?)v : null; }
         public static bool HighContrast { get { return ForceHighContrast ?? SystemParameters.HighContrast; } }
         public static bool ReducedMotion { get { return ForceReducedMotion ?? !SystemParameters.ClientAreaAnimation; } }
-        // Windows' Settings > Accessibility > Text size (100-225 %), read only
+        // Windows' Settings > Accessibility > Text size (100-225%), read only
         public static int WindowsTextScale()
         {
             if (ForceTextScale.HasValue) return ForceTextScale.Value;
@@ -438,7 +438,7 @@ namespace HallowBrowser
 
     public partial class BrowserSettings
     {
-        [DataMember] public int UiScale;   // 1.9: the browser's own UI, 100-200 %; 0 = like Windows' text size (the default)
+        [DataMember] public int UiScale;   // 1.9: the browser's own UI, 100-200%; 0 = like Windows' text size (the default)
         [DataMember] public bool GameChip = true;          // 1.9: the small controller icon in the title bar while game mode is on
         [DataMember] public bool BookmarksBarHidden;       // 1.9: the bookmarks bar was hidden on purpose (then it never comes back by itself)
         [DataMember] public bool GroupTipShown;            // 1.9: the one-time tip about tab groups
@@ -519,7 +519,7 @@ namespace HallowBrowser
             var wts = A11y.WindowsTextScale();
             return new UIElement[] {
                 Ui.Muted("Size of the browser's own text and controls (tabs, toolbar, menus, the sidebar, Settings). Pages keep their own zoom (Ctrl + / Ctrl -).", 12, 6),
-                Ui.Chips(A11y.ScaleChoices.Select(v => new KeyValuePair<int, string>(v, v == 0 ? "Like Windows (" + wts + " %)" : v + " %")).ToList(), S.UiScale, v => { S.UiScale = v; S.Save(); Program.ApplyScale(S); }),
+                Ui.Chips(A11y.ScaleChoices.Select(v => new KeyValuePair<int, string>(v, v == 0 ? "Like Windows (" + wts + "%)" : v + "%")).ToList(), S.UiScale, v => { S.UiScale = v; S.Save(); Program.ApplyScale(S); }),
                 Ui.Muted("Like Windows = Windows Settings > Accessibility > Text size.", 11.5, 10),
                 Ui.Muted("High contrast: " + (A11y.HighContrast ? "on - the browser uses your contrast theme's colours." : "follows Windows (Settings > Accessibility > Contrast themes) - the browser switches to its colours by itself."), 12, 4),
                 Ui.Muted("Animations: follow Windows' \"Animation effects\" (Settings > Accessibility > Visual effects) - " + (A11y.ReducedMotion ? "off now, so nothing in the browser moves." : "on now.") + " Pages are told too (prefers-reduced-motion).", 12, 4),

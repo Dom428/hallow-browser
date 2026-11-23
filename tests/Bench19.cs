@@ -229,7 +229,7 @@ namespace HallowBrowser.Tests
                     var cpu = (CpuMs(Tree(br.Id)) - c0) / sw.Elapsed.TotalMilliseconds * 100.0;   // % of one core
                     var tabs = Tabs();
                     var d = new Dictionary<string, object> { { "cpuPercentOfOneCore", Math.Round(cpu, 1) }, { "gpuPercent", Math.Round(gpu, 2) }, { "processes", tree.Count - 1 }, { "asleep", tabs.Count(x => x["asleep"] is bool && (bool)x["asleep"]) } };
-                    Note("SUMMARY game impact " + label + ": CPU " + F(cpu) + " % of one core, GPU " + gpu.ToString("0.00") + " %, " + d["asleep"] + " tabs asleep");
+                    Note("SUMMARY game impact " + label + ": CPU " + F(cpu) + "% of one core, GPU " + gpu.ToString("0.00") + "%, " + d["asleep"] + " tabs asleep");
                     return d;
                 };
                 result["normal"] = load("normal (no game)");

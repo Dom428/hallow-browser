@@ -19,7 +19,7 @@ in sync** and opt-in **encrypted history sync** - and says honestly that WebView
 extras**: opt-in **YouTube sponsor / intro skipping** with SponsorBlock (only a 4-character hash prefix goes out), the **Twitch chat in the
 sidebar** beside a full-screen or theatre-mode stream, **theatre mode**, **Clip it** (Hallow Clips saves the last 30 s of a stream on your
 screen) and **game mode at once** when you start a game from the new tab page. 1.9 is a **speed and accessibility pass**: every control
-has a screen-reader name and keyboard access (F6 moves between the address bar, tabs, page and sidebar), a **100-200 % UI size** that
+has a screen-reader name and keyboard access (F6 moves between the address bar, tabs, page and sidebar), a **100-200% UI size** that
 follows Windows' text size, **high contrast** and **reduced motion** from Windows, a measured start-up gain - plus fixes from
 real use (the Overlay switch's label, the bookmarks bar showing once you have bookmarks, tab groups easier to find, a smaller game-mode
 icon). 1.10 handles **Twitch ads** (on by default): ads stitched into a stream are swapped for Twitch's own ad-free stream of the
@@ -185,7 +185,7 @@ Debugged against the real twitch.tv (signed out, throw-away test profiles, off-s
 - **What a white player is.** Twitch's player area is drawn by layers on top of the `<video>`: the player's overlay, extension
   iframes, and - during an ad break - Twitch's ad layers (a display-ad "squeezeback" wrapper inside the player, and now a second
   **picture-by-picture** player that Twitch prepares in the chat column, seen live). With the ad swap switched off on purpose, a real
-  ad that played came out as a **95 % white** player rectangle for seconds at a time (a white ad creative under Twitch's ad layer) -
+  ad that played came out as a **95% white** player rectangle for seconds at a time (a white ad creative under Twitch's ad layer) -
   so a white box is what an ad, or an ad frame whose content is blocked, looks like. The hide rules from 1.10 also had two broad
   selectors (`[aria-label="Advertisement"]`, `div[class*="StreamDisplayAd"]`) that would hide **the player itself** if Twitch ever wraps
   the video in such a box. And in game mode the browser set **every** tab - also the stream you're watching - to the engine's "low"
@@ -345,7 +345,7 @@ Honestly:
   closes them and goes back to their button (no traps); in Settings Tab goes top to bottom, a section link moves the keyboard into
   that section and Enter in the search box jumps to the first match.
 - **Bigger text and controls**: Settings > Appearance > Accessibility - **Like Windows** (Settings > Accessibility > Text size, the
-  default) or 100 / 125 / 150 / 175 / 200 %. It scales the browser's own UI (title bar, toolbar, tab column, sidebar, menus, tool tips,
+  default) or 100 / 125 / 150 / 175 / 200%. It scales the browser's own UI (title bar, toolbar, tab column, sidebar, menus, tool tips,
   Settings and the other built-in pages, dialogs) and never the pages: **page zoom stays separate** (Ctrl + / Ctrl -).
 - **High contrast**: with a Windows contrast theme the browser uses its system colours only (window, text, highlight), lines drawn in
   the text colour, a thicker focus outline and the shown tab outlined - switched live, including controls already on screen. Pages get
@@ -968,7 +968,7 @@ not with older versions.
 | Scrolling a long local page (rAF deltas, 4 runs alternating) | median 4.2 ms, p95 4.3-16.7 ms | median 4.2 ms, p95 4.3-12.5 ms |
 | Memory, 14 pages on 14 different sites (private bytes: engine + browser) | 754 + 109 = 857 MB, 22 processes | 763 + 112 = 867 MB, 22 processes |
 | ... the same after 10 min in the background (14 tabs asleep) | 740 + 112 = 842 MB | 748 + 114 = 856 MB |
-| CPU / GPU, background video tab + 3 pages, normal / game mode | 0.2 / 0.2 % of one core, GPU 0.01 / 0.00 % | 0.1 / 0.2 %, GPU 0.01 / 0.00 % |
+| CPU / GPU, background video tab + 3 pages, normal / game mode | 0.2 / 0.2% of one core, GPU 0.01 / 0.00% | 0.1 / 0.2%, GPU 0.01 / 0.00% |
 
 Where start-up goes now (1.9, warm): ~63 ms to `Main` (the CLR; multicore JIT has been on since 1.0), ~85 ms settings and profile,
 ~35 ms the theme, the WPF window ~165 ms (most of it the first-time JIT of building the title bar and toolbar - the sidebar is ~2 ms),
@@ -978,7 +978,7 @@ core and reusing the start settings for the theme draw the window 15-35 ms soone
 
 - **Kept** (measured better): the two start-up changes above; your own extensions load after the first page (Shield never waits).
 - **Tried and dropped** (no measurable gain): a low memory target for pages off screen a minute, and in game mode a sleeping pre-warmed
-  tab plus slowing background players - the browser already sat at ~0.2 % of one core with the game running.
+  tab plus slowing background players - the browser already sat at ~0.2% of one core with the game running.
 - **NGen / ReadyToRun**: ReadyToRun is .NET Core only; `ngen.exe install` needs administrator rights, so the installer (no admin) can't
   do it - not done.
 - **Memory - why not below 1.8's ~580 MB**: that figure was 14 small pages on one site. The benchmark uses 14 different sites with real

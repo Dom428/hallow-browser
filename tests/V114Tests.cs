@@ -101,7 +101,7 @@ namespace HallowBrowser.Tests
             Ok(SiteIcons.Image("https://s0.example/") != null, "logos LRU: the oldest site is used again (drawn)");
             SiteIcons.Save("https://s5.example/", Png(16, 7, 7, 7), false);
             var left = Enumerable.Range(0, 6).Where(i => SiteIcons.HasExact("s" + i + ".example")).ToList();
-            Ok(SiteIcons.Count() == 4 && left.Count == 4, "logos LRU: over the limit -> down to 90 % (" + SiteIcons.Count() + " files)");
+            Ok(SiteIcons.Count() == 4 && left.Count == 4, "logos LRU: over the limit -> down to 90% (" + SiteIcons.Count() + " files)");
             Ok(left.Contains(0) && left.Contains(5) && !left.Contains(1) && !left.Contains(2), "logos LRU: the least recently used went (s1, s2), the one just used (s0) and the newest stayed: " + string.Join(",", left));
             SiteIcons.MaxFiles = 2000;
             Ok(Directory.GetFiles(lru, "*.tmp").Length == 0, "logos cache: no temp files left behind");

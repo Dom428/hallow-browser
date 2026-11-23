@@ -2,7 +2,7 @@
 // folder, engine and pipes, local pages only. Accessibility: a Windows UI Automation walk (from this process, like a screen reader
 // would) over the window, Settings, the sidebar and every flyout - each interactive element needs a name, help text and a role; F6 /
 // Shift+F6 cycling; the toolbar as keyboard stops; Tab order in Settings; flyouts entered and left with the keyboard (Esc, no traps);
-// the UI scale (100-200 %, Windows' text size stood in by HALLOW_BROWSER_TEXTSCALE) leaving pages and page zoom alone; the high-contrast
+// the UI scale (100-200%, Windows' text size stood in by HALLOW_BROWSER_TEXTSCALE) leaving pages and page zoom alone; the high-contrast
 // palette and reduced motion (forced inside the browser - the Windows settings are never changed). Real-use fixes: the Overlay switch's
 // label, the + button, the bookmarks bar, tab groups, the game icon and game mode turning off.
 // Narrator itself isn't run (it needs a real, focused desktop session and speaks out loud) - UIA is what it reads.
@@ -203,12 +203,12 @@ namespace HallowBrowser.Tests
                 Cmd("test-activate 0"); Thread.Sleep(400);
                 var s100 = J(Cmd("test-a-scale 100"));
                 var s150 = J(Cmd("test-a-scale 150"));
-                Ok(D(s150, "scale") == 1.5 && Math.Abs(D(s150, "caption") - 57) < 0.1 && Math.Abs(D(s150, "topRow") - 57) < 1 && Math.Abs(D(s150, "address") - D(s100, "address") * 1.5) < 1, "scale 150 %: title bar 38 -> " + D(s150, "topRow") + " px (drag area " + D(s150, "caption") + "), address bar " + D(s100, "address") + " -> " + D(s150, "address"));
-                Ok(D(s150, "pageWidth") > 0 && Math.Abs(D(s150, "pageWidth") - D(s150, "contentWidth")) < 1 && D(s150, "zoom") == D(s100, "zoom") && S(s150, "pageTransform") == "Identity", "scale 150 %: the page isn't scaled - it fills its area, page zoom unchanged (" + D(s150, "zoom") + ")");
-                var s200 = J(Cmd("test-a-scale 200")); Ok(D(s200, "scale") == 2.0 && Math.Abs(D(s200, "menuBtn") - D(s100, "menuBtn") * 2) < 1, "scale 200 %: buttons twice the size (" + D(s100, "menuBtn") + " -> " + D(s200, "menuBtn") + ")");
-                Cmd("test-a-scale 0"); var sw125 = J(Cmd("test-a-textscale 125")); Ok(D(sw125, "scale") == 1.25 && D(sw125, "setting") == 0, "scale: \"Like Windows\" follows Windows' text size (125 % -> " + D(sw125, "scale") + ")");
-                var sw225 = J(Cmd("test-a-textscale 225")); Ok(D(sw225, "scale") == 2.0, "scale: Windows' 225 % is held at 200 %");
-                var sBack = J(Cmd("test-a-textscale 100")); Ok(D(sBack, "scale") == 1.0 && Math.Abs(D(sBack, "topRow") - 38) < 1, "scale: back to 100 % (title bar " + D(sBack, "topRow") + " px)");
+                Ok(D(s150, "scale") == 1.5 && Math.Abs(D(s150, "caption") - 57) < 0.1 && Math.Abs(D(s150, "topRow") - 57) < 1 && Math.Abs(D(s150, "address") - D(s100, "address") * 1.5) < 1, "scale 150%: title bar 38 -> " + D(s150, "topRow") + " px (drag area " + D(s150, "caption") + "), address bar " + D(s100, "address") + " -> " + D(s150, "address"));
+                Ok(D(s150, "pageWidth") > 0 && Math.Abs(D(s150, "pageWidth") - D(s150, "contentWidth")) < 1 && D(s150, "zoom") == D(s100, "zoom") && S(s150, "pageTransform") == "Identity", "scale 150%: the page isn't scaled - it fills its area, page zoom unchanged (" + D(s150, "zoom") + ")");
+                var s200 = J(Cmd("test-a-scale 200")); Ok(D(s200, "scale") == 2.0 && Math.Abs(D(s200, "menuBtn") - D(s100, "menuBtn") * 2) < 1, "scale 200%: buttons twice the size (" + D(s100, "menuBtn") + " -> " + D(s200, "menuBtn") + ")");
+                Cmd("test-a-scale 0"); var sw125 = J(Cmd("test-a-textscale 125")); Ok(D(sw125, "scale") == 1.25 && D(sw125, "setting") == 0, "scale: \"Like Windows\" follows Windows' text size (125% -> " + D(sw125, "scale") + ")");
+                var sw225 = J(Cmd("test-a-textscale 225")); Ok(D(sw225, "scale") == 2.0, "scale: Windows' 225% is held at 200%");
+                var sBack = J(Cmd("test-a-textscale 100")); Ok(D(sBack, "scale") == 1.0 && Math.Abs(D(sBack, "topRow") - 38) < 1, "scale: back to 100% (title bar " + D(sBack, "topRow") + " px)");
 
                 // ================= high contrast (forced in the browser for the test)
                 var hc0 = J(Cmd("test-a-hc off"));
@@ -240,11 +240,11 @@ namespace HallowBrowser.Tests
                 Eval(ntx, "document.querySelector('#hf .ov').click()"); Eval(ntx, "document.querySelector('#hf .ov').click()"); Thread.Sleep(300); Eval(ntx, "document.querySelector('#hf .ov').click()");
                 lb = Wait(ovLabel, x => x == (ovOn ? "Overlay: on" : "Overlay: off"), 6000);
                 Ok(lb == (ovOn ? "Overlay: on" : "Overlay: off"), "overlay switch: quick clicks - the label still ends on the real state (" + lb + ", Overlay " + (ovOn ? "on" : "off") + ")");
-                // the + button: centred on the tabs (measured from the drawn strip) at 100 / 125 / 150 %
+                // the + button: centred on the tabs (measured from the drawn strip) at 100 / 125 / 150%
                 foreach (var sc in new[] { 100, 125, 150 })
                 {
                     Cmd("test-a-scale " + sc); var pl = J(Cmd("test-a-plus"));
-                    Ok(D(pl, "plus") > 0 && Math.Abs(D(pl, "plus") - D(pl, "tab")) <= 1.0, "new tab button: centred on the tabs at " + sc + " % (centre " + D(pl, "plus") + " vs tab " + D(pl, "tab") + ")");
+                    Ok(D(pl, "plus") > 0 && Math.Abs(D(pl, "plus") - D(pl, "tab")) <= 1.0, "new tab button: centred on the tabs at " + sc + "% (centre " + D(pl, "plus") + " vs tab " + D(pl, "tab") + ")");
                 }
                 Cmd("test-a-scale 0");
                 // the bookmarks bar: on by itself once there is a bookmark; hidden on purpose = stays hidden

@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.14.2.0")]
-[assembly: AssemblyFileVersion("1.14.2.0")]
+[assembly: AssemblyVersion("1.14.3.0")]
+[assembly: AssemblyFileVersion("1.14.3.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.14.2";
+        public const string Version = "1.14.3";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -367,7 +367,7 @@ namespace HallowBrowser
                 ws3.ContentGrid.Children.Add(Panels.SettingsPage(ws3));
                 Snap.Save(ws3, Path.Combine(dir, "stream-settings" + sfx + ".png"), 1280, 800); ws3.Close();
                 s.SponsorSkip = false; s.TwitchChat = false;
-                // 1.9: Settings > Accessibility, and the browser at a 150 % UI scale (made-up page; pages keep their own zoom)
+                // 1.9: Settings > Accessibility, and the browser at a 150% UI scale (made-up page; pages keep their own zoom)
                 var ws4 = new BrowserWindow(s, true) { Width = 1280, Height = 800 }; ws4.SnapFill("news", false, false); ws4.SettingsQuery = "Accessibility";
                 ws4.ContentGrid.Children.Add(Panels.SettingsPage(ws4));
                 Snap.Save(ws4, Path.Combine(dir, "accessibility" + sfx + ".png"), 1280, 800); ws4.Close();
