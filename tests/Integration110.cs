@@ -99,7 +99,7 @@ namespace HallowBrowser.Tests
                 (ch == "domad" ? "setTimeout(function(){var l=document.createElement('div');l.setAttribute('data-a-target','video-ad-label');l.textContent='Ad';document.querySelector('.video-player').appendChild(l);setTimeout(function(){l.remove();window.labelGone=Date.now();},4000);},1500);" : "") +
                 "fetch('/tw/chat-api?ch=" + ch + "').then(function(r){return r.text()}).then(function(t){document.getElementById('chatstate').textContent=t});" +
                 "fetch('" + U + "/gql',{method:'POST',body:JSON.stringify([{operationName:'ChannelPointsContext',variables:{channelLogin:'" + ch + "'}}])}).then(function(r){return r.json()}).then(function(j){window.points=j});" +
-                "fetch('" + U + "/gql',{method:'POST',body:JSON.stringify([{operationName:'ClientSideAdEventHandling_RecordAdEvent',variables:{input:{eventName:'video_ad_impression'}}}])}).then(function(r){return r.json()}).then(function(j){window.adEvent=j});" +
+                "fetch('" + U + "/gql',{method:'POST',body:JSON.stringify([{operationName:'ClientSideAdEventHandling_RecordAdEvent',variables:{input:{eventName:'video_ad_request'}}}])}).then(function(r){return r.json()}).then(function(j){window.adEvent=j});" +
                 "fetch('" + U + "/h/edge.ads.twitch.tv/ads?ch=" + ch + "').then(function(r){window.adHost=r.status}).catch(function(){window.adHost='blocked'});" +
                 "fetch('" + U + "/h/spade.twitch.tv/track?ch=" + ch + "').then(function(r){window.spade=r.status}).catch(function(){window.spade='blocked'});" +
                 "</script></body></html>";

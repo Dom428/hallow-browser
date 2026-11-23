@@ -295,6 +295,11 @@ namespace HallowBrowser
             if (t.View != v) return;
             Hook(t, v.CoreWebView2);
             if (nw == null && t.PendingUrl != null && TwitchAdRules.IsTwitch(t.PendingUrl)) { await TwReady(v.CoreWebView2); if (t.View != v) return; }   // 1.11
+            // 1.14.2: a Twitch link a page opened into a new tab (target=_blank, window.open) waited for nothing: its page could load before
+            // the Twitch script was registered and then ran without it for the whole visit (Twitch never loads a page again) - an ad
+            // neither swapped nor covered, and no player watchdog
+            string nwUri = null; try { nwUri = nw != null ? nw.Uri : null; } catch { }
+            if (nw != null && TwitchAdRules.IsTwitch(nwUri)) { await TwReady(v.CoreWebView2); if (t.View != v) return; }
             if (nw == null && t.PendingUrl != null) { var u = t.PendingUrl; t.PendingUrl = null; Go(t, u); }
         }
         void Go(Tab t, string url)
@@ -812,6 +817,7 @@ namespace HallowBrowser
                     case Key.M: if (shift) act = () => ToggleMute(Active); break;
                     case Key.S: if (shift) act = () => Side.Toggle(); break;
                     case Key.Delete: if (shift) act = () => Panels.ClearData(this); break;
+                    case Key.F12: if (shift) act = () => ReportTwitchProblem(Active); break;                // 1.14.2: Report a Twitch problem
                     default:
                         if (k >= Key.D1 && k <= Key.D8) { int n = k - Key.D1; act = () => { if (n < Tabs.Count) Activate(Tabs[n]); }; }
                         else if (k == Key.D9) act = () => { if (Tabs.Count > 0) Activate(Tabs[Tabs.Count - 1]); };

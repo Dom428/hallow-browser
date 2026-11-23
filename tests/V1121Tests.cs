@@ -16,7 +16,7 @@ namespace HallowBrowser.Tests
         static void ScriptTests()
         {
             var js = TwitchAdRules.BuiltIn;
-            Ok(TwitchAdRules.VersionOf(js) == 3 && TwitchAdRules.LooksRight(js), "twitch 1.12.1: the built-in script is version 3 (newer than 1.11 / 1.12's 2, so 1.10-1.12 take it from the release)");
+            Ok(TwitchAdRules.VersionOf(js) >= 3 && TwitchAdRules.LooksRight(js), "twitch 1.12.1: the built-in script is version 3 or newer (newer than 1.11 / 1.12's 2, so 1.10-1.12 take it from the release)");
             Ok(js.Contains(":not(:has(video))") && js.Contains("CSS.supports('selector(:not(:has(video)))')"), "twitch 1.12.1: each hide rule skips a box that holds the video (when the engine knows :has)");
             Ok(js.Contains("function guardPlayer(") && js.Contains("'display', 'block', 'important'") && js.Contains("data-hallow-keep"), "twitch 1.12.1: the guard shows a hidden box around the video again");
             Ok(js.Contains("function unblock(") && js.Contains("elementsFromPoint") && js.Contains("function stuck(") && js.Contains("setInterval(watchdog, 1000)"), "twitch 1.12.1: the watchdog looks at what covers the video and whether it moves, once a second");

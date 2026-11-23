@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -46,6 +46,54 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.14.2: no more white Twitch player after an ad, and "Report a Twitch problem"
+
+From real use (1.14, a big live channel): "heard the ad then white screen ... happens sometimes with streamers" - the player area
+was plain white under Twitch's own controls. So an ad was **neither swapped nor covered** (its sound played), and afterwards the video
+stayed white. Twitch script **version 4** (1.10+ installs also get it from this release's `hallow-twitch.js`):
+
+- **An ad that gets through is covered and muted**, whichever way it shows itself: ad markers in a playlist (more kinds: Twitch's
+  DATERANGE classes, X-TV-TWITCH-AD attributes, "Amazon" segment titles, cue tags, and any non-"live" segment title), playlists read
+  with XMLHttpRequest and in module workers (not only fetch in classic workers), the player's ad label / countdown (more of their
+  names, and a short "Ad" / "Ad 1 of 2" label in the player found by its text), the **ad events Twitch's page reports** (an impression
+  or quartile - they are still answered in the page, never sent), or a **second video playing with sound in an ad box**. The cover
+  shows "Ad break - back in 0:28"; the stream plays muted underneath and the tab is muted too. A label that stays more than 3 minutes
+  is ignored, so a cover can never stay up for good.
+- **A white, blank or frozen player is recovered**: the script looks at the video's own picture (a 32 x 18 sample on a canvas, every
+  2 s) as well as its state. Nearly all white and flat for 6 s while it should play: Twitch's player is nudged, then its source is
+  loaded again, then it is moved to the **backup stream** (Twitch's own stream of the channel as another player type), and - only
+  within 5 minutes after an ad, at most once in 10 minutes - the page reloads. A picture that stops changing while time runs on
+  right after an ad gets the two gentle steps (it could be a still "be right back" screen). A video stuck after an ad that the 1.12.1
+  watchdog couldn't free gets the same last step.
+- **A white sheet over the video** with at most a button or a short line on it (like the "Prime" button over a white player in the
+  report) is hidden, like 1.12.1's empty ad frames. Twitch's own screens (the mature-content gate, errors, extensions) stay.
+- **Why an alternative failed** is now kept: each playlist decision ("ad (class) on the channel", "swap -> embed", "no clean
+  alternative (embed:token-..., popout:ad/...)", "clean", "player white - recovery step 1") is in `window.__hallowTwitch.decisions`.
+- **Report a Twitch problem** - in the Twitch button's panel (address bar, on a channel), in More tools and Ctrl+K on twitch.tv, and
+  **Ctrl+Shift+F12**. It saves **one file to your Downloads**: `Hallow Twitch report <date time>.zip` with `report.json` and
+  `player.png` (a small picture of the player area only), and shows its path with **Show in folder**. Inside: the browser, WebView2
+  and Twitch script versions, the script's events and decisions, the player's and video's state (ready state, time, size, buffered,
+  muted, a picture sample), the elements over the player (tag, class names and Twitch's `data-a-target` / `data-test-selector` names -
+  **no text, no chat, no user names, no cookies or sign-in**), ad markers on the page, and Hallow's own state (game mode, muted, swaps /
+  covers in the tab). **The channel's name is replaced by `[channel]`.** Nothing is sent anywhere - you decide whether to pass it on.
+- **A Twitch link another page opens into a new tab** (`target=_blank`) now waits for the Twitch script like a typed address does; before, that
+  tab's first page could load without it and stay without it for the whole visit (no swap, no cover, no watchdog).
+- Test copies of the browser now always start muted (`--mute-audio`).
+
+Tests: 1.14.2 adds (unit) version 4's markers, XHR / module-worker hooks, ad-event / ad-box / label signals, the white-picture check and
+its recovery limits, the white-sheet rule, and the report (file name, the player-only picture at most 480 px wide, the zip, the
+anonymising); (integration "v1142", a local fake Twitch with the real player's markup and a moving canvas picture) an unswapped ad shown
+only by the label - covered in about half a second, the stream and the tab muted, lifted after - then the picture turns white: found and
+recovered, nothing more once it's back, no page reload; an ad shown only by Twitch's ad event, by a second video in an ad box, by a
+playlist read with XMLHttpRequest - covered; a white sheet with one button - hidden; a channel you allow ads on - untouched; a plain
+player - no false alarms; the report's zip (anonymised: no channel name, cookie, chat or user name), the menu entry and the toast.
+Real Twitch (off-screen, throw-away signed-out test profiles, **muted**: test copies now start with `--mute-audio` and a muted tab, and
+Windows' audio meter showed no audio session from them): caseoh_, xQc and HasanAbi, about 40 fresh loads over two short runs. Two real ads
+came (xQc, caseoh_), both swapped for Twitch's own `embed` stream in the same playlist fetch, the picture kept moving (the canvas
+sample works on the real player), no cover was needed and nothing was falsely recovered. Twitch's playlists now also carry a
+`twitch-trigger` DATERANGE with a trigger address; version 4 records it if the player ever fetches it. Honestly: the unswapped ad from
+the report didn't happen in these runs, so 1.14.2 covers each way it can come about - including a Twitch link opened into a new tab by
+another page, which no longer loads before the Twitch script is in place - and **Report a Twitch problem** captures the next one.
 ## What's new in 1.14: site logos everywhere
 
 From real use: "will the logos appear for each bookmark?" - the bookmarks bar showed the same plain globe for Emby, UGREEN, Supabase,

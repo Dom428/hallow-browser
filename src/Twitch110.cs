@@ -325,6 +325,10 @@ namespace HallowBrowser
             sp.Children.Add(Ui.Switch("Block Twitch ads", "Swaps an ad break for Twitch's own ad-free stream of the channel when there is one, otherwise covers it and mutes it. Only Twitch's servers are contacted.", S.TwitchAds, on => { Panels.CloseFlyouts(); S.TwitchAds = on; S.Save(); TwitchSettingsChanged(); }));
             var more = Ui.Btn("Twitch ad settings", () => { Panels.CloseFlyouts(); OpenSettingsAt("Twitch ads"); }, false, "gear"); more.Margin = new Thickness(0, 8, 0, 0); more.HorizontalAlignment = HorizontalAlignment.Left;
             sp.Children.Add(more);
+            // 1.14.2: a white / stuck player or an ad that got through: one anonymised file for the developer (Ctrl+Shift+F12)
+            var rep = Ui.Btn("Report a Twitch problem", () => { Panels.CloseFlyouts(); ReportTwitchProblem(t); }, false, "triangle-exclamation"); rep.Margin = new Thickness(0, 6, 0, 0); rep.HorizontalAlignment = HorizontalAlignment.Left;
+            rep.ToolTip = "Saves a small file to your Downloads (what the player was doing, a picture of the player - no chat, user names or cookies) to send to the developer. " + TwitchReport.Keys;
+            sp.Children.Add(rep);
             Panels.ShowFlyout(twitchBtn != null && twitchBtn.IsVisible ? (UIElement)twitchBtn : menuBtn, sp, 360);
         }
 

@@ -9,6 +9,16 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.14.2 - NO MORE WHITE TWITCH PLAYER AFTER AN AD
+- An ad that gets through on Twitch is covered ("Ad break - back in 0:28") and muted,
+  whichever way it shows itself (playlist markers, the player's ad label, Twitch's own
+  ad events, a second video in an ad box).
+- A white, blank or frozen player is found (Hallow looks at the video's picture) and
+  recovered: nudge, reload the stream, the backup stream - and, right after an ad, the page.
+- Report a Twitch problem (the Twitch button on a channel, More tools, or Ctrl+Shift+F12):
+  saves "Hallow Twitch report <date>.zip" to your Downloads - what the player was doing
+  and a small picture of it. No chat, user names or cookies; the channel is [channel].
+  Send that file to the developer.
 WHAT'S NEW IN 1.14 - SITE LOGOS EVERYWHERE
 - Every bookmark shows its site's logo: on the bookmarks bar and in its folders, in the
   bookmarks manager, the History page, the new tab tiles, Ctrl+K and the address bar's

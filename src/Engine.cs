@@ -48,6 +48,9 @@ namespace HallowBrowser
             if (BrowserSettings.HostRules != null) rules += ", " + BrowserSettings.HostRules.Replace("\"", "");
             a.Add("--host-resolver-rules=\"" + rules + "\"");
             if (BrowserSettings.Offscreen) { a.Add("--disable-features=CalculateNativeWinOcclusion"); a.Add("--disable-backgrounding-occluded-windows"); a.Add("--autoplay-policy=no-user-gesture-required"); }
+            // 1.14.2: test runs are silent (off-screen test copies were heard while the user played): every test browser starts muted at
+            // the audio output; HALLOW_BROWSER_MUTE=0 only for a deliberate audio check
+            if (BrowserSettings.TestDir != null && Environment.GetEnvironmentVariable("HALLOW_BROWSER_MUTE") != "0") a.Add("--mute-audio");
             if (BrowserSettings.IgnoreCerts) a.Add("--ignore-certificate-errors");   // 1.4 tests only: the local stand-ins' self-signed certificates
             return string.Join(" ", a);
         }

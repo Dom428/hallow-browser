@@ -95,6 +95,7 @@ namespace HallowBrowser
             more.Add(R("shield-halved", "Hallow Shield settings", null, () => Panels.OpenShieldSettings(w)));
             more.Add(R("puzzle-piece", "Extensions", null, () => w.NewTab(Omni.ExtensionsUrl, true)));
             more.Add(R("sliders", "Site settings", null, () => w.NewTab(Omni.SitesUrl, true)));
+            if (w.CanReportTwitch(a)) more.Add(R("twitch", "Report a Twitch problem", TwitchReport.Keys, () => w.ReportTwitchProblem(w.Active)));   // 1.14.2
             more.Add(new MItem { Icon = "terminal", Text = "Developer tools", Keys = "F12", Run = () => { if (w.Active != null && w.Active.Core != null) w.Active.Core.OpenDevToolsWindow(); }, Enabled = a != null && a.Core != null });
             top.Add(new MItem { Icon = "terminal", Text = "More tools", Id = "more", Kids = more });
             var cur = Program.Profiles == null ? null : Program.Profiles.Items.FirstOrDefault(p => p.Id == BrowserSettings.ProfileId);
