@@ -25,7 +25,7 @@ namespace HallowBrowser
     public static partial class KeysLink
     {
         // tests use their own stand-in Keys on a ".browsertest" pipe with fake logins (never the real vault)
-        public static string PipeName { get { return "HallowKeys.Native." + Environment.UserName + (BrowserSettings.TestDir != null ? ".browsertest" : ""); } }
+        public static string PipeName { get { return TestPipe ?? "HallowKeys.Native." + Environment.UserName + (BrowserSettings.TestDir != null ? ".browsertest" : ""); } }   // 1.15 tests: HALLOW_BROWSER_KEYS_PIPE
         public static string SecretFile
         {
             get

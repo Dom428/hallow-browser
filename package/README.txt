@@ -9,6 +9,13 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.15 - PASSKEYS THROUGH HALLOW KEYS
+- When a site asks to save or use a passkey, Hallow Keys' prompt shows under the address bar: save it in
+  your Hallow Keys vault, pick one of yours, or use your phone / a security key / Windows Hello instead.
+  Needs Hallow Keys 2.13 or newer, running. Settings > Hallow Keys > Use Hallow Keys for passkeys (on).
+- On sign-in pages that offer passkeys in the email box, the key in the address bar lists them too.
+- Hallow Keys closed or the setting off: sites get Windows' own passkey window, as before.
+
 WHAT'S NEW IN 1.14.3
 - Percentages read 45% instead of 45 %.
 

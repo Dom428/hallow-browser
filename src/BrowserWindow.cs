@@ -521,6 +521,7 @@ namespace HallowBrowser
             Hook17(c);   // 1.7: translation
             Hook18(c);   // 1.8: SponsorBlock on YouTube
             Hook110(c);  // 1.10: Twitch ad handling (also in private windows)
+            Hook115(c);  // 1.15: passkeys through Hallow Keys (not in private windows)
             // 1.2: in split view, clicking into a side makes it the active tab
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
@@ -536,8 +537,8 @@ namespace HallowBrowser
             Func<Tab> T = () => { Tab x; return owner.TryGetValue(c, out x) ? x : null; };
             c.SourceChanged += (a, b) => { var x = T(); if (x == null || x.HttpsBlocked != null) return; if (c.Source == "about:blank" && !x.Ready && x.Url != null && x.Url != "about:blank") return; x.Url = c.Source; if (x == Active) UpdateBar(); Changed(); };
             c.DocumentTitleChanged += (a, b) => { var x = T(); if (x == null) return; x.Title = c.DocumentTitle; if (string.IsNullOrWhiteSpace(x.Title)) x.Title = Omni.HostOf(x.Url) ?? "Tab"; if (Omni.IsNewTab(x.Url)) x.Title = "New tab"; x.TitleBlock.Text = x.Title; if (!S.TabPreviews) x.Header.ToolTip = x.Title; if (x == Active) UpdateTitle(); if (!Private && History != null && Omni.IsWeb(x.Url)) History.SetTitle(x.Url, x.Title); Changed(); };
-            c.NavigationStarting += (a, b) => { var x = T(); if (x == null) return; x.MediaSeen = x.Audible; ApplyDark(x, c, b.Uri); x.Loading = true; x.KeysItems = null; x.KeysLocked = false; if (!Omni.IsNewTab(b.Uri)) x.Favicon = null; x.Readable = false; x.ProbedUrl = null; if (x.ReaderOn) ReaderOff(x); SetTabIcon(x); if (x == Active) UpdateBar(); };
-            c.WebMessageReceived += (a, b) => { if (T() == null) return; string m = null; try { m = b.TryGetWebMessageAsString(); } catch { } if (m == "hallow:focus") ViewFocused(T()); else if (m != null && m.StartsWith("hallow:nt-")) NewTabMessage(m, b.Source); else if (m != null && m.StartsWith("hallow:https-")) HttpsMessage(T(), m); else if (m != null && m.StartsWith("hallow:login\t")) OnLoginMessage(T(), c, b.Source, m.Substring(13)); else if (m != null && m.StartsWith("hallow:gesture\t")) OnGesture(T(), m.Substring(15)); else if (m == "hallow:media-play") { var x = T(); if (x != null && !x.MediaSeen) { x.MediaSeen = true; UpdateMediaButtons(); } } };
+            c.NavigationStarting += (a, b) => { var x = T(); if (x == null) return; x.MediaSeen = x.Audible; ApplyDark(x, c, b.Uri); x.Loading = true; x.KeysItems = null; x.KeysLocked = false; PasskeyGone(x, null); if (!Omni.IsNewTab(b.Uri)) x.Favicon = null; x.Readable = false; x.ProbedUrl = null; if (x.ReaderOn) ReaderOff(x); SetTabIcon(x); if (x == Active) UpdateBar(); };
+            c.WebMessageReceived += (a, b) => { if (T() == null) return; string m = null; try { m = b.TryGetWebMessageAsString(); } catch { } if (m == "hallow:focus") ViewFocused(T()); else if (m != null && m.StartsWith("hallow:nt-")) NewTabMessage(m, b.Source); else if (m != null && m.StartsWith("hallow:https-")) HttpsMessage(T(), m); else if (m != null && m.StartsWith("hallow:login\t")) OnLoginMessage(T(), c, b.Source, m.Substring(13)); else if (m != null && m.StartsWith("hallow:pk\t")) OnPasskeyMessage(T(), c, null, b.Source, m.Substring(10)); else if (m != null && m.StartsWith("hallow:gesture\t")) OnGesture(T(), m.Substring(15)); else if (m == "hallow:media-play") { var x = T(); if (x != null && !x.MediaSeen) { x.MediaSeen = true; UpdateMediaButtons(); } } };
             c.NavigationCompleted += (a, b) =>
             {
                 var x = T(); if (x == null) return; x.Loading = false; x.Ready = true; SetTabIcon(x);
@@ -684,10 +685,12 @@ namespace HallowBrowser
             Uri u; var secure = Uri.TryCreate(t.Url ?? "", UriKind.Absolute, out u) && u.Scheme == "https" && !Omni.IsNewTab(t.Url);
             lockIcon.Data = Icons.Get(t.Internal ? "gear" : secure ? "lock" : Omni.IsWeb(t.Url) ? "lock-open" : "magnifying-glass");
             lockIcon.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, secure ? "Green" : Omni.IsWeb(t.Url) && u != null && u.Scheme == "http" ? "Amber" : "Muted");
-            var keyShow = S.KeysOn && ((t.KeysItems != null && t.KeysItems.Count > 0) || t.KeysLocked);
+            var pkShow = PasskeyKeyShows(t);   // 1.15: passkey autofill
+            var keyShow = (S.KeysOn && ((t.KeysItems != null && t.KeysItems.Count > 0) || t.KeysLocked)) || pkShow;
             keyBtn.Visibility = keyShow ? Visibility.Visible : Visibility.Collapsed;
-            keyBtn.Opacity = t.KeysItems != null && t.KeysItems.Count > 0 ? 1 : 0.5;
-            keyBtn.ToolTip = t.KeysLocked ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
+            keyBtn.Opacity = (t.KeysItems != null && t.KeysItems.Count > 0) || (pkShow && t.PasskeyCond.Items.Count > 0) ? 1 : 0.5;
+            keyBtn.ToolTip = pkShow && t.PasskeyCond.Items.Count > 0 ? "Sign in with a passkey from Hallow Keys (" + t.PasskeyCond.Items.Count + ")" : t.KeysLocked || pkShow ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
+            UpdatePasskeyPrompt();
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
             UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateTwitchButton(t); UpdateZoom(); UpdateTitle();
         }

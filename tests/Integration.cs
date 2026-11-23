@@ -79,6 +79,7 @@ namespace HallowBrowser.Tests
             if (mode.StartsWith("bench")) return Bench19.Main(exe, dir, mode);   // 1.9: the speed benchmark (start-up, new tab, memory, scrolling, game impact)
             if (mode == "v110") return Integration110.Main(exe, dir);
             if (mode == "v1121") return Integration1121.Main(exe, dir);
+            if (mode == "v115") return Integration115.Main(exe, dir);     // 1.15: passkeys through Hallow Keys (a stand-in running Keys' own pipe code)
             if (mode == "v1142") return Integration1142.Main(exe, dir);   // 1.14.2: an unswapped ad covered, a white player recovered, Report a Twitch problem
             if (mode == "v114") return Integration114.Main(exe, dir);     // 1.14: site logos - the cache, private windows, the one-time import from a fake Brave, the quiet fetch, every place they show
             if (mode == "v113") return Integration113.Main(exe, dir);     // 1.13: the menu (shape, 768 px, submenus, Ctrl+K), the History page, import placement, the bar repair, the default-browser hint   // 1.12.1: the Twitch player guard / watchdog (fake Twitch with the real player's markup), the memory target

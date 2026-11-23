@@ -103,7 +103,8 @@ namespace HallowBrowser
             var t = w.Active; if (t == null) return null;
             var st = new KeysFlyoutState { Tab = t, Origin = Omni.Origin(t.Url), Items = t.KeysItems ?? new List<KeysItem>() };
             var sp = new StackPanel(); sp.Children.Add(Head("Hallow Keys"));
-            if (t.KeysLocked || st.Items.Count == 0)
+            var pkRows = w.PasskeyFlyoutRows(t, () => st.Popup);   // 1.15: passkey autofill
+            if ((t.KeysLocked || st.Items.Count == 0) && (pkRows.Count == 0 || t.KeysLocked))
             {
                 var m = Ui.Muted(t.KeysLocked ? "Hallow Keys is locked. Unlock it, then click the key again." : "No logins for this site.", 12); m.Margin = new Thickness(12, 0, 12, 8); sp.Children.Add(m);
             }
@@ -114,6 +115,7 @@ namespace HallowBrowser
                 row.Click += async (a, b) => { st.Popup.IsOpen = false; var msg = await Pick(w, st, item); w.Toast(msg, 4); };
                 sp.Children.Add(row);
             }
+            foreach (var pr in pkRows) sp.Children.Add(pr);
             var note = Ui.Muted("Fills only on " + (st.Origin ?? "this page") + ", only when you pick a login.", 10.5); note.Margin = new Thickness(12, 6, 12, 6); sp.Children.Add(note);
             st.Popup = at != null && PresentationSource.FromVisual(at) != null ? Show(at, sp, 340) : null;
             LastKeys = st;
@@ -358,7 +360,7 @@ namespace HallowBrowser
                 Ui.Muted(w.ShieldCounts ? "\"Blocked on this page\" works: Shield is loaded with the feedback permission it asks for (WebView2 has no permission prompt, so the browser grants it in its own copy of Shield)." : "", 11, 0) }));
 
             col.Children.Add(card("Hallow Keys", new UIElement[] {
-                Ui.Switch("Fill logins from Hallow Keys", "A key shows in the address bar when Keys has a login for the page. Nothing is filled until you click it and pick a login, and only on that exact site.", S.KeysOn, on => { S.KeysOn = on; save(); }) }.Concat(w.KeysSaveSettings()).ToArray()));   // 1.5: saving logins
+                Ui.Switch("Fill logins from Hallow Keys", "A key shows in the address bar when Keys has a login for the page. Nothing is filled until you click it and pick a login, and only on that exact site.", S.KeysOn, on => { S.KeysOn = on; save(); }) }.Concat(w.KeysSaveSettings()).Concat(w.PasskeySettings()).ToArray()));   // 1.5: saving logins; 1.15: passkeys
 
             col.Children.Add(card("About", new UIElement[] {
                 Ui.Muted("Hallow Browser " + Program.Version + " - a Chromium browser on Microsoft Edge WebView2 (runtime " + (Engine.RuntimeVersion ?? "?") + ", SDK " + Program.SdkVersion + ").", 12, 4),

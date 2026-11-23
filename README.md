@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,39 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.15: passkeys through Hallow Keys
+
+When a website asks to **save or use a passkey**, Hallow Browser now hands it to **Hallow Keys** (2.13 or newer, running) - no
+extension needed. Hallow Keys' prompt shows **under the address bar**: **Save passkey in Hallow Keys**, pick one of your passkeys,
+or **Use another device or the browser's own** (Windows' own window: your phone with a QR code, a security key or Windows Hello).
+On sign-in pages that offer passkeys in the email box (passkey autofill), the **key in the address bar** lists them too. Locked?
+The prompt offers **Unlock Hallow Keys** and continues by itself once you have. Settings > Hallow Keys > **Use Hallow Keys for
+passkeys** (on by default). Hallow Keys closed, the setting off, or a private window: sites get Windows' own passkey window, as before.
+
+How it's kept safe (details in [Hallow Keys](#hallow-keys)):
+- the page never talks to Keys: a small script of the browser's own wraps `navigator.credentials` on https pages and hands the
+  request to the browser, which takes the **page's address from the engine** (never from the page) and talks to Keys;
+- the prompt is the browser's own window - the page can't see, cover or click it (and a click only counts after it has been up
+  half a second);
+- Hallow Keys checks everything again, exactly as for its extension: https only, the passkey must belong to the page's own site
+  or to a site that lists the page in its `/.well-known/webauthn` (Microsoft's sign-in), nothing while locked, Windows Hello first
+  when it's on - and it checks that the other end really is Hallow Browser;
+- a frame from another site inside a page gets passkeys only when the page allows it (`allow="publickey-credentials-get"` /
+  `-create`), as in other browsers; the signed answer goes back only to the same tab or frame while it's still on that site.
+
+Why not just load Hallow Keys' browser extension? WebView2 does load it (tested: it loads and its page script runs), but
+native messaging - the extension's only way to reach the Keys app - isn't among the extension APIs WebView2 supports, and there
+is no documented place to register a native host for WebView2 (in the test, `sendNativeMessage` only answered "Specified native
+messaging host not found"). Its in-page prompt would also be drawn inside the page. The browser's own channel to Keys - the one
+Hallow Browser already uses for logins - has neither problem.
+
+Tests: 1.15 adds unit tests (the page script, what a page's message may carry, the request Keys gets, the frame rule, the
+setting) and an end-to-end suite (`v115`, 58 checks) against a stand-in that runs **Hallow Keys' own pipe code** with a made-up
+vault: create / get with the signature verified in the page, Cancel / the browser's own, locked -> unlock -> pick, autofill,
+Microsoft-style related origins (account.live.test / login.live.test using passkeys of login.microsoft.test), refused for an
+unlisted site, a wrong site, an http page, a page sending its own message with someone else's address, a program pretending to
+be Hallow Browser, a frame without the permission; the setting off, Keys gone, a private window, navigating away.
 
 ## What's new in 1.14.2: no more white Twitch player after an ad, and "Report a Twitch problem"
 
@@ -1120,7 +1153,14 @@ Keys' native host normally checks the *extension's identity*. Hallow Browser doe
 - **1.5: saving** uses Keys' own `save-check` / `save` requests (the ones its extension sends) with the address of the top-level page
   that sent the login form, only after you click Save; the password is held in memory only while the question is open.
 
-Tests use a stand-in Keys on a separate test pipe with one made-up login - never the real Keys or vault.
+- **1.15: passkeys** go to Keys as `passkey-list` / `passkey-get` / `passkey-create` (the requests its extension sends) with
+  `"client": "hallow-browser"`; Keys 2.13 checks with Windows that the pipe's other end is HallowBrowser.exe. The address is the
+  engine's report for the document that asked (the tab, or a frame's own address plus the tab's as `topUrl` - Keys then writes
+  `crossOrigin` / `topOrigin` into clientDataJSON). Nothing is asked before Keys has checked the site; the prompt is the browser's
+  own; frames inside frames are left to WebView2's own handling.
+
+Tests use a stand-in Keys on a separate test pipe with one made-up login - never the real Keys or vault. 1.15's passkey suite runs
+Hallow Keys' own pipe code (2.13) with a made-up vault in the test folder instead.
 
 ## Family link
 
