@@ -202,8 +202,15 @@ namespace HallowBrowser
                 line = light ? "#DAD3E6" : "#3A3248", field = light ? "#FFFFFF" : "#110E17", dim = light ? "#6B6478" : "#5E5670", head = light ? Look.TextAccent(accent) : accent,
                 tile = light ? "#FFFFFF" : "#1C1626", tileHover = light ? "#F0EAFA" : "#261E33";
             return "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><meta name=color-scheme content=" + (light ? "light" : "dark") + "><title>New tab</title><style>" +
-                "html,body{margin:0;height:100%;background:" + bg + ";color:" + fg + ";font:15px 'Segoe UI',system-ui,sans-serif}" +
-                "body{display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%," + glow + " 0," + bg + " 60%)}" +
+                // 1.15.1: one column in the document's flow (nothing fixed over the content): centred when it fits, scrolling when it
+                // doesn't; the Hallow strip and the time are a footer under everything (they used to be pinned to the bottom and covered
+                // the Overlay row in a small window). 800 x 500 up to 4K: tighter spacing when short, larger on very wide screens.
+                "html{height:100%;background:" + bg + "}html,body{margin:0;color:" + fg + ";font:15px 'Segoe UI',system-ui,sans-serif}" +
+                "body{min-height:100%;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;padding:24px 16px 14px;background:radial-gradient(ellipse at 50% 35%," + glow + " 0," + bg + " 60%) fixed}" +
+                "main{margin:auto 0;width:100%;display:flex;flex-direction:column;align-items:center}" +
+                "footer{width:100%;margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:10px}" +
+                "@media (max-height:760px){body{padding-top:16px}h1{font-size:28px!important}p{margin-bottom:18px!important}#clk{font-size:42px!important}#dial{margin-top:18px!important}footer{margin-top:20px}}" +
+                "@media (min-width:2400px){html{zoom:1.35}}@media (min-width:3400px){html{zoom:1.75}}" +
                 "h1{font-weight:300;letter-spacing:.32em;font-size:34px;margin:0 0 6px}h1 b{font-weight:700;color:" + head + "}" +
                 "p{color:" + muted + ";margin:0 0 28px;font:12px 'Cascadia Mono',Consolas,monospace;letter-spacing:.08em}" +
                 "#clk{font:200 54px 'Segoe UI',system-ui,sans-serif;letter-spacing:.04em;margin:0 0 4px;color:" + fg + "}#clk:empty{display:none}" +
@@ -217,19 +224,19 @@ namespace HallowBrowser
                 ".tl span{max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
                 ".tl button{position:absolute;top:3px;width:20px;height:20px;border:0;border-radius:6px;background:transparent;color:" + muted + ";font-size:12px;line-height:20px;padding:0;cursor:pointer;opacity:0}" +
                 ".tl:hover button,.tl:focus-within button{opacity:1}.tl button:hover{background:" + line + ";color:" + fg + "}.tl .x{right:3px}.tl .pn{left:3px}.tl.pinned .pn{opacity:1;color:" + head + "}" +
-                "#fam{position:fixed;bottom:40px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}#fam:empty{display:none}" +
+                "#fam{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:min(720px,92vw)}#fam:empty{display:none}" +
                 "#fam div{padding:5px 12px;border-radius:14px;border:1px solid " + line + ";background:" + tile + ";font:11.5px 'Cascadia Mono',Consolas,monospace;color:" + muted + "}#fam b{color:" + head + ";font-weight:600}" +
-                "#t{position:fixed;bottom:18px;color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}" +
-                "#gc{width:min(720px,90vw);margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:12px}#gc:empty{display:none}#gc section{background:" + tile + ";border:1px solid " + line + ";border-radius:12px;padding:10px 14px}" +
+                "#t{color:" + dim + ";font:11px 'Cascadia Mono',Consolas,monospace}#t:empty{display:none}" +
+                "#gc{width:min(720px,90vw);margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}#gc:empty{display:none}#gc section{min-width:0}#gc section{background:" + tile + ";border:1px solid " + line + ";border-radius:12px;padding:10px 14px}" +
                 "#gc h2{font:600 11px 'Cascadia Mono',Consolas,monospace;letter-spacing:.12em;color:" + head + ";margin:2px 0 8px}#gc a{display:block;color:" + fg + ";text-decoration:none;font-size:12.5px;padding:4px 0;border-top:1px solid " + line + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
                 "#gc a:first-of-type{border-top:0}#gc a:hover{color:" + head + "}#gc a small{color:" + muted + ";margin-right:6px}#gc .note{color:" + muted + ";font-size:11px;margin-top:6px}" +
                 NewTabFamily.Css(fg, muted, line, tile, tileHover, head) +   // 1.6: the Hallow family rows
                 // 1.12: the one-time "make Hallow your default browser" note (a quiet bar at the top; closed once = never again)
-                "#dh{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 8px 7px 16px;border-radius:12px;border:1px solid " + line + ";background:" + tile + ";color:" + fg + ";font-size:13px;max-width:92vw;box-shadow:0 4px 18px #0003}#dh:empty{display:none}" +
+                "#dh{margin:0 0 16px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:7px 8px 7px 16px;border-radius:12px;border:1px solid " + line + ";background:" + tile + ";color:" + fg + ";font-size:13px;max-width:92vw;box-shadow:0 4px 18px #0003}#dh:empty{display:none}" +
                 "#dh button{border:0;border-radius:8px;white-space:nowrap;font:600 12.5px 'Segoe UI',system-ui,sans-serif;cursor:pointer;padding:6px 12px}#dh .go{background:" + head + ";color:" + (light ? "#FFFFFF" : bg) + "}#dh .go:hover,#dh .go:focus{filter:brightness(1.1);outline:2px solid " + head + ";outline-offset:2px}" +
                 "#dh .x{background:transparent;color:" + muted + ";font-size:16px;padding:2px 8px;line-height:20px}#dh .x:hover,#dh .x:focus{background:" + line + ";color:" + fg + ";outline:none}" +
-                "</style></head><body><div id=dh role=region aria-label=\"Default browser\"></div><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
-                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=hf></div><div id=gc></div><div id=fam></div><div id=t></div>" +
+                "</style></head><body><div id=dh role=region aria-label=\"Default browser\"></div><main><div id=clk></div><h1><b>HALLOW</b> BROWSER</h1><p>// SHIELD ON - NOTHING LEAVES THIS PC</p>" +
+                "<form id=f><input id=q name=q autocomplete=off placeholder=\"Search " + name + " or type an address\" autofocus></form><div id=dial></div><div id=hf></div><div id=gc></div></main><footer><div id=fam></div><div id=t></div></footer>" +
                 "<script>var u=" + new JavaScriptSerializer().Serialize(url) + ";document.getElementById('f').onsubmit=function(e){e.preventDefault();var v=document.getElementById('q').value.trim();if(v)location.href=u+encodeURIComponent(v);};" +
                 "var D={};function c(){var d=new Date(),s=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);document.getElementById('t').textContent=D.clock?'':s;document.getElementById('clk').textContent=D.clock?s:'';}c();setInterval(c,15000);" +
                 "function post(m){try{chrome.webview.postMessage(m);}catch(e){}}" +

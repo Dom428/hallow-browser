@@ -64,7 +64,7 @@ namespace HallowBrowser
         public static readonly string MpCmdRunTest = TestDir != null ? Env("HALLOW_BROWSER_MPCMDRUN") : null;
         public static readonly int[] DlLimitChoices = { 0, 256, 1024, 4096, -1 };   // KB/s for all downloads together while a game runs; -1 = pause them
 
-        [DataMember] public string Search = "duckduckgo";
+        [DataMember] public string Search = "google";            // 1.15.1: Google for new installs (a saved choice is kept)
         [DataMember] public bool RestoreSession = true;
         [DataMember] public bool ClearOnExit;
         [DataMember] public bool BlockThirdPartyCookies = true;
@@ -137,7 +137,7 @@ namespace HallowBrowser
 
         [OnDeserializing] void Defaults(StreamingContext c)
         {
-            Search = "duckduckgo"; RestoreSession = true; BlockThirdPartyCookies = true; DoNotTrack = true; PageColors = "dark"; UseHallowAccent = true;
+            Search = "duckduckgo"; /* 1.15.1: a settings file from before without a search engine had DuckDuckGo - kept */ RestoreSession = true; BlockThirdPartyCookies = true; DoNotTrack = true; PageColors = "dark"; UseHallowAccent = true;
             GameLight = true; SleepMinutes = 15; Preconnect = true; KeysOn = true; ShieldAutoUpdate = true; Left = Top = double.NaN; Width = 1280; Height = 820;
             Look = "follow"; SidebarOn = true; SidebarSleepMinutes = 10; BandwidthGameOnly = true;
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
@@ -162,7 +162,7 @@ namespace HallowBrowser
         }
         public void Fix()
         {
-            if (Array.IndexOf(Engines, Search) < 0) Search = "duckduckgo";
+            if (Array.IndexOf(Engines, Search) < 0) Search = "google";
             // 1.0 saved "dark" as its default: 1.1 makes that "follow" (the same look until Hallow's mode is light)
             if (SettingsVersion < 2) { if (PageColors == "dark" || PageColors == null) PageColors = "follow"; SettingsVersion = 2; }
             if (PageColors != "light" && PageColors != "auto" && PageColors != "dark") PageColors = "follow";

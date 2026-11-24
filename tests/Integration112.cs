@@ -159,7 +159,7 @@ namespace HallowBrowser.Tests
                 n0 = Tabs().Count; var hits0 = srv.Log.Count;
                 code = Second("javascript:alert(1) \"how to cook rice\" cats data:text/html,x mailto:a@b.c hallow://settings", out ms);
                 Thread.Sleep(1500); var tj = Tabs();
-                Ok(code == 0 && tj.Count == n0 && !tj.Any(x => (S(x, "url") ?? "").Contains("duckduckgo")), "junk arguments: refused, no tab, no search (" + tj.Count + " tabs)");
+                Ok(code == 0 && tj.Count == n0 && !tj.Any(x => ((S(x, "url") ?? "").Contains("duckduckgo") || (S(x, "url") ?? "").Contains("google.com/search"))), "junk arguments: refused, no tab, no search (" + tj.Count + " tabs)");
 
                 // PDF (WebView2's own PDF viewer), SVG, WebP
                 n0 = Tabs().Count; Second("\"" + pdf + "\"", out ms);

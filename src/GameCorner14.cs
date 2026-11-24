@@ -65,7 +65,15 @@ namespace HallowBrowser
                 }
             }
             catch { }
-            foreach (var h in res) if (string.IsNullOrWhiteSpace(h.Name)) h.Name = "App " + h.AppId;
+            // 1.15.1: Hub has no name for a game it only knows by its app id (was "App 1422450"): Steam's own files on this PC, then
+            // names found before; still nothing = "Steam game <id>"
+            foreach (var h in res) if (!string.IsNullOrWhiteSpace(h.Name)) SteamNames.Remember(h.AppId, h.Name);
+            var missing = res.Where(h => string.IsNullOrWhiteSpace(h.Name)).Select(h => h.AppId).ToList();
+            if (missing.Count > 0)
+            {
+                Dictionary<string, string> names; try { names = SteamNames.Resolve(missing); } catch { names = new Dictionary<string, string>(); }
+                foreach (var h in res) { string n; if (string.IsNullOrWhiteSpace(h.Name)) h.Name = names.TryGetValue(h.AppId, out n) ? n : SteamNames.Fallback(h.AppId); }
+            }
             return res;
         }
         // Steam: {"appnews":{"appid":..,"newsitems":[{"title","url","date"(unix),"feedlabel",...}]}}

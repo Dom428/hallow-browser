@@ -457,6 +457,7 @@ namespace HallowBrowser
             Task.Run(() => { lock (ntLock) NewTabData.Write(NewTabData.Build(s, hist != null && hist.Loaded ? hist.All() : new List<HistoryEntry>(), playing, DateTime.Now, inGame)); });
             RefreshFamily(Engine.SinceStart() < 5000 ? 1500 : 0);   // 1.6: your games, clips and the Overlay switch - after the first paint
             GameCornerTick(false);   // 1.4: when it is on and due
+            ShieldForNewTab();   // 1.15.1: a fresh Shield count while a new tab page is open (at most every 2 minutes)
         }
         void NewTabMessage(string m, string source)
         {
@@ -466,14 +467,14 @@ namespace HallowBrowser
             var p = m.Split('\t'); var url = p.Length > 1 ? p[1] : null; if (!Omni.IsWeb(url)) return;
             if (p[0] == "hallow:nt-hide") { if (!S.NewTabHidden.Contains(url)) S.NewTabHidden.Add(url); }
             else if (p[0] == "hallow:nt-pin") { PinToNewTab(url, p.Length > 2 ? p[2] : null); return; }
-            else if (p[0] == "hallow:nt-unpin") S.NewTabPinned.RemoveAll(x => x.Url == url);
+            else if (p[0] == "hallow:nt-unpin") { var k = TileKeys.Key(url); S.NewTabPinned.RemoveAll(x => x.Url == url || TileKeys.Key(x.Url) == k); }   // 1.15.1: a pin shown once for two (duplicates) unpins both
             else return;
             S.Save(); NewTabChanged();
         }
         public void PinToNewTab(string url, string title)
         {
             if (!Omni.IsWeb(url)) return;
-            if (!S.NewTabPinned.Any(x => x.Url == url)) S.NewTabPinned.Add(new PinnedSite { Url = url, Title = string.IsNullOrWhiteSpace(title) ? Omni.HostOf(url) : title });
+            if (!S.NewTabPinned.Any(x => x.Url == url || TileKeys.Key(x.Url) == TileKeys.Key(url))) S.NewTabPinned.Add(new PinnedSite { Url = url, Title = string.IsNullOrWhiteSpace(title) ? Omni.HostOf(url) : title });
             S.NewTabHidden.Remove(url); S.Fix(); S.Save(); NewTabChanged();
             Toast("Pinned to the new tab page.", 3);
         }

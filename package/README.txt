@@ -9,6 +9,14 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.15.1 - A TIDIER NEW TAB PAGE
+- The new tab page fits any window: the GUARD / SHIELD strip is a footer under everything (it covered
+  the Overlay row in small windows); the games row scrolls sideways, titles get two lines.
+- Your Steam games show their names (from Steam's files on this PC) instead of "App 1422450".
+- SHIELD shows Hallow Browser's own blocked-today count, refreshed while a new tab is open.
+- Duplicate speed-dial tiles (like two Gmail inbox tiles) are merged; pinned tiles are never removed.
+- Google is the default search for new installs; a search engine you already picked stays.
+
 WHAT'S NEW IN 1.15 - PASSKEYS THROUGH HALLOW KEYS
 - When a site asks to save or use a passkey, Hallow Keys' prompt shows under the address bar: save it in
   your Hallow Keys vault, pick one of yours, or use your phone / a security key / Windows Hello instead.
@@ -256,7 +264,7 @@ WHAT'S NEW IN 1.1 - THE GAMER SIDEBAR
 
 WHAT'S NEW IN 1.0
 - Tabs in the title bar (drag to reorder, Ctrl+Shift+T brings closed ones back), an
-  address bar that searches DuckDuckGo (or Google, Bing, Brave Search), downloads, find
+  address bar that searches Google (or DuckDuckGo, Bing, Brave Search), downloads, find
   in page, zoom, fullscreen video, Chrome's keyboard shortcuts and your tabs back next time.
 - Pages are dark where the site allows it. The Hallow console look with your Hallow accent.
 - Hallow Shield is built in and always on: the shield button opens its panel (this site

@@ -21,12 +21,14 @@ namespace HallowBrowser
         public static List<HistoryEntry> TopSites(IEnumerable<HistoryEntry> history, ICollection<string> hidden, ICollection<string> pinned, int max, DateTime now)
         {
             var best = new Dictionary<string, KeyValuePair<HistoryEntry, double>>(StringComparer.OrdinalIgnoreCase);
+            var hiddenKeys = new HashSet<string>(hidden.Where(x => x != null && x.Contains("://")).Select(TileKeys.Key), StringComparer.OrdinalIgnoreCase);   // 1.15.1: a removed tile's other addresses stay away too
             foreach (var h in history)
             {
-                if (h == null || !Omni.IsWeb(h.Url) || hidden.Contains(h.Url) || pinned.Contains(h.Url)) continue;
+                if (h == null || !Omni.IsWeb(h.Url) || hidden.Contains(h.Url) || pinned.Contains(h.Url) || hiddenKeys.Contains(TileKeys.Key(h.Url))) continue;
                 var host = Omni.HostOf(h.Url); if (host == null) continue;
                 if (host.StartsWith("www.")) host = host.Substring(4);
                 if (hidden.Contains(host)) continue;
+                host = TileKeys.Host(h.Url);   // 1.15.1: gmail.com and mail.google.com are one site (a redirect keeps both in the history)
                 DateTime last; double age = DateTime.TryParse(h.Last, CultureInfo.InvariantCulture, DateTimeStyles.None, out last) ? Math.Max(0, (now - last).TotalDays) : 60;
                 var score = Math.Max(1, h.Visits) / (1 + age / 14.0);
                 KeyValuePair<HistoryEntry, double> cur;
@@ -48,7 +50,7 @@ namespace HallowBrowser
         static string Short(string t, string url) { t = string.IsNullOrWhiteSpace(t) ? (Omni.HostOf(url) ?? url) : t.Trim(); return t.Length > 60 ? t.Substring(0, 60) : t; }
 
         // the strip: only what's there (an app that isn't installed, or an old status file, is simply left out)
-        public static List<Dictionary<string, string>> Strip(string guardStatus, string shieldStatus, string playing, DateTime now)
+        public static List<Dictionary<string, string>> Strip(string guardStatus, string shieldStatus, string playing, DateTime now, string ownReport = null)
         {
             var res = new List<Dictionary<string, string>>();
             try
@@ -61,8 +63,15 @@ namespace HallowBrowser
             try
             {
                 var s = shieldStatus == null ? null : js.Deserialize<Dictionary<string, object>>(shieldStatus);
-                object bt, up;
-                if (s != null && s.TryGetValue("blockedToday", out bt) && bt != null)
+                object bt, up, br;
+                var nowUtc = now.ToUniversalTime();
+                if (s != null && s.TryGetValue("browsers", out br) && br is System.Collections.ArrayList || shieldStatus == null && ownReport != null)
+                {
+                    // 1.15.1: Hallow Browser's own entry (its local day), not every browser's sum; the browser's latest report when it has one
+                    var n = NewTabShield.FromReport(ownReport, nowUtc) ?? NewTabShield.BlockedToday(shieldStatus, nowUtc);
+                    if (n != null) res.Add(Chip("SHIELD", n.Value.ToString("N0", CultureInfo.InvariantCulture) + " blocked today"));
+                }
+                else if (s != null && s.TryGetValue("blockedToday", out bt) && bt != null)
                 {
                     DateTime u; bool fresh = !s.TryGetValue("updated", out up) || up == null || !DateTime.TryParse(up.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out u) || u.Date == now.Date;
                     if (fresh) res.Add(Chip("SHIELD", Convert.ToInt64(bt).ToString("N0", CultureInfo.InvariantCulture) + " blocked today"));
@@ -99,11 +108,13 @@ namespace HallowBrowser
             if (s.NewTabTopSites)
             {
                 var pinned = s.NewTabPinned ?? new List<PinnedSite>();
-                foreach (var p in pinned.Take(MaxTiles)) tiles.Add(new Dictionary<string, object> { { "u", p.Url }, { "t", Short(p.Title, p.Url) }, { "l", Letter(p.Url, p.Title) }, { "c", Color(p.Url) }, { "pin", true } });
+                var pt = pinned.Select(p => new Dictionary<string, object> { { "u", p.Url }, { "t", Short(p.Title, p.Url) }, { "l", Letter(p.Url, p.Title) }, { "c", Color(p.Url) }, { "pin", true } });
                 var hidden = new HashSet<string>(s.NewTabHidden ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
                 var pin = new HashSet<string>(pinned.Select(p => p.Url), StringComparer.Ordinal);
-                foreach (var h in TopSites(history ?? new HistoryEntry[0], hidden, pin, Math.Max(0, MaxTiles - tiles.Count), now))
-                    tiles.Add(new Dictionary<string, object> { { "u", h.Url }, { "t", Short(h.Title, h.Url) }, { "l", Letter(h.Url, h.Title) }, { "c", Color(h.Url) }, { "pin", false } });
+                var at = TopSites(history ?? new HistoryEntry[0], hidden, pin, MaxTiles, now)
+                    .Select(h => new Dictionary<string, object> { { "u", h.Url }, { "t", Short(h.Title, h.Url) }, { "l", Letter(h.Url, h.Title) }, { "c", Color(h.Url) }, { "pin", false } });
+                // 1.15.1: duplicates merged by their normalised address (pinned ones kept and shown once; most-visited ones dropped)
+                tiles = TileKeys.Merge(pt, at, t => t["u"] as string).Take(MaxTiles).ToList();
                 // 1.14: the site's logo, copied beside the page (the letter tile stays when there is none)
                 foreach (var t in tiles) { var ic = SiteIcons.ForNewTab(t["u"] as string); if (ic != null) t["i"] = ic; }
             }
@@ -111,7 +122,7 @@ namespace HallowBrowser
             if (s.NewTabFamily)
             {
                 var playing = MixerPlaying(ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Mixer"), "status.json"))) ?? playingFallback;
-                fam = Strip(ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Guard"), "status.json")), ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Shield"), "status.json")), playing, now);
+                fam = Strip(ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Guard"), "status.json")), ReadSmall(Path.Combine(HallowBrowser.Family.DataDir("Shield"), "status.json")), playing, now, BrowserWindow.LastReport);
             }
             // 1.4: the game corner (only when it's on; from its local copy - the page itself never contacts Steam or Epic)
             var games = s.GameCorner ? GameCorner.ForPage(GameCorner.Load()) : null;

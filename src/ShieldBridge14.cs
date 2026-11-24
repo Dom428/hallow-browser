@@ -176,7 +176,7 @@ namespace HallowBrowser
     public partial class BrowserWindow
     {
         public bool ShieldCounts;          // the patched copy is loaded: per-page counts and blocked stats work
-        public static string RelayNote, LastReport;
+        public static string RelayNote, LastReport; public static int RelaysStarted;   // 1.15.1 tests: relays begun
         static DispatcherTimer relayTimer; static bool relayBusy;
         // Shield's own code builds the report (its family.js, imported in a page of Shield's origin)
         const string RelayScript = "(async function(){const f=await import('./family.js');try{await chrome.runtime.sendMessage({t:'stats-get'});}catch(e){}await new Promise(r=>setTimeout(r,800));" +
@@ -196,7 +196,7 @@ namespace HallowBrowser
             if (!S.ShareShieldCounts) { RelayNote = "off"; return null; }
             if (ShieldState != "extension" || ShieldId == null || relayBusy || snap || Private) return null;
             if (Game != null && !BrowserSettings.Offscreen) return null;   // not while a game runs (the counts catch up after it)
-            relayBusy = true; WebView2 v = null;
+            relayBusy = true; RelaysStarted++; WebView2 v = null;
             try
             {
                 v = new WebView2 { Visibility = Visibility.Hidden, Width = 1, Height = 1, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };

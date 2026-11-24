@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,28 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.15.1: a tidier new tab page, real game names, Google search
+
+- **The new tab page fits any window** (800 x 500 up to 4K): everything is one column in the page's flow - the GUARD / SHIELD
+  strip and the time are a footer under the content instead of being pinned to the bottom, where in a small window they covered
+  the Hallow Overlay row. Sections keep their spacing, the games and clips rows scroll sideways and card titles get two lines.
+- **Your games show their names** instead of "App 1422450": Hub's list can have a Steam game by its id only, so the browser now
+  looks the name up on this PC - the game's `appmanifest_<id>.acf` in every Steam library folder (`libraryfolders.vdf`), then
+  Steam's own app cache (`appcache\appinfo.vdf`, read only), then names it found before. Nothing goes to the internet. No name
+  anywhere: "Steam game 1422450", with its cover.
+- **SHIELD on the new tab page is Hallow Browser's own count** (its entry in Shield's `status.json`, this PC's local day) - not
+  the sum of every browser on the PC - and it is refreshed while a new tab page is open (at most every 2 minutes).
+- **No more duplicate tiles:** speed-dial tiles are merged by a normalised address (same site and path; mail / app pages such as
+  Gmail by site and account, and gmail.com = mail.google.com). Most-visited duplicates go by themselves; your pinned tiles are never
+  removed (a pin of the same page twice is shown once, and unpinning it unpins both).
+- **Google is the default search engine for new installs** ("Search Google or type an address"). If you already picked one -
+  DuckDuckGo included - it stays; DuckDuckGo, Bing and Brave Search are one click away in Settings > General.
+
+Tests: 1.15.1 adds unit tests (Steam's text and binary files from a made-up Steam folder, tile keys and merging, Shield's entry and
+day, the layout rules, the search default) and an integration suite `v1151` that renders the new tab page off-screen at 800x500,
+1085x630, 1366x768, 1920x1080 and 3840x2160 in dark and light and checks that no element boxes overlap - with stand-in Hallow apps,
+a fake Steam folder and a local page whose ad requests Shield blocks (Shield's own count, the relay, the chip).
 
 ## What's new in 1.15: passkeys through Hallow Keys
 
@@ -938,7 +960,7 @@ liveNotifications, liveChannels, bandwidthCapKBps (still never addresses or titl
 **Tabs and window**
 - Tabs in the title bar: new, close (button, middle-click, Ctrl+W), drag to reorder, right-click menu (duplicate, mute, pop out video,
   put to sleep, close others), **Ctrl+Shift+T** reopens closed tabs (the last 25).
-- Address bar: an address or a search - **DuckDuckGo** by default; Google, Bing or Brave Search in Settings. `javascript:` and `data:`
+- Address bar: an address or a search - **Google** by default for new installs (1.15.1; a saved choice is kept); DuckDuckGo, Bing or Brave Search in Settings. `javascript:` and `data:`
   are never run from the bar (they're searched). Suggestions from addresses you've used; the top one's connection is warmed up while
   you type (Settings can turn that off).
 - Back / forward / reload, downloads list (Ctrl+J), find in page (Ctrl+F, F3), zoom (Ctrl +/-/0, Ctrl+wheel; a zoom chip shows when

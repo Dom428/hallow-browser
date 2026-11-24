@@ -37,7 +37,7 @@ namespace HallowBrowser.Tests
             Environment.SetEnvironmentVariable("HALLOW_BROWSER_TESTDIR", dir);
             try
             {
-                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All(); V13.All(); V14.All(); V15.All(); V16.All(); V17.All(); V18.All(); V19.All(); V110.All(); V112.All(); V1121.All(); V113.All(); V114.All(); V1142.All(); V115.All();
+                OmniTests(); OriginTests(); KeysRuleTests(); PlannerTests(); SettingsTests(); ShieldTests(); ThemeTests(); FamilyTests(); KeysPipeTests(); NewTabTests(); V11.All(); V12.All(); V13.All(); V14.All(); V15.All(); V16.All(); V17.All(); V18.All(); V19.All(); V110.All(); V112.All(); V1121.All(); V113.All(); V114.All(); V1142.All(); V115.All(); V1151.All();
             }
             catch (Exception e) { fail++; Console.WriteLine("FAIL crashed: " + e); }
             finally { try { Directory.Delete(dir, true); } catch { } }
@@ -149,7 +149,7 @@ namespace HallowBrowser.Tests
         static void SettingsTests()
         {
             var s = BrowserSettings.Load();
-            Eq(s.Search, "duckduckgo", "default search: DuckDuckGo");
+            Eq(s.Search, "google", "default search: Google (1.15.1, new installs)");
             Ok(s.RestoreSession && s.BlockThirdPartyCookies && s.DoNotTrack && s.GameLight && s.KeysOn && !s.ClearOnExit, "defaults: restore, 3P cookies blocked, GPC, game mode, Keys on, no clearing");
             Eq(s.PageColors, "follow", "pages follow the browser's look by default (1.1)");
             Eq(s.SleepMinutes, 15, "tabs sleep after 15 min");
@@ -159,10 +159,10 @@ namespace HallowBrowser.Tests
             Eq(string.Join(" ", t.Typed), "https://a.com/ https://b.com/", "typed addresses: newest first, no duplicates");
             File.WriteAllText(Path.Combine(BrowserSettings.Dir, "settings.json"), "{\"Search\":\"altavista\",\"SleepMinutes\":7,\"RamLimitMb\":123,\"PageColors\":\"neon\"}");
             var b = BrowserSettings.Load();
-            Ok(b.Search == "duckduckgo" && b.SleepMinutes == 15 && b.RamLimitMb == 0 && b.PageColors == "follow", "bad values fall back to defaults");
+            Ok(b.Search == "google" && b.SleepMinutes == 15 && b.RamLimitMb == 0 && b.PageColors == "follow", "bad values fall back to defaults");
             Ok(b.GameLight && b.KeysOn, "missing values get their defaults");
             File.WriteAllText(Path.Combine(BrowserSettings.Dir, "settings.json"), "{ not json");
-            Eq(BrowserSettings.Load().Search, "duckduckgo", "broken file = defaults");
+            Eq(BrowserSettings.Load().Search, "google", "broken file = defaults");
             for (int i = 0; i < 250; i++) b.Remember("https://s" + i + ".com/");
             Eq(b.Typed.Count, 200, "at most 200 typed addresses");
             b.Remember("javascript:alert(1)"); Ok(!b.Typed.Contains("javascript:alert(1)"), "only web addresses are remembered");

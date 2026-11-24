@@ -94,7 +94,7 @@ namespace HallowBrowser.Tests
                 Ok(BrowserSettings.ProfileDir == Path.Combine(root, "Local", "Profile"), "profiles: one engine folder for all of them");
                 Ok(BrowserSettings.WebViewProfile == "Hallow_gaming" && BrowserSettings.PrivateWebViewProfile == "HallowPrivate_gaming" && BrowserSettings.EngineProfileFolder("Hallow_gaming").EndsWith("WV2Profile_hallow_gaming"), "profiles: its own WebView2 profile (and private one)");
                 Ok(HistoryStore.DefaultPath == Path.Combine(root, "Local", "Profiles", "gaming", "hallow-history.json"), "profiles: its own history");
-                var s = BrowserSettings.Load(); Ok(s.Search == "duckduckgo" && !s.SyncOn, "profiles: its own settings (a new profile starts from the defaults)");
+                var s = BrowserSettings.Load(); Ok(s.Search == "google" && !s.SyncOn, "profiles: its own settings (a new profile starts from the defaults)");
                 s.Search = "brave"; s.Save(); BrowserSettings.ProfileId = "default"; Ok(BrowserSettings.Load().Search == "google", "profiles: changing Gaming leaves Default alone"); BrowserSettings.ProfileId = "gaming";
                 Ok(BrowserWindow.SyncFolderFor(@"D:\Sync") == @"D:\Sync\profile-gaming", "profiles: Gaming syncs in a sub-folder of the sync folder");
             }

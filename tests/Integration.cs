@@ -79,6 +79,7 @@ namespace HallowBrowser.Tests
             if (mode.StartsWith("bench")) return Bench19.Main(exe, dir, mode);   // 1.9: the speed benchmark (start-up, new tab, memory, scrolling, game impact)
             if (mode == "v110") return Integration110.Main(exe, dir);
             if (mode == "v1121") return Integration1121.Main(exe, dir);
+            if (mode == "v1151") return Integration1151.Main(exe, dir);   // 1.15.1: the new tab page - layout at 5 sizes, Steam names, Shield count, duplicate tiles
             if (mode == "v115") return Integration115.Main(exe, dir);     // 1.15: passkeys through Hallow Keys (a stand-in running Keys' own pipe code)
             if (mode == "v1142") return Integration1142.Main(exe, dir);   // 1.14.2: an unswapped ad covered, a white player recovered, Report a Twitch problem
             if (mode == "v114") return Integration114.Main(exe, dir);     // 1.14: site logos - the cache, private windows, the one-time import from a fake Brave, the quiet fetch, every place they show

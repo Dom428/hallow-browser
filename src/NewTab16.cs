@@ -192,9 +192,12 @@ namespace HallowBrowser
         {
             return "#hf{width:min(720px,90vw);margin-top:20px;display:flex;flex-direction:column;gap:14px}#hf:empty{display:none}" +
                 "#hf h2{font:600 11px 'Cascadia Mono',Consolas,monospace;letter-spacing:.12em;color:" + head + ";margin:0 0 8px;display:flex;align-items:center;gap:10px}" +
-                ".hr{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}.hc{flex:0 0 auto;width:128px;border-radius:10px;background:" + tile + ";border:1px solid " + line + ";overflow:hidden;color:" + fg + ";text-decoration:none;font-size:12px;cursor:pointer;position:relative}" +
+                // 1.15.1: the row scrolls sideways (snapping to whole cards), card titles get two lines
+                ".hr{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin}.hr>.hc{scroll-snap-align:start}#hf section{min-width:0}" +
+                "#hf section.ovs{display:flex;align-items:center}#hf section.ovs h2{margin:0;flex-wrap:wrap}" +
+                ".hc{flex:0 0 auto;width:128px;border-radius:10px;background:" + tile + ";border:1px solid " + line + ";overflow:hidden;color:" + fg + ";text-decoration:none;font-size:12px;cursor:pointer;position:relative}" +
                 ".hc:hover,.hc:focus{background:" + tileHover + ";border-color:" + head + ";outline:none}.hc .pic{height:62px;background:" + line + " center/cover no-repeat;display:flex;align-items:center;justify-content:center;font:700 22px 'Segoe UI',sans-serif;color:" + muted + "}" +
-                ".hc .t{padding:6px 8px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hc .m{padding:0 8px 7px;color:" + muted + ";font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
+                ".hc .t{padding:6px 8px 2px;line-height:16px;height:32px;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}.hc .m{padding:0 8px 7px;color:" + muted + ";font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}" +
                 ".hc .pl{position:absolute;right:6px;top:40px;width:26px;height:26px;border-radius:13px;border:0;background:" + Look.FillOf(head) + ";color:" + Look.TextOnFill(Look.FillOf(head)) + ";font-size:11px;cursor:pointer}" +
                 ".ov{border:1px solid " + line + ";background:" + tile + ";color:" + fg + ";border-radius:12px;padding:3px 12px;font:11.5px 'Segoe UI',sans-serif;cursor:pointer}.ov.on{border-color:" + head + ";color:" + head + "}";
         }
@@ -205,7 +208,7 @@ namespace HallowBrowser
             "var b=el('button','pl','\\u25B6');b.title='Play '+g.n;b.onclick=function(e){e.stopPropagation();post('hallow:nt-play\\t'+g.id);};c.appendChild(b);r.appendChild(c);});s.appendChild(r);h.appendChild(s);}" +
             "if(F.clips&&F.clips.length){var s2=sec('RECENT CLIPS');var r2=el('div','hr');F.clips.forEach(function(c0){var c=el('div','hc');c.tabIndex=0;c.title='Open this clip';var p=el('div','pic',c0.p?'':'\\u25B6');if(c0.p)p.style.backgroundImage='url(\"'+c0.p+'\")';c.appendChild(p);c.appendChild(el('div','t',c0.n));c.appendChild(el('div','m',[c0.w,c0.s].filter(Boolean).join(' - ')));" +
             "c.onclick=function(){post('hallow:nt-clip\\t'+c0.id);};c.onkeydown=function(e){if(e.key==='Enter')c.onclick();};r2.appendChild(c);});s2.appendChild(r2);h.appendChild(s2);}" +
-            "if(F.overlay){var b2=el('button','ov'+(F.overlay.visible?' on':''),'Overlay: '+(F.overlay.visible?'on':'off'));b2.title=F.overlay.running?'Turn Hallow Overlay on or off':'Hallow Overlay isn\\'t running';b2.disabled=!F.overlay.running;b2.onclick=function(){post('hallow:nt-overlay');};var s3=sec('HALLOW OVERLAY',b2);s3.style.display='flex';h.appendChild(s3);}}" +
+            "if(F.overlay){var b2=el('button','ov'+(F.overlay.visible?' on':''),'Overlay: '+(F.overlay.visible?'on':'off'));b2.title=F.overlay.running?'Turn Hallow Overlay on or off':'Hallow Overlay isn\\'t running';b2.disabled=!F.overlay.running;b2.onclick=function(){post('hallow:nt-overlay');};var s3=sec('HALLOW OVERLAY',b2);s3.className='ovs';h.appendChild(s3);}}" +
             "window.hallowFamily=function(){return fetch('family.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.json();}).then(function(F){hfDraw(F);return F&&F.on?1:0;}).catch(function(){return -1;});};" +
             // only once the engine says the page's first paint is done (a pre-warmed page that is never shown fetches it when shown)
             "(function(){var done=false;function go(){if(done)return;done=true;setTimeout(window.hallowFamily,0);}" +
