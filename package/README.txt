@@ -9,6 +9,10 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.17 - ARROW KEYS IN THE ADDRESS BAR, MAGNET LINKS TO HALLOW TORRENTS
+- Down / Up move through the address bar's suggestions one row at a time, Enter opens the row, Esc goes back to what you typed.
+- A page's magnet link goes straight to Hallow Torrents when it's installed, even if Windows has another app for magnet links (like qBittorrent). Settings > Downloads can turn it off.
+
 WHAT'S NEW IN 1.16.4 - NO DEAD TAB AFTER AN EXTENSION TRIES TO CLOSE THE BROWSER
 - Fix: when an extension tries to close the window, the browser still stays open, and now the page that asked is
   closed too (1.16.2 could leave it behind as a blank tab that wouldn't load anything, on a busy PC)

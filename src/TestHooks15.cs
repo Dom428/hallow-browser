@@ -24,6 +24,9 @@ namespace HallowBrowser
                 case "omnigo": { int n; var t = Split(arg, out rest); if (!int.TryParse(t, out n)) return "error"; return Program.OnUi(w, () => { var r = w.BuildSuggestions(rest); if (n >= r.Count) return "error no row"; r[n].Go(); return "ok " + r[n].Kind; }); }
                 case "suggest": return Async(w, async () => { w.FetchSuggestions(arg); for (int i = 0; i < 40 && !w.EngineRows.Any(); i++) await Task.Delay(100); await Task.Delay(200); return "ok " + js.Serialize(new Dictionary<string, object> { { "fetches", BrowserWindow.SuggestFetches }, { "rows", w.EngineRows }, { "allowed", w.SuggestionsAllowed } }); });
                 case "fetches": return "ok " + BrowserWindow.SuggestFetches;
+                // 1.17: "omnikeys Down,Down,Enter typed text" - keys into the address bar; "magnets" - what was handed to Hallow Torrents
+                case "omnikeys": { var ks = Split(arg, out rest); return Program.OnUi(w, () => "ok " + js.Serialize(w.OmniKeys(rest, ks))); }
+                case "magnets": return "ok " + js.Serialize(new Dictionary<string, object> { { "handed", BrowserWindow.MagnetsHanded }, { "last", BrowserWindow.LastMagnet }, { "toWindows", w.S.MagnetsToWindows } });
                 // ---- saving logins
                 case "login": return Program.OnUi(w, () => { var x = Program.Windows.FirstOrDefault(y => y.PendingLogin != null); var o = x == null ? null : x.PendingLogin; return "ok " + js.Serialize(new Dictionary<string, object> { { "pending", o != null }, { "host", o == null ? null : o.Host }, { "user", o == null ? null : o.User }, { "state", o == null ? null : o.State }, { "offers", BrowserWindow.LoginOffers }, { "refused", BrowserWindow.LoginRefused }, { "note", w.LastLoginNote }, { "never", w.S.NeverSave } }); });
                 case "loginanswer": return Async(w, async () => { var x = Program.Windows.FirstOrDefault(y => y.PendingLogin != null); if (x == null) return "error nothing asked"; return "ok " + await x.AnswerLogin(arg); });
@@ -88,6 +91,7 @@ namespace HallowBrowser
                         switch (p[0])
                         {
                             case "suggest": S.SearchSuggest = v == "true"; break;
+                            case "magnets-windows": S.MagnetsToWindows = v == "true"; break;   // 1.17
                             case "save": S.SaveLogins = v == "true"; break;
                             case "dark": S.ForceDark = v == "true"; w.DarkChanged(); break;
                             case "scan": S.DownloadScan = v == "true"; break;

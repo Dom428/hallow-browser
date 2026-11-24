@@ -19,6 +19,7 @@ namespace HallowBrowser
         List<SuggestRow> rows = new List<SuggestRow>(); int suggestIndex = -1;
         public static int SuggestFetches; public static string LastSuggestQuery;
         DispatcherTimer suggestTimer; string suggestFor; List<string> engineRows = new List<string>(); string engineRowsFor;
+        bool suggestFilling; string suggestTyped = "";   // 1.17: a highlighted row's text in the box must not rebuild the list (Up / Down kept starting over)
 
         // the rows for what's typed (no UI - the tests read this)
         public List<SuggestRow> BuildSuggestions(string t)
@@ -55,7 +56,8 @@ namespace HallowBrowser
 
         void Suggest()
         {
-            var t = Address.Text;
+            if (suggestFilling) return;
+            var t = Address.Text; suggestTyped = t;
             rows = BuildSuggestions(t); suggestIndex = -1;
             suggestList.Children.Clear();
             if (rows.Count == 0) { suggest.IsOpen = false; return; }
@@ -98,10 +100,33 @@ namespace HallowBrowser
             if (rows.Count == 0) return;
             suggestIndex = Math.Max(-1, Math.Min(rows.Count - 1, suggestIndex + d));
             for (int i = 0; i < suggestList.Children.Count; i++) { var b = suggestList.Children[i] as Button; if (b != null) { if (i == suggestIndex) b.SetResourceReference(BackgroundProperty, "PanelHi"); else b.Background = Brushes.Transparent; } }
-            if (suggestIndex >= 0 && rows[suggestIndex].Kind != "calc" && rows[suggestIndex].Kind != "tab") { Address.Text = rows[suggestIndex].Fill; Address.CaretIndex = Address.Text.Length; }
+            // the row's text in the box (back to what you typed above the first row) - without rebuilding the list
+            var fill = suggestIndex < 0 ? suggestTyped : rows[suggestIndex].Kind != "calc" && rows[suggestIndex].Kind != "tab" ? rows[suggestIndex].Fill : null;
+            if (fill != null && Address.Text != fill) { suggestFilling = true; try { Address.Text = fill; Address.CaretIndex = fill.Length; } finally { suggestFilling = false; } }
+            if (suggestIndex >= 0 && suggestIndex < suggestList.Children.Count) { var fe = suggestList.Children[suggestIndex] as FrameworkElement; if (fe != null) fe.BringIntoView(); }
         }
+        public int SuggestIndex { get { return suggestIndex; } }
+        // tests: type into the address bar and press keys (Down,Down,Enter...) through WPF's own key events - the real keyboard is never used
+        public Dictionary<string, object> OmniKeys(string text, string keys)
+        {
+            Address.Focus(); Address.Text = text; if (!suggest.IsOpen) Suggest();
+            var src = PresentationSource.FromVisual(Address);
+            var log = new List<object>();
+            foreach (var k in (keys ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                Key key; if (!Enum.TryParse(k.Trim(), true, out key)) continue;
+                var ev = new KeyEventArgs(Keyboard.PrimaryDevice, src, Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+                Address.RaiseEvent(ev);
+                log.Add(new Dictionary<string, object> { { "key", key.ToString() }, { "handled", ev.Handled }, { "index", suggestIndex }, { "text", Address.Text }, { "open", suggest.IsOpen } });
+            }
+            return new Dictionary<string, object> { { "rows", rows.Select(r => r.Kind + ":" + r.Fill).ToList() }, { "index", suggestIndex }, { "text", Address.Text }, { "open", suggest.IsOpen }, { "steps", log } };
+        }
+        public bool SuggestOpen { get { return suggest.IsOpen; } }
+        // 1.17: Up / Down / Enter / Esc reach the list before the text box uses them (PreviewKeyDown)
         void AddressKey(object s, KeyEventArgs e)
         {
+            if (e.Key == Key.Escape && suggest.IsOpen && suggestIndex >= 0) { suggestIndex = 0; MoveSuggest(-1); e.Handled = true; return; }   // first Esc: back to what you typed
+            if (e.Key == Key.Down && !suggest.IsOpen && Address.Text.Trim().Length > 0) { Suggest(); if (suggest.IsOpen) MoveSuggest(1); e.Handled = true; return; }
             if (e.Key == Key.Enter)
             {
                 e.Handled = true;

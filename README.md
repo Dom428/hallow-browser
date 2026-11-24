@@ -46,6 +46,16 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.17: arrow keys in the address bar, magnet links to Hallow Torrents
+
+**Arrow keys in the address bar.** As you type, **Down** and **Up** move through the suggestions one row at a time and the
+address bar shows the row; **Enter** opens it, **Esc** goes back to what you typed (Esc again closes the list). Before, the
+text box took Up / Down first, and showing a row's text rebuilt the list, so every press started over.
+
+**Magnet links go to Hallow Torrents.** When Hallow Torrents is installed, a page's magnet link goes straight to it, even when
+another app (like qBittorrent) is Windows' app for magnet links, and without Windows' "open this app?" prompt. **Settings >
+Downloads > "Open magnet links in Hallow Torrents"** turns it off. Only magnet links: other app links are left to Windows.
+
 ## What's new in 1.16.4: no dead tab after an extension tries to close the browser
 
 **Fix:** when an extension tries to close the whole window (for example after it signs you in), Hallow Browser stays open, as in

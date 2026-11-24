@@ -144,7 +144,7 @@ namespace HallowBrowser
             Address.GotKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "AccentBrush"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldFocus"); Dispatcher.BeginInvoke(new Action(Address.SelectAll), DispatcherPriority.Input); };
             Address.LostKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "LineDim"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldBg"); if (!suggestList.IsKeyboardFocusWithin) suggest.IsOpen = false; };
             Address.PreviewMouseLeftButtonDown += (a, b) => { if (!Address.IsKeyboardFocusWithin) { Address.Focus(); b.Handled = true; } };
-            Address.KeyDown += AddressKey; Address.TextChanged += (a, b) => { if (Address.IsKeyboardFocusWithin) Suggest(); };
+            Address.PreviewKeyDown += AddressKey; Address.TextChanged += (a, b) => { if (Address.IsKeyboardFocusWithin) Suggest(); };
             var inBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 4, 0) }; Grid.SetColumn(inBar, 2);
             zoomChip = new Button { Style = Ui.S("Tool"), Width = double.NaN, Height = 24, Padding = new Thickness(6, 0, 6, 0), Visibility = Visibility.Collapsed, ToolTip = "Zoom - click for 100%" };
             zoomChip.Click += (a, b) => SetZoom(1.0);
@@ -517,6 +517,7 @@ namespace HallowBrowser
             c.WebResourceRequested += OnRequest;
             if (capApplied > 0) { capped.Add(c); var ___ = Throttle.Apply(c, capApplied); }
             Hook14(c);   // 1.4: site permissions, HTTPS-only, per-site scripting / sound / pop-ups
+            HookMagnet(c);   // 1.17: magnet links to Hallow Torrents
             Hook15(c);   // 1.5: login capture for Hallow Keys, media controls, gestures
             Hook16(c);   // 1.6: spell check off / Add to dictionary, Open link in profile
             Hook17(c);   // 1.7: translation
@@ -631,7 +632,7 @@ namespace HallowBrowser
             if (Fallback != null) try { c.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All); } catch { }
             c.WebResourceRequested += OnRequest;
             c.DownloadStarting += OnDownload;
-            Hook14(c);
+            Hook14(c); HookMagnet(c);   // 1.17
             HookPanel110(c);   // 1.10: Twitch ad hosts blocked in panels too
             if (capApplied > 0) { capped.Add(c); var ___ = Throttle.Apply(c, capApplied); }
         }

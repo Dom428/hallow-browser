@@ -57,6 +57,7 @@ namespace HallowBrowser
         {
             var items = new List<UIElement>();
             items.Add(Ui.Switch("Check downloads with Microsoft Defender", "When a download finishes, Defender scans that one file (its own command-line scanner, at the lowest priority) and the downloads list shows Clean or Threat found. Defender's real-time protection keeps working either way.", S.DownloadScan, on => { S.DownloadScan = on; S.Save(); }));
+            items.Add(Ui.Switch("Open magnet links in Hallow Torrents", "On by default when Hallow Torrents is installed: a magnet link on a page goes straight to Hallow Torrents, whatever app Windows has for magnet links (like qBittorrent). Off: Windows decides, as before.", !S.MagnetsToWindows, on => { S.MagnetsToWindows = !on; S.Save(); }));
             items.Add(Ui.Muted("While a game runs, downloads together use at most", 12, 6));
             items.Add(Ui.Chips(BrowserSettings.DlLimitChoices.Select(k => new KeyValuePair<int, string>(k, DownloadLimit.Name(k))).ToList(), S.DownloadGameKBps, v => { S.DownloadGameKBps = v; S.Save(); }));
             items.Add(Ui.Muted("Honestly: WebView2 has no speed setting for downloads (and its network emulation only slows some of them), so the browser pauses and resumes each download many times a second to hold the speed. It works for downloads in Hallow Browser only, not other apps or the game's own updates.", 11.5, 8));

@@ -127,6 +127,7 @@ namespace HallowBrowser
         // 1.5: address bar, saving logins to Hallow Keys, dark pages, downloads, tabs, media
         [DataMember] public List<SearchKeyword> Keywords;      // "yt cats" -> YouTube; null = the defaults (yt, w, gh)
         [DataMember] public bool SearchSuggest;                // OFF by default: what you type goes to the search engine for suggestions
+        [DataMember] public bool MagnetsToWindows;             // 1.17: off = magnet links go straight to Hallow Torrents (when installed)
         [DataMember] public bool SaveLogins = true;            // offer "Save to Hallow Keys?" after you sign in (Keys stores it; the browser never does)
         [DataMember] public List<string> NeverSave;            // sites you said "Never" for
         [DataMember] public bool ForceDark;                    // make every page dark (Chromium's own auto dark mode); per site in Sites
