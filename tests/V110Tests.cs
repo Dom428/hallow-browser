@@ -55,7 +55,7 @@ namespace HallowBrowser.Tests
             Ok(js.Contains("credentials: 'omit'") && !js.Contains("credentials: 'include'"), "twitch ads: Twitch requests of its own go without cookies");
             var s = new BrowserSettings(); s.TwitchAllow.Add("friend");
             var c = TwitchAdRules.Compose(s);
-            Ok(c.StartsWith("(function(CFG){\n") && c.Contains("\"allow\":[\"friend\"]") && c.Contains("\"clientId\":\"" + TwitchAdRules.ClientId + "\"") && c.Contains("\"types\":[\"embed\",\"popout\",\"autoplay\",\"picture-by-picture\"]"), "twitch ads: the page gets the settings: allow list, client id, the player types to try");
+            Ok(c.StartsWith("(function(CFG){\n") && c.Contains("\"allow\":[\"friend\"]") && c.Contains("\"clientId\":\"" + TwitchAdRules.ClientId + "\"") && c.Contains("\"types\":[\"embed\",\"popout\",\"autoplay\",\"site\",\"picture-by-picture\",\"thunderdome\",\"frontpage\"]"), "twitch ads: the page gets the settings: allow list, client id, the player types to try");
             Ok(c.Contains("\"gql\":\"https://gql.twitch.tv/gql\"") && c.Contains("\"usher\":\"https://usher.ttvnw.net\"") && c.Contains("\"test\":null"), "twitch ads: outside tests the real Twitch addresses, no test base");
             Ok(TwitchAdRules.Hide.All(h => !Regex.IsMatch(h, "chat|emote|community-points|channel-points", RegexOptions.IgnoreCase)), "twitch ads: nothing about chat, emotes or channel points is hidden");
         }

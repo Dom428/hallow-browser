@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). 1.16.1 **keeps Twitch playing during ads**: more ad-free backup streams, a lower quality for the break if needed, the dark cover only as the last resort. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,38 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.16.1: Twitch keeps playing during ads
+
+From real use: the dark **"Ad break - back in 0:03"** cover showed - Hallow found the ad, but every backup stream it tried had
+failed, so you sat through the cover. Twitch script **version 5** (`hallow-twitch.js`; 1.10+ installs also get it from this
+release) keeps the stream going instead:
+
+- **Seven backups, asked at once.** When an ad is stitched into the stream, Hallow asks Twitch itself for the same channel as
+  `embed`, `popout`, `autoplay` (as Twitch's Android app asks for it), `site`, `picture-by-picture`, `thunderdome` and `frontpage`,
+  all in parallel (6 s at most each), and plays the first one in that order that has no ad. The one that worked is asked first
+  next time.
+- **A lower quality is fine for the break.** When none is ad-free at your quality, their 480p / 360p streams are tried. After the
+  break the player loads its own stream again, at your quality.
+- **A tiny "ad-free backup (480p)" badge** sits in the player's top-left corner while a backup plays (it never takes a click).
+- **Asked like Twitch's own page asks:** the backup token carries the page's own Twitch device id / integrity / version headers
+  (never your sign-in or cookies); the player's own token is asked as `popout`, which gets fewer ads (not on channels you allow
+  ads on); `parent_domains` is left out of usher addresses. Only Twitch's servers are contacted.
+- **The dark cover is now the last resort** - only when every backup, at every quality, has the ad. A backup found later lifts it.
+- **Report a Twitch problem** (Ctrl+Shift+F12) now shows every backup tried and why it failed (`popout:token-failed integrity
+  check`, `site:usher-403`, `embed:ad/class`, `frontpage:timeout`...).
+- Unchanged: the white / frozen player recovery, the new-tab fix, ad muting, display-ad and beacon blocking, the allow list.
+
+How the well-known open-source approaches keep playback going was read first (their public descriptions; none of their code is used).
+
+Checked on the real twitch.tv (off-screen, throw-away signed-out test profiles, **muted**, short runs, 480p because a game was
+running): with 1.16.1 as shipped, 12 fresh loads (caseoh_ live; the script saw no live playlist on xqc / kaicenat at that time) -
+no ad reached the player, the picture kept moving, no cover. With a test copy that leaves the player's token as `site`, 12 more
+loads (caseoh_, hasanabi, jynxzi) - Twitch served no ad either. So the swap was also checked with **simulated breaks** (a test copy
+treats the player's own playlist as an ad for 25 s of every 90) on caseoh_ and hasanabi: 6 breaks, all 7 backup types answered
+with a token and an ad-free playlist, `embed` played each break, the picture never stopped, the badge showed, no cover. Honestly: a
+real stitched ad wasn't served to these test profiles tonight, so the real-ad case rests on the fake-Twitch suite and these
+simulated breaks; Report a Twitch problem now shows exactly what happens on the next real one.
 
 ## What's new in 1.16: add extensions from the Chrome Web Store
 
@@ -1139,7 +1171,7 @@ Hallow Browser has no server. Besides the pages you open, it contacts:
   (not the pages), instead of your Wi-Fi / internet provider.
 - 1.10: **Twitch - only on Twitch, only during an ad break, only on channels you didn't allow ads on** (Twitch ads blocking is on by
   default): `gql.twitch.tv` (Twitch's public PlaybackAccessToken query for the channel as another player type, with the public web
-  client id twitch.tv itself sends - no cookies, no sign-in) and `usher.ttvnw.net` / Twitch's playlist servers. These are the servers
+  client id twitch.tv itself sends - no cookies, no sign-in; 1.16.1: also the Twitch device id / integrity / version headers the page itself sends to Twitch) and `usher.ttvnw.net` / Twitch's playlist servers. These are the servers
   that already serve the stream; never a third-party proxy. Once a day, with fixes on: GitHub (this browser's latest release) for a
   newer `hallow-twitch.js` (sha256-checked).
 - 1.8: **SponsorBlock - only if you switch "Skip sponsors and intros on YouTube" on** (off by default): for each YouTube video you

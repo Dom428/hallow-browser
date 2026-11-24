@@ -118,7 +118,7 @@ namespace HallowBrowser.Tests
                 Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\""), "browser answers ping: " + ping);
                 Wait(Tabs, t => t.Count >= 1 && (bool)t[0]["ready"], 30000); Thread.Sleep(1000);
                 var st = Val(Cmd("test-tw-state 0 0")) ?? "";
-                Ok(st.Contains("\"version\":3") || st.Contains("\"version\":4"), "twitch: the built-in page script is version 3 or newer (" + st.Length + ")");
+                Ok(st.Contains("\"version\":" + TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn)) && TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn) >= 3, "twitch: the built-in page script is version 3 or newer (" + st.Length + ")");
 
                 // ---- an empty ad frame over the video: hidden within a few seconds; the video is on top again
                 int wf = NewTab(U + "/tw/whiteframe");

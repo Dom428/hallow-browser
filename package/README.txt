@@ -9,6 +9,15 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.16.1 - TWITCH: THE STREAM KEEPS GOING DURING ADS
+- When Twitch stitches an ad in, Hallow asks Twitch for seven backup streams of the channel at once
+  (embed, popout, autoplay, site, picture-by-picture, thunderdome, frontpage) and plays the first
+  one without the ad - at a lower quality (480p / 360p) for the break if that is what is ad-free.
+- A small "ad-free backup (480p)" badge shows on the player for those seconds; after the break the
+  player goes back to its own quality.
+- The dark "Ad break" cover is now only for when every backup has the ad too.
+- Report a Twitch problem (Ctrl+Shift+F12) lists every backup tried and why it failed.
+
 WHAT'S NEW IN 1.16 - EXTENSIONS FROM THE CHROME WEB STORE
 - hallow://extensions > Add from Chrome Web Store: paste a store link or ID, or click
   "Add to Hallow Browser" on the extension's store page.

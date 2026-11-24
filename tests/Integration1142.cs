@@ -107,7 +107,7 @@ namespace HallowBrowser.Tests
                 var ping = Wait(() => Cmd("ping", 2000), r => r != null && r.StartsWith("ok"), 25000);
                 Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\""), "browser answers ping: " + ping);
                 Wait(Tabs, t => t.Count >= 1 && (bool)t[0]["ready"], 30000); Thread.Sleep(1000);
-                Ok((Val(Cmd("test-tw-state 0 0")) ?? "").Contains("\"version\":4"), "twitch: the built-in page script is version 4");
+                Ok((Val(Cmd("test-tw-state 0 0")) ?? "").Contains("\"version\":" + TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn)) && TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn) >= 4, "twitch: the built-in page script is version 4 or newer");
 
                 // ---- an unswapped ad (only the label says so): covered + muted at once, lifted after; then the white picture is recovered
                 int aw = NewTab(U + "/tw/adwhite");
@@ -133,7 +133,7 @@ namespace HallowBrowser.Tests
                 string json = ""; int pngLen = 0; List<string> names = new List<string>();
                 if (path != null && File.Exists(path)) using (var z = ZipFile.OpenRead(path)) { names = z.Entries.Select(e => e.Name).ToList(); var e1 = z.GetEntry("report.json"); if (e1 != null) json = new StreamReader(e1.Open()).ReadToEnd(); var e2 = z.GetEntry("player.png"); if (e2 != null) pngLen = (int)e2.Length; }
                 Ok(names.Contains("report.json") && names.Contains("player.png") && pngLen > 500, "report: report.json and a picture of the player (" + pngLen + " bytes)");
-                Ok(json.Contains("\"script\":4") && json.Contains("\"browser\":\"" + Program.Version + "\"") && json.Contains("\"decisions\"") && json.Contains("blank-white") && json.Contains("\"videos\"") && json.Contains("\"over\"") && json.Contains("\"picture\""), "report: versions, the script's events and decisions, the video, what is over the player, a picture sample");
+                Ok(json.Contains("\"script\":" + TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn)) && json.Contains("\"browser\":\"" + Program.Version + "\"") && json.Contains("\"decisions\"") && json.Contains("blank-white") && json.Contains("\"videos\"") && json.Contains("\"over\"") && json.Contains("\"picture\""), "report: versions, the script's events and decisions, the video, what is over the player, a picture sample");
                 Ok(!json.Contains("adwhite") && json.Contains("[channel]"), "report: the channel's name is replaced by [channel]");
                 Ok(!json.Contains("XYZ123SECRET") && !json.Contains("secret_cookie") && !json.Contains("chatuser_secret") && !json.Contains("hello"), "report: no cookie, no chat, no user name");
                 var bt = Val(Cmd("test-twr-menu")) ?? "";
@@ -180,8 +180,8 @@ namespace HallowBrowser.Tests
                 if (tabsNow.Count > tabsBefore)
                 {
                     int nt = tabsNow.FindIndex(x => ((string)x["url"] ?? "").EndsWith("/tw/fromlink")); if (nt < 0) nt = tabsNow.Count - 1;
-                    var sv = Wait(() => Eval(nt, "String(window.__hallowTwitch&&window.__hallowTwitch.v)"), x => x == "4", 6000);
-                    Ok(sv == "4" && Wait(() => Convert.ToInt32(State(nt).ContainsKey("scriptV") ? State(nt)["scriptV"] : 0), x => x == 4, 4000) == 4, "new tab from a link: the Twitch script runs on its first page (" + sv + ")");
+                    var sv = Wait(() => Eval(nt, "String(window.__hallowTwitch&&window.__hallowTwitch.v)"), x => x == TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn).ToString(), 6000);
+                    Ok(sv == TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn).ToString() && Wait(() => Convert.ToInt32(State(nt).ContainsKey("scriptV") ? State(nt)["scriptV"] : 0), x => x == TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn), 4000) == TwitchAdRules.VersionOf(TwitchAdRules.BuiltIn), "new tab from a link: the Twitch script runs on its first page (" + sv + ")");
                 }
                 else Ok(false, "new tab from a link: no tab opened (" + Tabs().Count + ")");
 

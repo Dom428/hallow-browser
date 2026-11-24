@@ -21,7 +21,7 @@ namespace HallowBrowser.Tests
         static void ScriptTests()
         {
             var js = TwitchAdRules.BuiltIn;
-            Ok(TwitchAdRules.VersionOf(js) == 4 && TwitchAdRules.LooksRight(js), "twitch 1.14.2: the built-in script is version 4 (newer than 1.12.1 - 1.14.1's 3, so 1.10+ installs take it from the release)");
+            Ok(TwitchAdRules.VersionOf(js) >= 4 && TwitchAdRules.LooksRight(js), "twitch 1.14.2: the built-in script is version 4 or newer (newer than 1.12.1 - 1.14.1's 3, so 1.10+ installs take it from the release)");
             Ok(js.Contains("function adWhy(") && js.Contains("'amazon'") && js.Contains("'cue'") && js.Contains("'title'") && js.Contains("sawLive"), "twitch 1.14.2: more kinds of ad marker (class, X-TV-TWITCH-AD, Amazon titles, cue tags, a non-live title where live ones were)");
             Ok(js.Contains("XO.prototype.send") && js.Contains("handle(u, channelOf(u), x.responseText, null)"), "twitch 1.14.2: playlists fetched with XMLHttpRequest are looked at (covered, not swapped)");
             Ok(js.Contains("import(' + JSON.stringify(abs)") && !js.Contains("if (!(o && o.type === 'module'))"), "twitch 1.14.2: module workers get the prelude too");

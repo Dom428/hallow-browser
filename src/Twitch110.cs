@@ -54,7 +54,7 @@ namespace HallowBrowser
         public const string ClientId = "kimne78kx3ncx6brgo4mv6wki5h1ko";   // the public web client id twitch.tv itself sends
         public const string Gql = "https://gql.twitch.tv/gql", Usher = "https://usher.ttvnw.net";
         public const string AssetName = "hallow-twitch.js";
-        public static readonly string[] PlayerTypes = { "embed", "popout", "autoplay", "picture-by-picture" };
+        public static readonly string[] PlayerTypes = { "embed", "popout", "autoplay", "site", "picture-by-picture", "thunderdome", "frontpage" };   // 1.16.1: script v5 has this list itself
         // ad hosts blocked for Twitch tabs (subdomains included). Not spade / countess: channel points, drops and view counts need them.
         public static readonly string[] BlockHosts = {
             "amazon-adsystem.com", "edge.ads.twitch.tv", "ads.ttvnw.net", "imasdk.googleapis.com", "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",

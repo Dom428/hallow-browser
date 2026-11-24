@@ -42,7 +42,7 @@ namespace HallowBrowser.Tests
         static Dictionary<string, object> St(int win, int tab) { return J(Cmd("test-tw-state " + win + " " + tab)); }
 
         // ---- the fake Twitch: everything asked for is written down (path, method, body, some headers)
-        public class Req { public string Path, Method, Body, Cookie, ClientId; public DateTime At; }
+        public class Req { public string Path, Method, Body, Cookie, ClientId; public DateTime At; public Dictionary<string, string> Headers; }
         static readonly List<Req> reqs = new List<Req>();
         static List<Req> Hits(string prefix) { lock (reqs) return reqs.Where(r => r.Path.StartsWith(prefix)).ToList(); }
         static void Clear() { lock (reqs) reqs.Clear(); }
@@ -65,7 +65,7 @@ namespace HallowBrowser.Tests
                         foreach (var ln in lines.Skip(1)) { var i = ln.IndexOf(':'); if (i > 0) h[ln.Substring(0, i).Trim()] = ln.Substring(i + 1).Trim(); }
                         string v; string body = null;
                         if (h.TryGetValue("Content-Length", out v)) { int len = int.Parse(v); var buf = new byte[len]; int got = 0; while (got < len) { int k = s.Read(buf, got, len - got); if (k <= 0) break; got += k; } body = Encoding.UTF8.GetString(buf, 0, got); }
-                        var rq = new Req { Path = first[1], Method = first[0], Body = body, Cookie = h.TryGetValue("Cookie", out v) ? v : null, ClientId = h.TryGetValue("Client-ID", out v) ? v : null, At = DateTime.Now };
+                        var rq = new Req { Path = first[1], Method = first[0], Body = body, Cookie = h.TryGetValue("Cookie", out v) ? v : null, ClientId = h.TryGetValue("Client-ID", out v) ? v : null, At = DateTime.Now, Headers = h };
                         Tuple<int, string, byte[]> r;
                         if (rq.Method == "OPTIONS") r = Tuple.Create(204, "text/plain", new byte[0]);
                         else { lock (reqs) reqs.Add(rq); r = Route(rq) ?? Tuple.Create(404, "text/plain", Encoding.UTF8.GetBytes("not found")); }
@@ -240,7 +240,7 @@ namespace HallowBrowser.Tests
                 Ok(Eval(0, tw, "String(window.__hallowTwitch.workers)") == "1", "stitched ads: the player's worker (made from a revoked blob address) got the prelude");
                 var tokens = Hits("/gql").Where(r => (r.Body ?? "").Contains("PlaybackAccessToken_Template")).ToList();
                 var types = tokens.Select(r => Regex.Match(r.Body, "\"playerType\":\"([a-z-]+)\"").Groups[1].Value).Distinct().ToList();
-                Ok(types.Contains("embed") && types.Contains("popout") && !types.Contains("site"), "stitched ads: tokens asked for other player types (embed had the ad too, popout was clean): " + string.Join(",", types));
+                Ok(types.Contains("embed") && types.Contains("popout") && types.Contains("autoplay"), "stitched ads: tokens asked for the backup player types (1.16.1: all at once; embed had the ad too, popout was clean): " + string.Join(",", types));
                 Ok(tokens.Count > 0 && tokens.All(r => r.ClientId == TwitchAdRules.ClientId && r.Cookie == null), "stitched ads: GraphQL asked with Twitch's public web client id and no cookies");
                 var altMasters = Hits("/usher/").Where(r => (Qs(r.Path, "token") ?? "").StartsWith("type=popout")).ToList();
                 Ok(altMasters.Count >= 1 && altMasters.All(r => Qs(r.Path, "sig") == "fakesig" && Qs(r.Path, "allow_source") == "true"), "stitched ads: the alternative master is the player's own usher address with the new token");

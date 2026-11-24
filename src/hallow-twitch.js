@@ -1,4 +1,4 @@
-// hallow-twitch 4
+// hallow-twitch 5
 // Hallow Browser's Twitch ad handling - the page part. Hallow Browser's own code (github.com/Dom428/hallow-browser), no third-party
 // code. The browser runs it at document start on twitch.tv pages as (function(CFG){ ...this file... })(settings), in the page itself
 // (not an extension, so it works in private windows too). Newer copies can come from the browser's GitHub release (asset
@@ -33,6 +33,18 @@
 // events Twitch's page reports, or a second video playing in an ad box. A white, blank or frozen player is found by sampling the
 // video's picture (a 32 x 18 canvas) and its state, and recovered step by step (nudge, reload the source, the backup stream, the page).
 // Every decision is kept (window.__hallowTwitch.decisions) for Hallow Browser's "Report a Twitch problem".
+//
+// Version 5 (Hallow Browser 1.16.1, real use: the dark cover showed - every backup v4 tried had failed): keep the stream going. Written
+// fresh after reading how the well-known open-source approaches describe it (no code taken from them):
+//  - more backups, all asked at once: embed, popout, autoplay (as Twitch's Android app asks for it), site, picture-by-picture,
+//    thunderdome, frontpage - the first one in that order with no ad marker is used (the one that worked last time is asked first);
+//  - a lower quality is fine for the break: when no backup is clean at the player's quality, their 480p / 360p streams are tried;
+//  - the backup token is asked like Twitch's own page asks (its device id and integrity headers, never the sign-in);
+//  - the player's own token is asked as "popout" (fewer ads are stitched into that one), never on a channel you allow ads on;
+//  - a small "ad-free backup (480p)" badge shows on the player while a backup plays the break; a lower-quality backup goes back to the
+//    player's own quality after the break (the player loads its stream again);
+//  - every backup asked for is in the decisions with why it failed (token / usher / playlist error, ad marker), so "Report a Twitch
+//    problem" shows it. The dark cover stays only for when every backup has the ad too.
 'use strict';
 if (!CFG || window.__hallowTwitch) return;
 var HERE = location.href;
@@ -48,19 +60,24 @@ function core(G, CFG, post, sub) {
     G.__hallowTwCore = { swaps: 0, covers: 0, alt: 0, xhr: 0 };
     var ST = G.__hallowTwCore;
     var USHER = CFG.usher, GQL = CFG.gql;
-    var TYPES = CFG.types || ['embed', 'popout', 'autoplay', 'picture-by-picture'];
+    // v5: the backups, in the order they are preferred. An older browser passes its own shorter CFG.types: this script's list is used.
+    var TYPES = CFG.types5 || ['embed', 'popout', 'autoplay', 'site', 'picture-by-picture', 'thunderdome', 'frontpage'];
+    var PLATFORM = { autoplay: 'android' };   // v5: autoplay is asked for as Twitch's Android app asks for it (a 360p stream)
+    var HDR = {};                             // v5: Twitch's own device id / integrity headers, as the page sends them (never the sign-in)
+    (function () { var h = CFG.hdr || {}; for (var k in h) HDR[k] = h[k]; })();
     var Q = 'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!, $platform: String!) {' +
         '  streamPlaybackAccessToken(channelName: $login, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {    value    signature   __typename  }' +
         '  videoPlaybackAccessToken(id: $vodID, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}';
     var variants = {};   // media playlist URL -> { ch, res, bw }
     var masters = {};    // channel -> the player's own usher address
-    var alts = {};       // channel|type -> { media, t }
-    var sticky = {};     // channel -> the player type that was clean last time
+    var altMasters = {}; // v5: channel|type -> { list (its qualities), t }
+    var sticky = {};     // channel -> { type, low } that was clean last time
     var inAd = {};       // channel -> true while its playlists carry an ad
     var noAlt = {};      // channel -> until when not to look again (every alternative had the ad a moment ago)
     var lastCh = null;
-    var onAlt = {};      // channel -> the player type the player is on now (it stays there until its next master playlist)
+    var onAlt = {};      // channel -> { type, low, res, lower } the player is on now (it stays there until its next master playlist)
     var preferAlt = {};  // v4: channel -> { type, until } - the page asked for the backup stream (the player's own one stayed white / stuck)
+    var adWhyLast = {};  // v5: channel -> the marker of its current break
     var sawLive = false; // v4: this worker has seen Twitch's "live" segment titles (so another title means something else: an ad)
 
     function allowed(ch) { return (CFG.allow || []).indexOf(ch) >= 0; }
@@ -131,75 +148,120 @@ function core(G, CFG, post, sub) {
         return !!variants[url] || url.indexOf('.m3u8') >= 0 || /^https:\/\/[a-z0-9-]+\.playlist\.ttvnw\.net\/v\d+\/playlist\//i.test(url);
     }
     function dbg(m) { if (CFG.diag) post({ ev: 'dbg', m: m }); }
+    // v5: a backup's token, asked like Twitch's own page asks (its device id and integrity headers, no cookies, no sign-in).
+    // Fails with a short reason: token-http-<status>, token-<GraphQL error>, token-network.
     function token(ch, type) {
         var body = JSON.stringify({ operationName: 'PlaybackAccessToken_Template', query: Q,
-            variables: { isLive: true, login: ch, isVod: false, vodID: '', playerType: type, platform: 'web' } });
-        return realFetch(GQL, { method: 'POST', body: body, credentials: 'omit', headers: { 'Client-ID': CFG.clientId, 'Content-Type': 'text/plain;charset=UTF-8' } })
-            .then(function (r) { if (!r.ok) lastErr = 'token-http-' + r.status; return r.ok ? r.json() : null; })
+            variables: { isLive: true, login: ch, isVod: false, vodID: '', playerType: type, platform: PLATFORM[type] || 'web' } });
+        var h = { 'Client-ID': CFG.clientId, 'Content-Type': 'text/plain;charset=UTF-8' };
+        for (var k in HDR) if (HDR[k]) h[k] = HDR[k];
+        return realFetch(GQL, { method: 'POST', body: body, credentials: 'omit', headers: h, __hallow: 1 })
+            .then(function (r) { if (!r.ok) throw 'token-http-' + r.status; return r.json(); }, function () { throw 'token-network'; })
             .then(function (j) {
                 var t = j && j.data && j.data.streamPlaybackAccessToken;
-                if (j && !(t && t.value)) lastErr = 'token-' + (j.errors && j.errors[0] && String(j.errors[0].message || 'error').slice(0, 40).replace(/[^\w -]/g, '') || 'none');
-                return t && t.value && t.signature ? t : null;
-            })
-            .catch(function () { lastErr = 'token-network'; return null; });
+                if (!(t && t.value && t.signature)) throw 'token-' + (j && j.errors && j.errors[0] && String(j.errors[0].message || 'error').slice(0, 40).replace(/[^\w -]/g, '') || 'none');
+                return t;
+            });
     }
-    var lastErr = null;   // v4: why the last alternative failed (for the decisions)
-    // the same channel as another player type: token -> usher -> the matching quality's media playlist (its text)
-    function alt(ch, type, want) {
-        // (one per quality too: the player switches quality, and each needs its own media playlist from the alternative)
-        var k = ch + '|' + type + '|' + (want ? want.res + '@' + want.bw : ''), a = alts[k], fresh = a && Date.now() - a.t < 8 * 60000;
-        lastErr = null;
-        var media = fresh ? Promise.resolve(a.media) : token(ch, type).then(function (t) {
-            if (!t) return null;
+    // a backup's qualities: token -> usher (the player's own usher address with the backup's token); kept 5 minutes
+    function masterFor(ch, type) {
+        var k = ch + '|' + type, m = altMasters[k];
+        if (m && Date.now() - m.t < 5 * 60000) return Promise.resolve(m.list);
+        return token(ch, type).then(function (t) {
             var u = new URL(masters[ch] || (USHER + '/api/channel/hls/' + ch + '.m3u8?allow_source=true&fast_bread=true&player_backend=mediaplayer&playlist_include_framerate=true&reassignments_supported=true&supported_codecs=avc1'));
             u.searchParams.set('sig', t.signature); u.searchParams.set('token', t.value); u.searchParams.set('p', String(Math.floor(Math.random() * 9999999)));
+            u.searchParams.delete('parent_domains');
             ST.alt++;
-            return realFetch(u.href, { credentials: 'omit' }).then(function (r) { if (!r.ok) lastErr = 'usher-' + r.status; return r.ok ? r.text() : null; }).then(function (txt) {
-                if (!txt) return null;
-                var v = pick(parseMaster(txt, u.href), want); if (!v) { lastErr = 'usher-no-variants'; return null; }
-                alts[k] = { media: v.uri, t: Date.now() };
-                return v.uri;
-            });
+            return realFetch(u.href, { credentials: 'omit' })
+                .then(function (r) { if (!r.ok) throw 'usher-' + r.status; return r.text(); }, function (e) { throw typeof e === 'string' ? e : 'usher-network'; })
+                .then(function (txt) { var list = parseMaster(txt, u.href); if (!list.length) throw 'usher-no-variants'; altMasters[k] = { list: list, t: Date.now() }; return list; });
         });
-        return media.then(function (m) {
-            if (!m) return null;
-            return realFetch(m, { credentials: 'omit' }).then(function (r) { if (!r.ok) { lastErr = 'media-' + r.status; delete alts[k]; return null; } return r.text(); });
-        }).catch(function () { lastErr = lastErr || 'network'; delete alts[k]; return null; });
+    }
+    function height(res) { var m = /x(\d+)$/.exec(res || ''); return m ? +m[1] : 0; }
+    function label(v) { var h = v && height(v.res); return h ? h + 'p' : (v && v.res) || '?'; }
+    // v5: the "low quality for the break" stream: the best one at 480p or below (else the smallest there is)
+    function lowOf(list) {
+        var best = null, min = null;
+        for (var i = 0; i < list.length; i++) {
+            var h = height(list[i].res);
+            if (h && h <= 480 && (!best || list[i].bw > best.bw)) best = list[i];
+            if (!min || list[i].bw < min.bw) min = list[i];
+        }
+        return best || min;
+    }
+    // v5: one backup: its media playlist at the player's quality (or its low one) -> { type, low, ok, why, text, v }. 6 s at most.
+    function attempt(ch, type, want, low) {
+        var r = { type: type, low: !!low }, k = ch + '|' + type;
+        var p = masterFor(ch, type).then(function (list) {
+            var v = low ? lowOf(list) : pick(list, want); r.v = v;
+            return realFetch(v.uri, { credentials: 'omit' }).then(function (x) { if (!x.ok) throw 'playlist-' + x.status; return x.text(); }, function (e) { throw typeof e === 'string' ? e : 'playlist-network'; });
+        }).then(function (text) {
+            if (r.done) return r;
+            r.text = text;
+            if (!/#EXTINF/.test(text)) { r.why = 'empty'; return r; }
+            var w = adWhy(text); if (w) { r.why = 'ad/' + w; return r; }
+            r.ok = true; return r;
+        }, function (e) {
+            if (!r.done) r.why = typeof e === 'string' ? e : 'error';
+            if (/^playlist-/.test(r.why || '')) delete altMasters[k];
+            return r;
+        });
+        var limit = new Promise(function (res) { setTimeout(function () { if (!r.ok && !r.why) r.why = 'timeout'; res(r); }, 6000); });
+        return Promise.race([p, limit]).then(function (x) { x.done = true; return x; });
     }
     function asResponse(text, url) {
         var r = new Response(text, { status: 200, headers: { 'Content-Type': 'application/vnd.apple.mpegurl' } });
         try { Object.defineProperty(r, 'url', { value: url }); } catch (e) { }
         return r;
     }
-    // an ad in this channel's playlist: the first clean alternative (the one that worked last time first), else the original + a cover
+    // v5: every backup asked for, for the decisions: "embed:ad/class, popout:token-http-403, autoplay/android:clean 360p, ..."
+    function summary(rs) {
+        return rs.map(function (r) { return r.type + (PLATFORM[r.type] ? '/' + PLATFORM[r.type] : '') + (r.low ? '@low' : '') + ':' + (r.ok ? 'clean ' + label(r.v) : (r.why || '?') + (r.v && r.low ? ' ' + label(r.v) : '')); }).join(', ');
+    }
+    // an ad in this channel's playlist: the backup that was clean last time first, else every backup at once (the first clean one in
+    // TYPES order wins), else their lower qualities, else the original under the cover (and no new look for 8 s)
     function onAd(ch, url, text) {
-        var want = variants[url], order = TYPES.slice();
-        if (sticky[ch]) { order.splice(order.indexOf(sticky[ch]), 1); order.unshift(sticky[ch]); }
-        var i = Date.now() < (noAlt[ch] || 0) ? order.length : 0, tried = [];
-        function next() {
-            if (i >= order.length) {
-                var quiet = Date.now() < (noAlt[ch] || 0) && !tried.length;
-                if (Date.now() >= (noAlt[ch] || 0)) noAlt[ch] = Date.now() + 8000;
-                var info = adInfo(text); ST.covers++;
-                if (!quiet) note('no clean alternative for ' + ch + (tried.length ? ' (' + tried.join(', ') + ')' : '') + ' - cover ' + info.secs + ' s');
-                post({ ev: 'cover', ch: ch, secs: info.secs, ids: info.ids });
-                return asResponse(text, url);
-            }
-            var type = order[i++];
-            return alt(ch, type, want).then(function (t) {
-                var why = t ? adWhy(t) : null;
-                dbg('alt ' + ch + ' ' + type + ': ' + (t ? (t.match(/#EXTINF/g) || []).length + ' segments, ad=' + !!why : 'nothing'));
-                if (t && /#EXTINF/.test(t) && !why) {
-                    if (sticky[ch] !== type || !onAlt[ch]) note('swap ' + ch + ' -> ' + type + (tried.length ? ' (after ' + tried.join(', ') + ')' : ''));
-                    sticky[ch] = type; onAlt[ch] = type; ST.swaps++;
-                    post({ ev: 'swap', ch: ch, type: type });
-                    return asResponse(t, url);
-                }
-                tried.push(type + ':' + (t ? (why ? 'ad/' + why : 'empty') : 'failed' + (lastErr ? '/' + lastErr : '')));
-                return next();
+        var want = variants[url], st = sticky[ch], tried = [];
+        if (Date.now() < (noAlt[ch] || 0)) return coverIt(ch, url, text, null);
+        var first = st ? attempt(ch, st.type, want, st.low) : Promise.resolve(null);
+        return first.then(function (r0) {
+            if (r0) { tried.push(r0); if (r0.ok) return use(ch, url, r0, tried, want); }
+            var rest = TYPES.filter(function (t) { return !(st && !st.low && t === st.type); });
+            return Promise.all(rest.map(function (t) { return attempt(ch, t, want, false); })).then(function (rs) {
+                tried = tried.concat(rs);
+                for (var i = 0; i < rs.length; i++) if (rs[i].ok) return use(ch, url, rs[i], tried, want);
+                // lower quality for the break: the 480p / 360p stream of each backup that answered (when it is another stream)
+                var again = TYPES.filter(function (t) {
+                    var m = altMasters[ch + '|' + t], at = null;
+                    for (var j = 0; j < tried.length; j++) if (tried[j].type === t && !tried[j].low) at = tried[j];
+                    if (!m) return false;
+                    if (st && st.low && st.type === t) return false;           // asked first already
+                    return !(at && at.v && lowOf(m.list).uri === at.v.uri);   // that one was already the low one
+                });
+                return Promise.all(again.map(function (t) { return attempt(ch, t, want, true); })).then(function (ls) {
+                    tried = tried.concat(ls);
+                    for (var j = 0; j < ls.length; j++) if (ls[j].ok) return use(ch, url, ls[j], tried, want);
+                    return coverIt(ch, url, text, tried);
+                });
             });
-        }
-        return next();
+        });
+    }
+    function use(ch, url, r, tried, want) {
+        var prev = onAlt[ch], h = height(r.v && r.v.res), hw = want ? height(want.res) : 0, lower = !!(h && hw && h < hw);
+        sticky[ch] = { type: r.type, low: r.low };
+        onAlt[ch] = { type: r.type, low: r.low, res: label(r.v), lower: lower };
+        ST.swaps++;
+        if (!prev || prev.type !== r.type || prev.low !== r.low || tried.length > 1)
+            note('swap ' + ch + ' -> ' + r.type + ' ' + label(r.v) + (lower ? ' (lower quality for the break, the player had ' + label(want) + ')' : '') + ' [' + summary(tried) + ']');
+        post({ ev: 'swap', ch: ch, type: r.type, res: label(r.v), lower: lower });
+        return asResponse(r.text, url);
+    }
+    function coverIt(ch, url, text, tried) {
+        if (tried) noAlt[ch] = Date.now() + 8000;
+        var info = adInfo(text); ST.covers++;
+        if (tried) note('no clean backup for ' + ch + ' [' + summary(tried) + '] - cover ' + info.secs + ' s');
+        post({ ev: 'cover', ch: ch, secs: info.secs, ids: info.ids });
+        return asResponse(text, url);
     }
 
     G.fetch = function (input, init) {
@@ -224,6 +286,8 @@ function core(G, CFG, post, sub) {
         if (url && CFG.diag && /ttvnw\.net|twitch\.tv/.test(url) && !/\.ts(\?|$)|\.mp4(\?|$)|segment/.test(url) && !playlistish(url)) dbg('fetch ' + url.split('?')[0].slice(0, 100));
         if (!url || !playlistish(url)) return realFetch(input, init);
         var ch = channelOf(url);
+        // v5: usher is told the player is embedded on another site by parent_domains - that stream gets more ads: left out
+        if (ch && /[?&]parent_domains=/.test(url)) { try { var pu = new URL(url); pu.searchParams.delete('parent_domains'); url = pu.href; input = url; note('parent_domains left out of the master playlist address'); } catch (e) { } }
         return realFetch(input, init).then(function (resp) {
             if (!resp.ok) return resp;
             return resp.clone().text().then(function (text) {
@@ -242,7 +306,7 @@ function core(G, CFG, post, sub) {
             if (ch) {
                 masters[ch] = url; delete onAlt[ch];   // a new session of the player's own: it starts on the original
                 var pa = preferAlt[ch];                 // v4: ...unless the page asked for the backup stream (the original stayed white)
-                if (pa && Date.now() < pa.until) { onAlt[ch] = pa.type; note('backup stream for ' + ch + ': ' + pa.type); }
+                if (pa && Date.now() < pa.until) { onAlt[ch] = { type: pa.type, low: false, res: '?', lower: false }; note('backup stream for ' + ch + ': ' + pa.type); }
                 var list = parseMaster(text, url);
                 for (var i = 0; i < list.length; i++) variants[list[i].uri] = { ch: ch, res: list[i].res, bw: list[i].bw };
             }
@@ -259,32 +323,43 @@ function core(G, CFG, post, sub) {
             return resp;
         }
         if (!ad) {
-            if (inAd[c]) { inAd[c] = false; note('clean ' + c + (onAlt[c] ? ' (staying on ' + onAlt[c] + ')' : '')); post({ ev: 'clean', ch: c }); }
+            var oa = onAlt[c];
+            if (inAd[c]) {
+                inAd[c] = false;
+                note('clean ' + c + (oa ? (oa.lower ? ' - back to the player\'s own quality (the player loads its stream again)' : ' (staying on ' + oa.type + ' ' + oa.res + ', the same quality)') : ''));
+                post({ ev: 'clean', ch: c, main: !!(oa && oa.lower) });
+                if (oa && oa.lower) oa.backBy = Date.now() + 5000;
+            }
             // After a swap the player STAYS on the alternative: on the real Twitch, going back to the original stream mid-session
             // stalls the player for good (checked Nov 2026: paused, buffer empty, never recovers). The alternative is the same
             // live stream at the same quality, so nothing is lost; the player's next master playlist starts over.
+            // v5: a LOWER quality backup is left after the break: the page loads the player's stream again (a new master playlist starts
+            // on the original); if that hasn't happened within 5 s, the worker goes back to the original stream itself.
+            if (oa && oa.backBy && Date.now() > oa.backBy) { delete onAlt[c]; note('back to the original stream of ' + c + ' (no new master playlist came)'); return resp; }
             var pa2 = preferAlt[c];
-            if (!onAlt[c] && pa2 && Date.now() < pa2.until) { onAlt[c] = pa2.type; note('backup stream for ' + c + ': ' + pa2.type); }
-            if (onAlt[c]) {
-                var type = onAlt[c];
-                return alt(c, type, v).then(function (t) {
-                    var w2 = t ? adWhy(t) : null;
-                    if (t && /#EXTINF/.test(t) && !w2) return asResponse(t, url);
-                    if (t && w2) { inAd[c] = true; note('ad (' + w2 + ') on the alternative ' + type); return onAd(c, url, t); }   // the alternative has its own ad now
-                    delete onAlt[c]; note('alternative ' + type + ' gone (' + (lastErr || '?') + ') - back to the original'); return resp;
+            if (!oa && pa2 && Date.now() < pa2.until) { oa = onAlt[c] = { type: pa2.type, low: false, res: '?', lower: false }; note('backup stream for ' + c + ': ' + pa2.type); }
+            if (oa) {
+                return attempt(c, oa.type, v, oa.low).then(function (r) {
+                    if (r.ok) return asResponse(r.text, url);
+                    if (/^ad\//.test(r.why || '') && !oa.backBy) { inAd[c] = true; note('ad (' + r.why.slice(3) + ') on the backup ' + oa.type); return onAd(c, url, r.text); }   // the backup has its own ad now
+                    if (onAlt[c] === oa) delete onAlt[c];
+                    note('backup ' + oa.type + ' gone (' + (r.why || '?') + ') - back to the original'); return resp;
                 });
             }
             return resp;
         }
         var first = !inAd[c]; inAd[c] = true;
         if (first) note('ad (' + why + ') on ' + c + (v ? ' ' + v.res : '') + ' - ' + adInfo(text).secs + ' s');
+        else if (adWhyLast[c] !== why) note('the ad on ' + c + ' is now marked by ' + why);   // v5: the break goes on with another marker
+        adWhyLast[c] = why;
         if (allowed(c)) { if (first) post({ ev: 'allowed', ch: c }); return resp; }
         return onAd(c, url, text);
     }
 
     // v4: the page can ask for the backup stream (the player's own stream stayed white or stuck after a break)
     if (sub) sub(function (m) {
-        if (m.cmd === 'backup' && m.ch) { preferAlt[m.ch] = { type: sticky[m.ch] || TYPES[0], until: Date.now() + 10 * 60000 }; note('page asked for the backup stream of ' + m.ch); }
+        if (m.cmd === 'backup' && m.ch) { preferAlt[m.ch] = { type: sticky[m.ch] && !sticky[m.ch].low ? sticky[m.ch].type : TYPES[0], until: Date.now() + 10 * 60000 }; note('page asked for the backup stream of ' + m.ch); }
+        if (m.cmd === 'hdr' && m.h) for (var k in m.h) if (typeof m.h[k] === 'string') HDR[k] = m.h[k];   // v5: the page's newest Twitch headers
     });
 
     // v4: playlists fetched with XMLHttpRequest are looked at too (Twitch's player uses fetch today; if that changes, an ad that comes
@@ -340,13 +415,48 @@ if (CFG.on) {
 
 // GraphQL calls that only report ad events: answered here instead of sent (never a call that mixes in anything else)
 var AD_OPS = CFG.adOps || [];
+// v5: the headers Twitch's page sends with its own GraphQL calls (its device id, integrity token, client version and session), so the
+// backup token is asked for the same way. Never Authorization (the sign-in) or cookies. Until the page sends one: a random device id.
+var PAGE_HDR = { 'X-Device-Id': (function () { var s = '', a = 'abcdefghijklmnopqrstuvwxyz0123456789'; for (var i = 0; i < 32; i++) s += a.charAt(Math.floor(Math.random() * a.length)); return s; })() };
+var HDR_KEYS = { 'x-device-id': 'X-Device-Id', 'device-id': 'X-Device-Id', 'client-integrity': 'Client-Integrity', 'client-version': 'Client-Version', 'client-session-id': 'Client-Session-Id' };
+function grabHeaders(input, init) {
+    var h = init && init.headers || (input && typeof input === 'object' && input.headers), got = 0;
+    if (!h) return;
+    var take = function (k, v) { var n = HDR_KEYS[String(k).toLowerCase()]; if (n && typeof v === 'string' && v && PAGE_HDR[n] !== v) { PAGE_HDR[n] = v; got++; } };
+    try {
+        if (typeof h.forEach === 'function' && !Array.isArray(h)) h.forEach(function (v, k) { take(k, v); });
+        else if (Array.isArray(h)) h.forEach(function (p) { if (p && p.length === 2) take(p[0], p[1]); });
+        else for (var k in h) take(k, h[k]);
+    } catch (e) { }
+    if (got) {
+        var m = { cmd: 'hdr', h: PAGE_HDR };
+        try { pageCmd(m); } catch (e) { }
+        try { if (bcOut) bcOut.postMessage(m); } catch (e) { }
+        if (!window.__hallowTwitch.hdr) { window.__hallowTwitch.hdr = 1; decide('Twitch\'s own request headers are used for the backup tokens (' + Object.keys(PAGE_HDR).join(', ') + ')'); }
+    }
+}
+// v5: the player's own token is asked as "popout" instead of "site" (as the well-known approaches do: fewer ads are stitched into it).
+// Only live streams, never on a channel you allow ads on.
+function forcePopout(list) {
+    if (CFG.forcePopout === false) return 0;
+    var n = 0;
+    for (var i = 0; i < list.length; i++) {
+        var o = list[i], va = o && o.variables;
+        if (o && /^PlaybackAccessToken/.test(o.operationName || '') && va && va.isLive && va.playerType === 'site') { va.playerType = 'popout'; n++; }
+    }
+    if (n) { window.__hallowTwitch.forced = (window.__hallowTwitch.forced || 0) + n; if (window.__hallowTwitch.forced === n) decide('the player\'s own stream token is asked as popout (not site)'); }
+    return n;
+}
 if (CFG.on && AD_OPS.length && window.fetch) {
     var pageFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
+        if (init && init.__hallow) return pageFetch(input, init);   // v5: Hallow's own backup token request (from the page's core)
         try {
             var url = typeof input === 'string' ? input : input && input.url;
+            if (url && url.indexOf(CFG.gql) === 0) try { grabHeaders(input, init); } catch (e) { }
             if (url && url.indexOf(CFG.gql) === 0 && init && typeof init.body === 'string' && (CFG.allow || []).indexOf(CH_NOW()) < 0) {
                 var b = JSON.parse(init.body), list = Array.isArray(b) ? b : [b];
+                try { if (forcePopout(list)) { var nb = {}; for (var ik in init) nb[ik] = init[ik]; nb.body = JSON.stringify(Array.isArray(b) ? list : list[0]); init = nb; } } catch (e) { }
                 try { gqlAdEvents(list); } catch (e) { }   // v4: Twitch's page reports a playing ad: a signal to cover it
                 if (list.length && list.every(function (o) { return o && AD_OPS.indexOf(o.operationName) >= 0; })) {
                     window.__hallowTwitch.droppedOps = (window.__hallowTwitch.droppedOps || 0) + list.length;
@@ -568,7 +678,7 @@ function stuck(v) {
 var SIG = { gql: 0, gqlLast: null, video: 0, label: 0, lastAd: 0, gqlUntil: 0, domSince: 0, domMuteUntil: 0 };
 window.__hallowTwitch.signals = SIG;
 var DEC = window.__hallowTwitch.decisions = [], SEEN = {};
-function decide(m) { DEC.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (DEC.length > 80) DEC.shift(); }
+function decide(m) { DEC.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (DEC.length > 150) DEC.shift(); }
 function adSeen() { SIG.lastAd = Date.now(); }
 function backup(why) {
     var ch = CH_NOW(); if (!ch) return;
@@ -697,12 +807,49 @@ function blankCheck(v) {
 }
 if (CFG.on) setInterval(watchdog, 1000);
 
+// v5: while a backup plays the break, a small badge on the player says so ("ad-free backup (480p)") - never over the middle of the
+// picture, never in the way of a click; gone when the break is over (or after 3 minutes at most)
+var badge = { host: null, root: null, on: false, text: '', timer: 0, since: 0 };
+function drawBadge() {
+    if (!badge.on) return;
+    if (Date.now() - badge.since > 180000) { hideBadge(); return; }
+    var v = bigVideo(), parent = document.fullscreenElement || document.documentElement; if (!parent) return;
+    if (!badge.host) {
+        badge.host = document.createElement('hallow-backup');
+        badge.root = badge.host.attachShadow({ mode: 'closed' });
+        badge.root.innerHTML = '<style>:host{all:initial;position:fixed;z-index:2147483646;display:block;pointer-events:none}span{display:block;font:600 11px "Segoe UI",sans-serif;color:#ECE8F4;background:rgba(20,16,27,.72);' +
+            'border-left:3px solid ' + CFG.accent + ';border-radius:4px;padding:2px 7px;white-space:nowrap}</style><span id=t></span>';
+    }
+    if (badge.host.parentNode !== parent) parent.appendChild(badge.host);
+    var r = v ? v.getBoundingClientRect() : { left: 0, top: 0 };
+    badge.host.style.left = (r.left + 8) + 'px'; badge.host.style.top = (r.top + 8) + 'px';
+    badge.root.getElementById('t').textContent = badge.text;
+}
+function showBadge(res) {
+    badge.text = 'ad-free backup' + (res && res !== '?' ? ' (' + res + ')' : '');
+    if (!badge.on) badge.since = Date.now();
+    badge.on = true; drawBadge();
+    if (!badge.timer) badge.timer = setInterval(drawBadge, 500);
+}
+function hideBadge() {
+    badge.on = false; clearInterval(badge.timer); badge.timer = 0;
+    if (badge.host && badge.host.parentNode) badge.host.parentNode.removeChild(badge.host);
+}
+window.__hallowTwitch.badge = function () { return badge.on && badge.host && badge.host.isConnected ? badge.text : null; };
+
 function onMsg(m) {
     if (!m || !m.ev) return;
-    if (m.ev === 'swap') swappedSince = swappedSince || Date.now();
+    if (m.ev === 'swap') {
+        swappedSince = swappedSince || Date.now();
+        if (!allowedHere(m.ch)) showBadge(m.res);
+        // v5: a backup was found after the cover went up (the next look, 8 s later): the stream is back - the cover goes
+        if (cover.end && !cover.dom && cover.why === 'playlist' && !(SIG.gqlUntil && Date.now() < SIG.gqlUntil)) liftCover('swap');
+    }
+    if (m.ev === 'cover' || m.ev === 'clean') hideBadge();
+    if (m.ev === 'clean' && m.main) { decide('back to the player\'s own quality: the player loads its stream again'); nudge(true); }
     if (m.ev === 'clean' && swappedSince) { swappedSince = 0; afterBreak(); }
     if (m.ev === 'dbg') { var d = window.__hallowTwitch.diag; if (d) { d.push(Math.round(performance.now()) + ' ' + m.m); if (d.length > 400) d.shift(); } return; }
-    if (m.ev === 'dec') { decide(String(m.m).slice(0, 160)); return; }
+    if (m.ev === 'dec') { decide(String(m.m).slice(0, 700)); return; }
     if (m.ch) SEEN[m.ch] = 1;
     if (m.ev === 'cover' || m.ev === 'swap' || m.ev === 'allowed') adSeen();
     log(m);
@@ -754,7 +901,7 @@ try { bcOut = new BroadcastChannel(NONCE); bcOut.onmessage = function (e) { onMs
 window.__hallowTwitch.report = function () {
     var H = window.__hallowTwitch, names = Object.keys(SEEN), ch = CH_NOW(); if (ch) names.push(ch);
     var o = {
-        script: CFG.version, on: !!CFG.on, allowedHere: allowedHere(null), events: H.events.slice(-60), decisions: DEC.slice(-60), watch: WD, blank: BL,
+        script: CFG.version, on: !!CFG.on, allowedHere: allowedHere(null), events: H.events.slice(-60), decisions: DEC.slice(-100), watch: WD, blank: BL,
         signals: SIG, cover: H.cover(), workers: H.workers || 0, droppedOps: H.droppedOps || 0, resyncs: H.resyncs || 0,
         core: window.__hallowTwCore || null, swappedSince: swappedSince ? Date.now() - swappedSince : 0, sinceAd: SIG.lastAd ? Date.now() - SIG.lastAd : -1
     };
@@ -763,8 +910,10 @@ window.__hallowTwitch.report = function () {
     return s;
 };
 
+// v5: the settings each core gets, with the Twitch headers known so far
+function withHdr() { var o = {}; for (var k in CFG) o[k] = CFG[k]; o.hdr = PAGE_HDR; return o; }
 if (CFG.on) {
-    core(window, CFG, onMsg, pageSub);
+    core(window, withHdr(), onMsg, pageSub);
     // every classic worker starts with the same prelude (Twitch's player fetches its playlists in one: a blob: worker whose code is
     // importScripts(<amazon-ivs worker>) - read here and run after the prelude). v4: module workers get it too (before a dynamic
     // import of their code), and the page can send the worker a command (the backup stream).
@@ -772,7 +921,7 @@ if (CFG.on) {
         return '(function(){var bc;try{bc=new BroadcastChannel(' + JSON.stringify(NONCE) + ')}catch(e){}' +
             'var P=function(m){try{bc&&bc.postMessage(m)}catch(e){}};' +
             'var S=function(f){try{bc&&bc.addEventListener("message",function(e){if(e.data&&e.data.cmd)f(e.data)})}catch(e){}};' +
-            '(' + core.toString() + ')(self,' + JSON.stringify(CFG) + ',P,S);})();\n';
+            '(' + core.toString() + ')(self,' + JSON.stringify(withHdr()) + ',P,S);})();\n';
     };
     var OW = window.Worker;
     var source = function (u, module) {
