@@ -75,6 +75,7 @@ namespace HallowBrowser
             ContentRendered += (a, b) => Engine.Mark("chrome-first-paint");
             LayoutUpdated += (a, b) => A11y.Schedule(Dispatcher);   // 1.9: names, help text, keyboard and scale for what was just laid out
             Closing += OnClosing;
+            SourceInitialized += (a, b) => HookForeignClose();   // 1.16.2: only you close the browser
             tick = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(5) }; tick.Tick += (a, b) => Tick(false);
             saveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) }; saveTimer.Tick += (a, b) => { saveTimer.Stop(); SaveSession(); };
             statusTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) }; statusTimer.Tick += (a, b) => { statusTimer.Stop(); WriteStatus(); };
@@ -576,7 +577,7 @@ namespace HallowBrowser
                 try { if (AppMode) await AppPopup(b); else await AdoptNewWindow(b, x); }   // 1.6: pop-ups from an app window open in the browser
                 finally { d.Complete(); }
             };
-            c.WindowCloseRequested += (a, b) => { var x = T(); if (x != null) CloseTab(x); };
+            c.WindowCloseRequested += (a, b) => PageWantsClose(T());   // 1.16.2: a page or an extension never closes the whole window
             c.DownloadStarting += OnDownload;
             c.ContainsFullScreenElementChanged += (a, b) => { var x = T(); if (x == Active && !x.PoppedOut) SetFullscreen(c.ContainsFullScreenElement); };
             c.IsDocumentPlayingAudioChanged += (a, b) => { var x = T(); if (x == null) return; x.Audible = c.IsDocumentPlayingAudio; if (x.Audible) x.MediaSeen = true; SetTabIcon(x); UpdateMediaButtons(); };
@@ -607,7 +608,7 @@ namespace HallowBrowser
                 if (x != null && x.Group != null) nt.Group = x.Group;   // 1.2: a link from a grouped tab opens in its group
                 RenderStrip();
                 await CreateView(nt, b);
-                if (nt.Core != null) { b.NewWindow = nt.Core; b.Handled = true; }
+                if (nt.Core != null) { b.NewWindow = nt.Core; b.Handled = true; SignInPopupOpened(x, nt, b.Uri); }   // 1.16.2
                 if (!(b.WindowFeatures != null && b.WindowFeatures.HasSize == false && b.IsUserInitiated && (Keyboard.Modifiers & ModifierKeys.Control) != 0)) Activate(nt);
                 Changed();
             }
@@ -647,14 +648,31 @@ namespace HallowBrowser
         {
             try
             {
-                if (e.ResourceContext == CoreWebView2WebResourceContext.Document && S.DoNotTrack) { e.Request.Headers.SetHeader("Sec-GPC", "1"); e.Request.Headers.SetHeader("DNT", "1"); }
+                if (e.ResourceContext == CoreWebView2WebResourceContext.Document && S.DoNotTrack)
+                {
+                    // 1.16.2: a sign-in request (to Google / Microsoft / Apple / GitHub sign-in, or the site's page it sends you back to) is never touched
+                    var hd = e.Request.Headers;
+                    if (SignIn.IsSignInRequest(e.Request.Uri, hd.Contains("Referer") ? hd.GetHeader("Referer") : null, hd.Contains("Origin") ? hd.GetHeader("Origin") : null)) SignInRequestsLeftAlone++;
+                    else { hd.SetHeader("Sec-GPC", "1"); hd.SetHeader("DNT", "1"); }
+                }
                 if (Fallback != null && e.ResourceContext != CoreWebView2WebResourceContext.Document && Fallback.Blocks(e.Request.Uri))
                 {
                     e.Response = Engine.Env.CreateWebResourceResponse(null, 403, "Blocked by Hallow Shield", "");
                     FallbackBlocked++;
                 }
+                if (NetLogOn && e.ResourceContext == CoreWebView2WebResourceContext.Document) LogRequest(e.Request, sender as CoreWebView2);
             }
             catch { }
+        }
+        // 1.16.2 tests: the page requests as they leave Hallow (address, method, headers)
+        public static readonly List<Dictionary<string, object>> NetLog = new List<Dictionary<string, object>>();
+        public static bool NetLogOn;
+        void LogRequest(CoreWebView2WebResourceRequest r, CoreWebView2 c)
+        {
+            if (BrowserSettings.TestDir == null) return;
+            var h = new Dictionary<string, object>(); try { foreach (var kv in r.Headers) h[kv.Key] = kv.Key == "Cookie" ? "(cookies, not logged)" : kv.Value; } catch { }
+            Tab t; var tab = c != null && owner.TryGetValue(c, out t) ? Tabs.IndexOf(t) : -1;
+            lock (NetLog) { NetLog.Add(new Dictionary<string, object> { { "url", r.Uri }, { "method", r.Method }, { "headers", h }, { "tab", tab }, { "ms", Engine.SinceStart() } }); if (NetLog.Count > 200) NetLog.RemoveAt(0); }
         }
 
         // ================================================================ Hallow Keys: show the key when Keys has logins for this page
@@ -1058,6 +1076,7 @@ namespace HallowBrowser
 
         void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (ForeignClose(e)) return;   // 1.16.2: a close you didn't ask for (an extension) is refused
             tick.Stop();
             foreach (var t in Tabs.Where(x => x.PoppedOut).ToList()) Pip.Close(this, t, false);
             if (snap) return;
@@ -1081,8 +1100,8 @@ namespace HallowBrowser
             }
         }
         bool clearing, clearedOnExit;
-        public new void Close() { if (clearing && !clearedOnExit) return; base.Close(); }
-        public void ForceClose() { clearedOnExit = true; base.Close(); }
+        public new void Close() { if (clearing && !clearedOnExit) return; closeAsked = true; base.Close(); }
+        public void ForceClose() { clearedOnExit = true; closeAsked = true; base.Close(); }
         public CoreWebView2Profile Profile { get { var t = Tabs.FirstOrDefault(x => x.Core != null); return t == null ? null : t.Core.Profile; } }
         public Grid ContentGrid { get { return content; } }
         public void ShowPlaceholder(bool on) { popPlaceholder.Visibility = on ? Visibility.Visible : Visibility.Collapsed; }

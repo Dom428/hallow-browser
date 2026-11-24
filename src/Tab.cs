@@ -49,7 +49,7 @@ namespace HallowBrowser
         public Microsoft.Web.WebView2.Core.CoreWebView2 Core { get { try { return View == null ? null : View.CoreWebView2; } catch { return null; } } }
         public TabState State(bool active)
         {
-            return new TabState { Id = Id, Active = active, Audible = Audible, Suspended = Suspended, Discarded = Discarded, PoppedOut = PoppedOut, Loading = Loading, LastActive = LastActive };
+            return new TabState { Id = Id, Active = active, Audible = Audible, Suspended = Suspended, Discarded = Discarded, PoppedOut = PoppedOut, Loading = Loading, LastActive = LastActive, Busy = SignInBusy };
         }
     }
 

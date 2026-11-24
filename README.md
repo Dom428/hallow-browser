@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). 1.16.1 **keeps Twitch playing during ads**: more ad-free backup streams, a lower quality for the break if needed, the dark cover only as the last resort. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). 1.16.1 **keeps Twitch playing during ads**: more ad-free backup streams, a lower quality for the break if needed, the dark cover only as the last resort. 1.16.2 fixes **"Sign in with Google"** (and Microsoft, Apple, GitHub): Hallow's privacy features leave sign-in pages alone, and an **extension can no longer close the whole browser**. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,45 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.16.2: "Sign in with Google" works, extensions can't close the browser
+
+From real use: signing in to a site with Google ended on Google's **"400. That's an error ... malformed"** page, and the browser
+**closed itself** after the Claude in Chrome extension finished its sign-in.
+
+- **Sign-in pages are left alone.** Google (`accounts.google.com`, `oauth2.googleapis.com`), Microsoft (`login.microsoftonline.com`,
+  `login.live.com`), Apple (`appleid.apple.com`) and GitHub's sign-in (`github.com/login...`), and the page they send you back to:
+  - Hallow Shield no longer strips "tracking" parameters (`gclid`, `fbclid`, `_gl`, `s_cid` ...) from their addresses or from the
+    site's return address, blocks nothing on them and runs no hiding or scripts there (a small rule list of the browser's own,
+    above all of Shield's lists, in the copy of Shield the browser loads);
+  - Hallow no longer rewrites their request headers itself (the Do Not Track / Global Privacy Control headers it added to every
+    page request); the engine's own Do Not Track setting is unchanged;
+  - a sign-in **pop-up** is allowed even when the site opens it a moment after your click (unless you blocked pop-ups for that
+    site), keeps its connection to the site (`window.opener`), and the tab that opened it **stays awake** while it's open - before,
+    game mode put it to sleep at once.
+- **An extension can't close the browser.** WebView2 answers an extension's "close this tab / window" by closing the whole window.
+  Now only you close Hallow Browser (the X, Ctrl+Shift+W, Exit, Alt+F4, the taskbar). An extension closing your last tab leaves a
+  new tab page; anything else trying to close the window is refused (a short note says so) and your other tabs stay (the page that
+  asked is closed, as WebView2 has already shut it).
+- **Google's own "Dark theme" choice works.** With **Make pages dark** on, Chromium's automatic dark mode also darkened Google's
+  light theme, so picking Light or Dark in Google's own prompt changed nothing you could see (Settings worked, because that's
+  Hallow's switch). Google's pages (and the sign-in pages) now draw their own light or dark theme: your choice there, kept in
+  Google's own cookie, or "Device default", which follows Settings > Page colours (sites see `prefers-color-scheme` = the
+  browser's look, or dark / light / Windows' as you chose). Google's preference address is never changed by Shield. A site you set
+  to "Make dark" in Site settings is still made dark.
+- **Store extensions that can't work say so first.** Before you add one that needs Chrome features WebView2 doesn't have
+  (`sidePanel`, `debugger`, `nativeMessaging`, `identity`, `tabGroups`, `offscreen`, tab / screen capture ...), the card says:
+  *"This extension needs Chrome features Hallow Browser doesn't have, so it probably won't work."* You can still add it.
+- The WebView2 processes still running from 08:00 in that report were **Windows Search's** (`SearchHost.exe`), not Hallow's; after
+  Exit, none of Hallow Browser's WebView2 processes stay (checked in the tests).
+
+Checked off-screen, muted, in throw-away test profiles. Against local stand-ins ("accounts.google.com" mapped to a local test
+server - nothing went to Google): the sign-in request and the site's return address arrive with every parameter and no header
+added by Hallow, the pop-up keeps `window.opener` and talks to the site both ways while a game runs, and an extension's
+`chrome.tabs.remove` / `chrome.windows.remove` leave the browser open. 1.16.1 failed the same checks (parameters stripped, headers
+added, the opener asleep, the browser exited). On the real claude.ai, up to Google's email page only (never signed in): Google's
+sign-in pop-up opens with `window.opener` and shows "Sign in with Google - Email or phone". Honestly: Google's 400 comes after you
+pick or type your account, which these tests never do, so which of the fixed interferences caused it wasn't seen directly.
 
 ## What's new in 1.16.1: Twitch keeps playing during ads
 

@@ -9,6 +9,15 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.16.2 - "SIGN IN WITH GOOGLE" WORKS, EXTENSIONS CAN'T CLOSE THE BROWSER
+- Google / Microsoft / Apple / GitHub sign-in pages (and the page they send you back to) are left alone: Shield strips no
+  parameters and blocks nothing there, Hallow adds no headers, sign-in pop-ups are allowed and keep window.opener, and the tab
+  that opened one stays awake (also while gaming)
+- An extension can no longer close the whole browser: its last tab becomes a new tab page; only you close Hallow Browser
+- Google's own "Dark theme" choice works with "Make pages dark" on: Google's pages draw their own light / dark theme
+- Before adding a store extension that needs Chrome-only features (sidePanel, debugger, nativeMessaging, identity, tabGroups,
+  offscreen...): "This extension needs Chrome features Hallow Browser doesn't have, so it probably won't work." (still allowed)
+
 WHAT'S NEW IN 1.16.1 - TWITCH: THE STREAM KEEPS GOING DURING ADS
 - When Twitch stitches an ad in, Hallow asks Twitch for seven backup streams of the channel at once
   (embed, popout, autoplay, site, picture-by-picture, thunderdome, frontpage) and plays the first

@@ -149,7 +149,12 @@ namespace HallowBrowser
             sp.Children.Add(Ui.Muted("From the Chrome Web Store - signature and ID " + p.Id + " checked.", 11.5, 4));
             sp.Children.Add(Ui.Label("It can:"));
             foreach (var a in p.Asks.DefaultIfEmpty("Nothing beyond its own pages")) sp.Children.Add(Ui.Muted("• " + a, 12, 2));
-            if (p.Gaps.Count > 0) { sp.Children.Add(Ui.Label("Won't work in Hallow Browser (WebView2):")); foreach (var g in p.Gaps) sp.Children.Add(Ui.Muted("• " + g, 12, 2)); }
+            if (p.Gaps.Count > 0)   // 1.16.2: said plainly, before adding (adding still works)
+            {
+                var warn = Ui.T(WebStore.GapWarning, 12.5, true, "Text", 6); warn.TextWrapping = TextWrapping.Wrap; warn.MaxWidth = 520; var wi = Ui.Icon("triangle-exclamation", 13, "AmberText"); wi.Margin = new Thickness(0, 2, 8, 0); wi.VerticalAlignment = VerticalAlignment.Top;
+                sp.Children.Add(Ui.Row(wi, warn));
+                sp.Children.Add(Ui.Label("Missing in Hallow Browser (WebView2):")); foreach (var g in p.Gaps) sp.Children.Add(Ui.Muted("• " + g, 12, 2));
+            }
             var add = Ui.Btn(p.Update ? "Update" : "Add extension", () => { var _ = ConfirmPending().ContinueWith(r => Dispatcher.BeginInvoke(new Action(() => { if (r.Result != null) Toast(r.Result, 8); }))); }, true, "plus");
             sp.Children.Add(Ui.Row(add, Ui.Btn("Cancel", CancelPending, false, "xmark")));
             return Ui.Card(sp);

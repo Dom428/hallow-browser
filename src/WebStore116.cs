@@ -152,7 +152,15 @@ namespace HallowBrowser
             { "nativeMessaging", "native messaging - WebView2 can't connect an extension to a desktop app" },
             { "identity", "Google sign-in for extensions (chrome.identity) - not in WebView2" },
             { "sidePanel", "side panels - not in WebView2" }, { "management", "managing other extensions - not in WebView2" },
-            { "enterprise.platformKeys", "enterprise keys - not in WebView2" }, { "webAuthenticationProxy", "passkey proxying - not in WebView2" } };
+            { "enterprise.platformKeys", "enterprise keys - not in WebView2" }, { "webAuthenticationProxy", "passkey proxying - not in WebView2" },
+            // 1.16.2 (real use: an extension asking for these was added, and couldn't work)
+            { "debugger", "controlling pages through the debugger (chrome.debugger) - not in WebView2" }, { "tabGroups", "tab groups (chrome.tabGroups) - not in WebView2" },
+            { "offscreen", "hidden helper pages (chrome.offscreen) - not in WebView2" }, { "tabCapture", "recording a tab (chrome.tabCapture) - not in WebView2" },
+            { "desktopCapture", "recording the screen (chrome.desktopCapture) - not in WebView2" }, { "pageCapture", "saving pages as MHTML (chrome.pageCapture) - not in WebView2" },
+            { "gcm", "push messages from Google (chrome.gcm) - not in WebView2" }, { "ttsEngine", "being a text-to-speech voice (chrome.ttsEngine) - not in WebView2" },
+            { "documentScan", "scanners (chrome.documentScan) - not in WebView2" }, { "printing", "printers (chrome.printing) - not in WebView2" } };
+        // 1.16.2: the plain warning shown above the list when anything is missing
+        public const string GapWarning = "This extension needs Chrome features Hallow Browser doesn't have, so it probably won't work. You can still add it.";
         public static List<string> Asks(Dictionary<string, object> m)
         {
             var res = new List<string>();

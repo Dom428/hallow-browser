@@ -274,6 +274,7 @@ namespace HallowBrowser
             var r = SiteRules.Find(S, Omni.HostOf(url));
             if (r != null && r.Dark == "on") return true;
             if (r != null && r.Dark == "off") return false;
+            if (S.ForceDark && SiteThemes.OwnTheme(Omni.HostOf(url))) return false;   // 1.16.2: a site with its own light / dark choice (Google) draws itself
             return S.ForceDark;
         }
         void ApplyDark(Tab t, CoreWebView2 c, string url)

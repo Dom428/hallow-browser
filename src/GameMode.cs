@@ -63,13 +63,13 @@ namespace HallowBrowser
     // what the planner needs to know about a tab
     public class TabState
     {
-        public int Id; public bool Active, Audible, Suspended, Discarded, PoppedOut, Loading; public DateTime LastActive;
+        public int Id; public bool Active, Audible, Suspended, Discarded, PoppedOut, Loading, Busy; public DateTime LastActive;   // 1.16.2: Busy = its sign-in pop-up is open
     }
 
     public static class Planner
     {
         // tabs that may sleep at all: not the one you're looking at, not playing audio, not popped out, not discarded already
-        static bool CanSleep(TabState t) { return !t.Active && !t.Audible && !t.PoppedOut && !t.Discarded; }
+        static bool CanSleep(TabState t) { return !t.Active && !t.Audible && !t.PoppedOut && !t.Discarded && !t.Busy; }
 
         // which tabs to suspend now. game = a game is running (and gaming-light is on); sleepMinutes 0 = never by time
         public static List<int> ToSuspend(IEnumerable<TabState> tabs, bool game, DateTime now, int sleepMinutes)

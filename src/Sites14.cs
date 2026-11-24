@@ -143,7 +143,7 @@ namespace HallowBrowser
         bool PopupAllowed(Tab x, CoreWebView2NewWindowRequestedEventArgs b)
         {
             var host = Omni.HostOf(x.Url); var r = host == null || !Omni.IsWeb(x.Url) ? null : SiteRules.Find(S, host);
-            bool ok = r != null && r.Popups == "allow" ? true : r != null && r.Popups == "block" ? false : b.IsUserInitiated;
+            bool ok = r != null && r.Popups == "allow" ? true : r != null && r.Popups == "block" ? false : b.IsUserInitiated || SignIn.IsIdentity(b.Uri);   // 1.16.2: a sign-in pop-up opened a moment after the click
             if (!ok) { PopupsBlocked++; LastPopup = b.Uri; if (x == Active) Toast("Blocked a pop-up from " + host + ". The padlock in the address bar can allow them for this site.", 5); }
             return ok;
         }

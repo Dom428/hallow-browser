@@ -38,6 +38,7 @@ namespace HallowBrowser
                 object p; var perms = m.TryGetValue("permissions", out p) && p is ArrayList ? ((ArrayList)p).Cast<object>().ToList() : new List<object>();
                 if (!perms.Contains(Feedback)) perms.Add(Feedback);
                 m["permissions"] = perms;
+                SignIn.AddRuleset(m);   // 1.16.2: Shield never touches sign-in pages
                 object o; if (m.TryGetValue("optional_permissions", out o) && o is ArrayList) { var opt = ((ArrayList)o).Cast<object>().Where(x => (x as string) != Feedback).ToList(); if (opt.Count > 0) m["optional_permissions"] = opt; else m.Remove("optional_permissions"); }
                 return js2.Serialize(m);
             }
@@ -49,7 +50,7 @@ namespace HallowBrowser
             try
             {
                 var mf = Path.Combine(folder, "manifest.json");
-                var stamp = Path.GetFullPath(folder) + "|" + File.GetLastWriteTimeUtc(mf).Ticks + "|" + new FileInfo(mf).Length + "|hallow-1.4";
+                var stamp = Path.GetFullPath(folder) + "|" + File.GetLastWriteTimeUtc(mf).Ticks + "|" + new FileInfo(mf).Length + "|hallow-1.16.2";
                 var dest = Path.Combine(LoadedDir, v == null ? "x" : v.ToString());
                 var marker = Path.Combine(dest, ".hallow-source");
                 if (File.Exists(marker) && File.ReadAllText(marker) == stamp && File.Exists(Path.Combine(dest, "manifest.json"))) return dest;
@@ -57,6 +58,10 @@ namespace HallowBrowser
                 var tmp = dest + ".tmp"; if (Directory.Exists(tmp)) Directory.Delete(tmp, true);
                 Copy(folder, tmp);
                 File.WriteAllText(Path.Combine(tmp, "manifest.json"), patched, new UTF8Encoding(false));
+                // 1.16.2: Shield never touches sign-in pages (SignIn.PatchBackground; unpatched if Shield's code changed)
+                var bg = Path.Combine(tmp, "background.js"); var pb = File.Exists(bg) ? SignIn.PatchBackground(File.ReadAllText(bg)) : null;
+                if (pb != null) File.WriteAllText(bg, pb, new UTF8Encoding(false));
+                Directory.CreateDirectory(Path.Combine(tmp, "rules")); File.WriteAllText(Path.Combine(tmp, "rules", "hallow-signin.json"), SignIn.RulesJson(), new UTF8Encoding(false));
                 File.WriteAllText(Path.Combine(tmp, ".hallow-source"), stamp);
                 if (Directory.Exists(dest)) Directory.Delete(dest, true);
                 Directory.Move(tmp, dest);
