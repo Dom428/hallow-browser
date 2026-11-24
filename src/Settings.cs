@@ -121,6 +121,7 @@ namespace HallowBrowser
         [DataMember] public string SecureDns = "off";          // off | cloudflare | quad9 | google (DNS over HTTPS; applies after a restart)
         [DataMember] public List<SiteRule> Sites;              // per-site choices the browser keeps itself (pop-ups, sound, JavaScript, http allowed)
         [DataMember] public List<UserExtension> Extensions;    // unpacked extensions you loaded (copies in LocalAppData\HallowBrowser\Extensions)
+        [DataMember] public bool StoreUpdates; [DataMember] public string StoreChecked;   // 1.16: check Chrome Web Store extensions for updates once a day (off: only when you click)
         [DataMember] public bool ShareShieldCounts = true;     // Shield's blocked counts to %APPDATA%\HallowShield\status.json for Hallow Hub / Remote (counts only)
         [DataMember] public bool GameCorner;                   // off by default: news for your Hub games (Steam) and free games (Epic) on the new tab page
         // 1.5: address bar, saving logins to Hallow Keys, dark pages, downloads, tabs, media

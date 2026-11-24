@@ -9,6 +9,14 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.16 - EXTENSIONS FROM THE CHROME WEB STORE
+- hallow://extensions > Add from Chrome Web Store: paste a store link or ID, or click
+  "Add to Hallow Browser" on the extension's store page.
+- Fetched from Google's own update server only when you click; its signature and ID are
+  checked; you see what it asks for before it's added. Updates: one click, or once a day.
+- WebView2 can't connect extensions to desktop apps (native messaging), so extensions that
+  need their desktop app won't fully work.
+
 WHAT'S NEW IN 1.15.1 - A TIDIER NEW TAB PAGE
 - The new tab page fits any window: the GUARD / SHIELD strip is a footer under everything (it covered
   the Overlay row in small windows); the games row scrolls sideways, titles get two lines.
@@ -206,8 +214,7 @@ WHAT'S NEW IN 1.4 - WINDOWS, PRIVACY AND YOUR OWN EXTENSIONS
   before going on. Secure DNS (Settings > Security): Cloudflare, Quad9 or Google - needs a
   browser restart.
 - Your own extensions (hallow://extensions): load an unpacked extension folder, switch it
-  on or off, remove it. The Chrome Web Store can't work in WebView2 - the page says what
-  to do instead. Shield stays built in.
+  on or off, remove it. 1.16: add from the Chrome Web Store too. Shield stays built in.
 - Shield's "blocked on this page" number works, and its counts reach Hallow Hub and Remote
   (%APPDATA%\HallowShield\status.json - counts only).
 - Game corner on the new tab page (OFF by default - it contacts Steam and Epic): news for

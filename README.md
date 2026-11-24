@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,31 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.16: add extensions from the Chrome Web Store
+
+- **Add from Chrome Web Store** on hallow://extensions: paste the extension's store link (`chromewebstore.google.com/detail/...`)
+  or its 32-letter ID - or open its page in the store and click **Add to Hallow Browser** (the store's own "Add to Chrome" can't
+  work in WebView2, so Hallow puts its own button on store extension pages).
+- **Only on your click** the browser asks Google's official update server (`clients2.google.com/service/update2/crx` - the same
+  one Chromium uses) for that one extension's CRX file. The request carries the extension ID and the engine's version, nothing else.
+- **Checked before anything is added:** only CRX3 files; the file must really be that extension (its ID is the SHA-256 of the key
+  that signed it, as in Chromium) and the extension's own signature (RSA or ECDSA P-256) must match every byte. A changed file or
+  another extension's file is refused and nothing is unpacked.
+- **You see what it asks for first** (in words: "Read and change everything on every website you open", "See your open tabs"...),
+  and what won't work in WebView2. Only after **Add extension** is it unpacked into the browser's Extensions folder and loaded
+  (`AddBrowserExtensionAsync`); Cancel leaves nothing behind. It keeps its **store ID** (the store key goes into its manifest),
+  so its data and links to it work as in Chrome.
+- **Updates:** "Check for updates now", or "Check store extensions for updates once a day" (off by default). A newer version goes
+  through the same checks and the same card.
+- **What WebView2 extensions can't do:** talk to desktop apps (native messaging - measured: `sendNativeMessage` answers
+  "Specified native messaging host not found", so password managers that need their desktop app won't connect), Google sign-in for
+  extensions (`chrome.identity`), side panels, managing other extensions, permission prompts for optional permissions; they don't
+  run in private windows and the store's settings sync isn't there.
+
+Tests: 1.16 adds unit tests (CRX3 files made in the test with throw-away RSA / ECDSA keys: good, changed, another ID, CRX2, junk;
+store links; the update answer; unpacking; permissions in words) and an integration suite `v116` against a **local stand-in** for
+the update endpoint and a stand-in store page - nothing is downloaded from Google in tests.
 
 ## What's new in 1.15.1: a tidier new tab page, real game names, Google search
 
@@ -752,10 +777,10 @@ invert filter was needed.
   **Remove** it (the browser's copy is deleted, never your folder). Loading a newer folder of the same extension replaces it.
 - Their buttons are under the **puzzle piece** in the toolbar (an overflow menu); a popup opens in a flyout like Shield's.
 - **Hallow Shield stays built in** - listed as "Built in", it can't be removed.
-- **Chrome Web Store installs aren't possible in WebView2** (Microsoft's engine has no store support). Instead: get the extension's
-  source or release zip from its developer (many publish one on GitHub), unzip it and Load unpacked. Updates don't come by
-  themselves - load the newer folder. Some extension APIs are missing in WebView2 (native messaging, permission prompts), and
-  extensions don't run in private windows.
+- **1.16: Chrome Web Store** - paste a store link or ID (or click "Add to Hallow Browser" on the store page): fetched from Google's
+  update server only on your click, CRX3 signature and ID checked, what it asks for shown before it's added (see "What's new in
+  1.16"). Extensions from elsewhere: Load unpacked. Some extension APIs are missing in WebView2 (native messaging, chrome.identity,
+  permission prompts), and extensions don't run in private windows.
 
 **Shield: "blocked on this page" and the Hallow family counts**
 - WebView2 has **no API to grant an extension an optional permission**, and Shield asking for it itself (`chrome.permissions.request`,

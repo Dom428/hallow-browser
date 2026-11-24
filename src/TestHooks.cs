@@ -164,6 +164,7 @@ namespace HallowBrowser
             if (cmd.StartsWith("test-a-")) return A19(w, cmd.Substring(7), arg);      // 1.9
             if (cmd.StartsWith("test-twr-")) return V1142(w, cmd.Substring(9), arg);  // 1.14.2: Report a Twitch problem
             if (cmd.StartsWith("test-pk-")) return V115(w, cmd.Substring(8), arg);    // 1.15: passkeys through Hallow Keys
+            if (cmd.StartsWith("test-cws-")) return V116(w, cmd.Substring(9), arg);    // 1.16: Chrome Web Store installs (a local stand-in store)
             if (cmd.StartsWith("test-nt-")) return V1151(w, cmd.Substring(8), arg);   // 1.15.1: the new tab page (layout, names, Shield count, tiles)
             if (cmd.StartsWith("test-tw-")) return V110(w, cmd.Substring(8), arg);    // 1.10
             if (cmd.StartsWith("test-d-")) return V112(w, cmd.Substring(7), arg);     // 1.12

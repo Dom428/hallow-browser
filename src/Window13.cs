@@ -26,7 +26,7 @@ namespace HallowBrowser
             AutoBookmarksBar(); RenderBookmarksBar(); RefreshNewTabData(); StartSync();
             StartLogos();   // 1.14: site logos - redraw when they arrive; once: logos from the browser the bookmarks came from; the quiet fetch
             DefaultCheck();   // 1.13: what Windows says now (the default-browser hint follows it)
-            if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => { if (!DefaultCheck()) RefreshNewTabData(); }; ntTimer.Start(); }
+            if (ntTimer == null) { ntTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) }; ntTimer.Tick += (a, b) => { if (!DefaultCheck()) RefreshNewTabData(); StoreUpdateTick(); }; ntTimer.Start(); }
         }
         DispatcherTimer ntTimer;
         void BookmarksChanged()

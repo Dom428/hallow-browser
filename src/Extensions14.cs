@@ -1,7 +1,7 @@
 ﻿// Hallow Browser 1.4 - your own extensions: hallow://extensions loads an unpacked extension (a folder with a manifest.json), switches
 // it on or off, removes it. The folder is copied into the browser's data (LocalAppData\HallowBrowser\Extensions), so moving or
 // deleting the original later doesn't break it, and loaded with WebView2's AddBrowserExtensionAsync. Hallow Shield stays built in
-// (it can't be removed). Chrome Web Store installs aren't possible in WebView2 - the page says what to do instead.
+// (it can't be removed). 1.16: extensions from the Chrome Web Store too (Store116.cs).
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +24,7 @@ namespace HallowBrowser
     public class UserExtension
     {
         [DataMember] public string Id, Name, Version, Folder, Source, Popup, Options, Description;
+        [DataMember] public bool Store; [DataMember] public string Checked;   // 1.16: added from the Chrome Web Store (its updates come from there), last update check
         [DataMember] public bool Enabled = true;
         [OnDeserializing] void D(StreamingContext c) { Enabled = true; }
     }
@@ -211,11 +212,11 @@ namespace HallowBrowser
             col.Children.Add(Ui.Muted("Chromium extensions you load yourself run in every normal window (not in private windows). Their buttons are under the puzzle piece in the toolbar.", 12, 12));
             var tools = Ui.Row(Ui.Btn("Load unpacked...", PickUnpacked, true, "folder-open", "Pick an extension's folder (the one with manifest.json)"));
             tools.Margin = new Thickness(0, 0, 0, 14); col.Children.Add(tools);
+            col.Children.Add(StoreBox()); col.Children.Add(new Border { Height = 12 });   // 1.16
             extList = new StackPanel(); col.Children.Add(extList);
             col.Children.Add(Ui.Card(new StackPanel { Children = {
-                Ui.Label("Chrome Web Store?"),
-                Ui.Muted("Installing from the Chrome Web Store isn't possible in WebView2 (Microsoft's engine has no store support), and Hallow Browser can't add it. What you can do instead:", 12, 6),
-                Ui.Muted("1. Get the extension's source or a release zip from its developer (most open-source extensions publish one on GitHub), unzip it.\n2. Click \"Load unpacked...\" and pick the folder with manifest.json in it.\n3. Updates don't come by themselves: load the newer folder the same way (it replaces the old copy and keeps the extension's data).", 12, 6),
+                Ui.Label("Not from the store?"),
+                Ui.Muted("Click \"Load unpacked...\" and pick a folder with manifest.json in it (an extension's source or release zip, unzipped). Load a newer folder the same way to update it - it replaces the old copy and keeps the extension's data.", 12, 6),
                 Ui.Muted("Not everything works: WebView2 leaves out some extension APIs (for example native messaging, and permission prompts for optional permissions), and extensions don't run in private windows. Only load extensions you trust - they can read and change the pages you open.", 11.5, 0) } }));
             RefreshExtList();
             var sv = new ScrollViewer { Content = col, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false };
@@ -226,6 +227,7 @@ namespace HallowBrowser
         {
             if (extList == null) return;
             extList.Children.Clear();
+            var pc = PendingCard(); if (pc != null) { extList.Children.Add(pc); extList.Children.Add(new Border { Height = 10 }); }   // 1.16: a store install waiting for your OK
             // Shield: built in, can't be removed
             var sh = new DockPanel();
             var shb = Ui.Btn("Shield settings", () => Panels.OpenShieldSettings(this), false, "shield-halved"); DockPanel.SetDock(shb, Dock.Right); sh.Children.Add(shb);
