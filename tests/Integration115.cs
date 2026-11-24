@@ -117,6 +117,32 @@ function spoof(key,payload){R[key]=null;var rid='spoof-'+key;window.chrome.webvi
 window.chrome.webview.postMessage('hallow:pk\t'+JSON.stringify({rid:rid,op:'get',req:payload,url:payload.url,origin:payload.origin,topUrl:payload.url}));return 'started';}";
         static byte[] Html(string title, string body) { return Encoding.UTF8.GetBytes("<!doctype html><html><head><meta charset=utf-8><title>" + title + "</title></head><body><h1>" + title + "</h1><input id=u autocomplete='username webauthn'>" + body + "<script>" + PageJs + "</script></body></html>"); }
 
+        // 1.16.4 (tests): the Keys stand-in is built here - no outside setup needed
+        static string BuildStandIn(string exe, string dir, out string why)
+        {
+            why = null;
+            var keysExe = Environment.GetEnvironmentVariable("HALLOW_BROWSER_TEST_KEYSEXE");
+            var repo = Path.GetDirectoryName(Path.GetFullPath(exe));
+            if (string.IsNullOrEmpty(keysExe)) keysExe = Path.Combine(Path.GetDirectoryName(repo), "HallowKeys", "HallowKeys.exe");
+            var src = Path.Combine(repo, "tests", "keys-standin", "PkHost.cs");
+            if (!File.Exists(keysExe)) { why = "no " + keysExe; return null; }
+            if (!File.Exists(src)) { why = "no " + src; return null; }
+            if (keysExe.IndexOf(@"\Programs\Hallow Keys\", StringComparison.OrdinalIgnoreCase) >= 0) { why = "refusing the installed Hallow Keys"; return null; }
+            var hostDir = Path.Combine(dir, "keys-standin"); Directory.CreateDirectory(hostDir);
+            for (int i = 0; ; i++) { try { File.Copy(keysExe, Path.Combine(hostDir, "HallowKeys.exe"), true); break; } catch (IOException) { if (i > 20) throw; Thread.Sleep(500); } }   // the Keys build may be writing it
+            var fw = Path.Combine(Environment.GetEnvironmentVariable("WINDIR"), @"Microsoft.NET\Framework64\v4.0.30319");
+            var outExe = Path.Combine(hostDir, "pkhost.exe");
+            var psi = new ProcessStartInfo(Path.Combine(fw, "csc.exe"), "/nologo /target:exe \"/out:" + outExe + "\" \"/reference:" + Path.Combine(hostDir, "HallowKeys.exe") + "\" \"/reference:" + Path.Combine(fw, "System.Web.Extensions.dll") + "\" \"/reference:" + Path.Combine(fw, "System.Core.dll") + "\" \"" + src + "\"")
+                { UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true };
+            using (var c = Process.Start(psi)) { var o = c.StandardOutput.ReadToEnd(); c.WaitForExit(); if (c.ExitCode != 0 || !File.Exists(outExe)) { why = "the stand-in didn't build: " + o.Trim(); return null; } }
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("HALLOW_BROWSER_TEST_KEYSEXT")))
+            {
+                var ext = Path.Combine(Path.GetDirectoryName(keysExe), "extension");
+                if (Directory.Exists(ext)) Environment.SetEnvironmentVariable("HALLOW_BROWSER_TEST_KEYSEXT", ext);
+            }
+            return outExe;
+        }
+
         public static int Main(string exe, string dir)
         {
             exe = Path.GetFullPath(exe);
@@ -125,7 +151,14 @@ window.chrome.webview.postMessage('hallow:pk\t'+JSON.stringify({rid:rid,op:'get'
             try { Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
             report = new StreamWriter(Path.Combine(dir, "..", "integration-v115.txt"), false) { AutoFlush = true };
             var pkhost = Environment.GetEnvironmentVariable("HALLOW_BROWSER_TEST_PKHOST");
-            if (string.IsNullOrEmpty(pkhost) || !File.Exists(pkhost)) { Ok(false, "HALLOW_BROWSER_TEST_PKHOST names the Keys stand-in (" + pkhost + ")"); return 1; }
+            if (string.IsNullOrEmpty(pkhost) || !File.Exists(pkhost))
+            {
+                // the suite builds its own stand-in: testskeys-standinPkHost.cs against a COPY of Hallow Keys' exe (the Keys repo next to
+                // this one, or HALLOW_BROWSER_TEST_KEYSEXE) - never the installed Keys, never its data folder
+                string why; pkhost = BuildStandIn(exe, dir, out why);
+                if (pkhost == null) { Info("skipped: needs Hallow Keys' exe to build the Keys stand-in (" + why + ") - set HALLOW_BROWSER_TEST_KEYSEXE or HALLOW_BROWSER_TEST_PKHOST"); report.WriteLine("INTEGRATION v115: SKIPPED"); Console.WriteLine("INTEGRATION v115: SKIPPED (" + why + ")"); return 0; }
+                Info("built the Keys stand-in: " + pkhost);
+            }
             var cert = TlsServer.TestCert();
             var tls = new Tls(cert); int P = 0;
             tls.Route = (h, path) =>

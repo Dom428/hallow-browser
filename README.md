@@ -46,6 +46,18 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.16.4: no dead tab after an extension tries to close the browser
+
+**Fix:** when an extension tries to close the whole window (for example after it signs you in), Hallow Browser stays open, as in
+1.16.2, but the page that asked could be left behind as a **dead tab**: blank, and it wouldn't load anything. WebView2 shuts that
+page a little later, and how much later depends on how busy the PC is. 1.16.2 only checked at fixed moments (up to 4 seconds) and
+could miss it. Now the browser keeps checking for 20 seconds and closes that page like any page that closes itself. If it was the
+window's last tab, you get a new tab page instead.
+
+Tests: the integration suites now set themselves up and give the same result on a busy PC. The passkey suite builds its own
+Hallow Keys stand-in, the move-in suite no longer crashes in a deep folder, and the new-tab speed check takes the median of 9 opens
+with a budget that allows for a busy PC.
+
 ## What's new in 1.16.3: the white Twitch player is fixed
 
 **The white Twitch player is fixed: it was a broken channel extension overlay, now hidden.** Your "Report a Twitch problem" file

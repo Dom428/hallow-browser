@@ -140,7 +140,7 @@ namespace HallowBrowser
     {
         public int SignInRequestsLeftAlone, PageClosesKept, ForeignClosesRefused;   // tests
         public static readonly List<string> CloseTrace = new List<string>();   // tests: how a window was asked to close
-        static void CT(string s) { if (BrowserSettings.TestDir == null) return; lock (CloseTrace) { CloseTrace.Add(DateTime.Now.ToString("HH:mm:ss.fff") + " " + s); if (CloseTrace.Count > 40) CloseTrace.RemoveAt(0); } }
+        internal static void CT(string s) { if (BrowserSettings.TestDir == null) return; lock (CloseTrace) { CloseTrace.Add(DateTime.Now.ToString("HH:mm:ss.fff") + " " + s); if (CloseTrace.Count > 40) CloseTrace.RemoveAt(0); } }
 
         // Real use: an extension (Claude in Chrome) closed its sign-in tab and the whole browser closed - WebView2 answers an
         // extension's chrome.tabs.remove / chrome.windows.remove by closing the host window (WM_CLOSE), not the tab. Only these close
@@ -167,14 +167,30 @@ namespace HallowBrowser
             e.Cancel = true; ForeignClosesRefused++;
             // measured: after an extension's chrome.windows.remove WebView2 also shuts the page that asked (its view stays, empty) -
             // such tabs are closed like a page closing itself (the window's last one becomes a new tab page)
-            foreach (var ms in new[] { 300, 1500, 4000 })
-            {
-                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
-                timer.Tick += (a, b) => { timer.Stop(); foreach (var t in Tabs.Where(x => x.View != null && x.Core == null && x.Ready).ToList()) { CT("dead view closed"); PageWantsClose(t); } };
-                timer.Start();
-            }
+            // 1.16.4: how long WebView2 takes to shut that page varies (measured 1.5 s to over 6 s under load) - the old checks at
+            // 0.3 / 1.5 / 4 s missed a late one and left a dead tab (no page, no navigation). Now it's checked every 250 ms for 20 s
+            // (and on every tick of the window, below, for a page shut without any close message reaching the window).
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            timer.Tick += (a, b) => { SweepDeadViews("after " + sw.ElapsedMilliseconds + " ms"); if (sw.ElapsedMilliseconds > 20000 || Gone) timer.Stop(); };
+            timer.Start();
             Toast("Something tried to close Hallow Browser (an extension?). It stays open - close it with X when you want.", 6);
             return true;
+        }
+        // 1.16.4: a tab whose page WebView2 shut underneath it (an extension's chrome.windows.remove - measured: sometimes with no
+        // WM_CLOSE to the window at all, so the refusal above never ran) kept its view with no page in it: blank, every navigation failed.
+        // A ready tab with a view but no page is closed like a page closing itself. Not when the whole engine stopped (every tab is like
+        // that then; the "page engine stopped" message says what to do) - and a slept or unloaded tab has no view, so it's never touched.
+        // (measured: WebView2 also reports such a view's engine as stopped - ProcessFailed BrowserProcessExited - so that event can't tell
+        // a stopped engine apart; the engine counts as stopped only when no view in the window, the next new tab's included, has a page)
+        public static bool EngineExited;   // set by ProcessFailed (BrowserProcessExited) - for the record only
+        void SweepDeadViews(string when)
+        {
+            if (Gone || snap) return;
+            var dead = Tabs.Where(x => x.View != null && x.Core == null && x.Ready && !x.Suspended).ToList(); if (dead.Count == 0) return;
+            bool engineAlive = Tabs.Any(x => x.Core != null); if (!engineAlive && prewarm != null) try { engineAlive = prewarm.CoreWebView2 != null; } catch { }
+            if (!engineAlive && dead.Count > 1) return;
+            foreach (var t in dead) { CT("dead view closed " + when); PageWantsClose(t); }
         }
         // a pop-up to a sign-in page: the tab that opened it stays awake while it's open (woken now if it was asleep)
         void SignInPopupOpened(Tab opener, Tab popup, string uri)

@@ -585,7 +585,8 @@ namespace HallowBrowser
             c.ProcessFailed += (a, b) =>
             {
                 var x = T(); if (x == null) return;
-                if (b.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) { Toast("The page engine stopped. Restart Hallow Browser to go on.", 10); return; }
+                CT("ProcessFailed " + b.ProcessFailedKind + " (tab " + Tabs.IndexOf(x) + ")");   // tests: 1.16.4
+                if (b.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited) { EngineExited = true; if (!Tabs.Any(o => o != x && o.Core != null)) Toast("The page engine stopped. Restart Hallow Browser to go on.", 10); return; }   // 1.16.4: not for one view shut by an extension
                 // 1.5: a friendly "This tab crashed - Reload" page instead of reloading by itself (or a dead page)
                 if (b.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited) ShowCrashed(x, "crashed");
                 else if (b.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive) ShowCrashed(x, "hung");
@@ -929,6 +930,7 @@ namespace HallowBrowser
         DateTime lastRam = DateTime.MinValue; ProcessPriorityClass? appliedPriority; public long LastMemMb;
         public void Tick(bool force)
         {
+            SweepDeadViews("on the tick");   // 1.16.4
             var g = GameNow();   // 1.8: also a game just started from the new tab page (until it closes)
             bool changed = g != Game;
             Game = g;

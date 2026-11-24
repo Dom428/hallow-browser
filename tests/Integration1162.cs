@@ -180,7 +180,7 @@ namespace HallowBrowser.Tests
                 File.WriteAllText(game, ""); Cmd("test-tick");
 
                 // ---- an extension closing the last tab, then the window
-                var xl = Cmd("test-v-xload " + ext, 60000);
+                var xl = Cmd("test-v-xload " + ext, 150000);   // 1.16.4 (tests): WebView2 took over 60 s to load an extension on a busy PC (it did load)
                 Ok(xl != null && xl.StartsWith("ok"), "the closer test extension loads: " + xl);
                 while (Tabs().Count > 1) { Cmd("test-close " + (Tabs().Count - 1)); Thread.Sleep(400); }
                 var kept0 = Num(State(), "pageClosesKept");
@@ -193,7 +193,10 @@ namespace HallowBrowser.Tests
                 if (alive)
                 {
                     int t1 = Convert.ToInt32(Val(Cmd("test-new " + S + "/plain?two=1")) ?? "-1"); Thread.Sleep(1500);
-                    Cmd("test-nav 0 " + S + "/closeme?mode=window"); Thread.Sleep(6000);
+                    Cmd("test-nav 0 " + S + "/closeme?mode=window");
+                    // WebView2 shuts the asking page 1.5 s to over 6 s after the refused close (it varies with load): wait for the
+                    // outcome (up to 25 s) instead of a fixed 6 s, and stop early if the browser exits
+                    Wait(() => br.HasExited || Tabs().Count == 1, d => d, 25000); Thread.Sleep(500);
                     alive = !br.HasExited && Val(Cmd("ping", 3000)) != null; tabs = alive ? Tabs() : new List<Dictionary<string, object>>();
                     var st2 = alive ? State() : new Dictionary<string, object>();
                     Ok(alive && tabs.Count == 1 && ((tabs[0]["url"] as string) ?? "").Contains("two=1") && Num(st2, "windows") == 1 && Num(st2, "foreignRefused") >= 1,

@@ -9,6 +9,10 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.16.4 - NO DEAD TAB AFTER AN EXTENSION TRIES TO CLOSE THE BROWSER
+- Fix: when an extension tries to close the window, the browser still stays open, and now the page that asked is
+  closed too (1.16.2 could leave it behind as a blank tab that wouldn't load anything, on a busy PC)
+
 WHAT'S NEW IN 1.16.3 - THE WHITE TWITCH PLAYER IS FIXED
 - The white Twitch player is fixed: it was a broken channel extension overlay (a frame some channels lay over the video, drawn
   white - with "Make pages dark" on, or when it fails to load), now hidden

@@ -20,7 +20,12 @@ namespace HallowBrowser.Tests
         [STAThread]
         public static int Main(string[] args)
         {
-            if (args.Length >= 3 && args[0] == "--integration") return Integration.Main(args[1], args[2], args.Length > 3 ? args[3] : "main");
+            if (args.Length >= 3 && args[0] == "--integration")
+            {
+                // a suite that throws outside its own try/catch says so (and fails) instead of ending with no output
+                try { return Integration.Main(args[1], args[2], args.Length > 3 ? args[3] : "main"); }
+                catch (Exception e) { Console.WriteLine("FAIL integration " + (args.Length > 3 ? args[3] : "main") + " crashed: " + e); Console.WriteLine("INTEGRATION: FAILED (crash)"); return 3; }
+            }
             // 1.3 developer checks: a fixture for a real SQLite to check (integrity_check), a dump of a table's row count (for files a real
             // SQLite wrote, with a -wal), and the one read-only listing of this PC's browsers - names and counts are NOT printed
             if (args.Length >= 2 && args[0] == "--write-fixture") { File.WriteAllBytes(args[1], TinySqlite.ChromeHistory(Enumerable.Range(0, 600).Select(i => Tuple.Create("https://site" + i + ".example/", i == 3 ? "long " + new string('x', 9000) : "Page " + i, i + 1, DateTime.UtcNow.AddMinutes(-i), false)).ToList())); return 0; }

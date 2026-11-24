@@ -85,8 +85,10 @@ namespace HallowBrowser.Tests
             srv.Start(); P = srv.Port; keys.SavedUrl = "http://127.0.0.1:" + P; keys.Start();
             var U1 = "http://127.0.0.1:" + P; var U2 = "http://localhost:" + P;
             var gameFile = Path.Combine(dir, "game.txt"); File.WriteAllText(gameFile, "");
+            // 1.16.4 (tests): Windows' own find.exe by its full path - started from Git Bash, PATH finds Git's Unix find first, the
+            // threat was never "found" and the threat check failed
             var mp = Path.Combine(dir, "MpCmdRun-standin.cmd");
-            File.WriteAllText(mp, "@echo off\r\necho %* | find /i \"threat-test\" >nul && (echo Threat                  : Test:Fake/HallowThreat& echo found 1 threats.& exit /b 2)\r\necho Scan finished. Scanning found no threats.\r\nexit /b 0\r\n");
+            File.WriteAllText(mp, "@echo off\r\necho %* | %SystemRoot%\\System32\\find.exe /i \"threat-test\" >nul && (echo Threat                  : Test:Fake/HallowThreat& echo found 1 threats.& exit /b 2)\r\necho Scan finished. Scanning found no threats.\r\nexit /b 0\r\n");
             Process br = null;
             Func<Process> launch = () =>
             {
