@@ -80,6 +80,7 @@ namespace HallowBrowser.Tests
             if (mode == "v110") return Integration110.Main(exe, dir);
             if (mode == "v1121") return Integration1121.Main(exe, dir);
             if (mode == "v1161") return Integration1161.Main(exe, dir);   // 1.16.1: Twitch script v5 - more backups, lower quality for the break, the badge, the cover only when all fail
+            if (mode == "v1163") return Integration1163.Main(exe, dir);   // 1.16.3: channel extensions over the video hidden, the cover check (the white Twitch player)
             if (mode == "v1162") return Integration1162.Main(exe, dir);   // 1.16.2: sign-in pop-ups left alone (Shield, headers, opener awake), extensions never close the browser
             if (mode == "v116") return Integration116.Main(exe, dir);     // 1.16: Chrome Web Store installs against a local stand-in endpoint (CRX3 files made in the test)
             if (mode == "v1151") return Integration1151.Main(exe, dir);   // 1.15.1: the new tab page - layout at 5 sizes, Steam names, Shield count, duplicate tiles

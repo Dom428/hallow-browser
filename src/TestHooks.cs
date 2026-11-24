@@ -167,6 +167,7 @@ namespace HallowBrowser
             if (cmd.StartsWith("test-cws-")) return V116(w, cmd.Substring(9), arg);    // 1.16: Chrome Web Store installs (a local stand-in store)
             if (cmd.StartsWith("test-netlog")) { var a1162 = arg.Trim(); var sp1162 = a1162.IndexOf(' '); return V1162(w, sp1162 < 0 ? a1162 : a1162.Substring(0, sp1162), sp1162 < 0 ? "" : a1162.Substring(sp1162 + 1)); }       // 1.16.2: the page requests as they leave
             if (cmd.StartsWith("test-nt-")) return V1151(w, cmd.Substring(8), arg);   // 1.15.1: the new tab page (layout, names, Shield count, tiles)
+            if (cmd.StartsWith("test-tw63-")) return V1163(w, cmd.Substring(10), arg);   // 1.16.3: channel extensions over the video, the cover check
             if (cmd.StartsWith("test-tw-")) return V110(w, cmd.Substring(8), arg);    // 1.10
             if (cmd.StartsWith("test-d-")) return V112(w, cmd.Substring(7), arg);     // 1.12
             return "error unknown test command";

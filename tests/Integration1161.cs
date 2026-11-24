@@ -161,7 +161,7 @@ namespace HallowBrowser.Tests
                 Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\""), "browser answers ping: " + ping);
                 Wait(Tabs, t => t.Count >= 1 && (bool)t[0]["ready"], 30000); Thread.Sleep(1000);
                 Cmd("test-mute 0");
-                Ok((Val(Cmd("test-tw-state 0 0")) ?? "").Contains("\"version\":5"), "twitch: the built-in page script is version 5");
+                Ok(Regex.IsMatch(Val(Cmd("test-tw-state 0 0")) ?? "", "\"version\":([5-9]|\\d\\d)"), "twitch: the built-in page script is version 5 or newer");
 
                 // ================= deep: the 6th backup is the clean one; every failure is in the decisions
                 int dp = NewTab(U + "/tw/deep"); Cmd("test-mute " + dp);

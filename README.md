@@ -28,7 +28,7 @@ only Twitch's own servers are contacted, it works in private windows, and channe
 that work on the **real** twitch.tv (1.10 had only been tested against a fake one, and an ad could play). 1.12 is **ready to be your
 default browser**: it registers with Windows like Chrome and Brave (links, .html, .pdf, .svg...), opens links and files from
 Windows as a new tab in the open window, and Settings > General > Default browser shows your current default and takes you to
-the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). 1.16.1 **keeps Twitch playing during ads**: more ad-free backup streams, a lower quality for the break if needed, the dark cover only as the last resort. 1.16.2 fixes **"Sign in with Google"** (and Microsoft, Apple, GitHub): Hallow's privacy features leave sign-in pages alone, and an **extension can no longer close the whole browser**. It runs on **Microsoft Edge WebView2** - the Evergreen
+the one place in Windows where you choose it. 1.12.1 fixes a **white Twitch player**. 1.13 brings a **cleaner main menu** (a short top level with submenus, Settings always in reach and a gear on the toolbar), a real **History page** (Ctrl+H) and **imports that put bookmarks where your old browser had them**. 1.14 puts **site logos everywhere** - every bookmark, history row, tile and suggestion shows the site's own icon (or a coloured letter), never a plain globe. 1.14.2 fixes an **ad that got through on Twitch and left a white player**, and adds **Report a Twitch problem** (Ctrl+Shift+F12). 1.15 hands **passkeys to Hallow Keys**: save and use passkeys from your vault, with Hallow Keys' prompt under the address bar. 1.15.1 tidies the **new tab page** (fits small windows, real Steam game names, Shield's own count, no duplicate tiles) and makes **Google** the default search for new installs. 1.16 **adds extensions from the Chrome Web Store** (on your click, signature-checked, permissions shown first). 1.16.1 **keeps Twitch playing during ads**: more ad-free backup streams, a lower quality for the break if needed, the dark cover only as the last resort. 1.16.2 fixes **"Sign in with Google"** (and Microsoft, Apple, GitHub): Hallow's privacy features leave sign-in pages alone, and an **extension can no longer close the whole browser**. 1.16.3 fixes **the white Twitch player** for good: it was a broken channel extension drawn over the video, now hidden. It runs on **Microsoft Edge WebView2** - the Evergreen
 runtime that already comes with Windows 11 - so pages render exactly like in Edge and Chrome, and the browser itself is small (a
 ~1.5 MB app plus Microsoft's WebView2 DLLs).
 
@@ -45,6 +45,29 @@ Desktop shortcuts. Or install it from [Hallow Setup](https://github.com/Dom428/h
 Hallow Browser **never makes itself your default browser**. It registers as a browser you *can* pick, so if you want it for links,
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
+
+## What's new in 1.16.3: the white Twitch player is fixed
+
+**The white Twitch player is fixed: it was a broken channel extension overlay, now hidden.** Your "Report a Twitch problem" file
+showed it: the stream itself was playing fine (its picture was normal, no ad), but a channel's **video-overlay extension** - a frame
+from `supervisor.ext-twitch.tv` that some channels lay over the whole player (Prime offers, polls, overlays) - was drawn as a plain
+white sheet on top of it. Reproduced on the real twitch.tv: with **"Make pages dark"** on, Chromium's automatic dark mode paints that
+see-through extension frame **opaque white**; a frame that fails to load shows a light error page over the stream the same way.
+
+- **New: Settings > Gaming > Twitch ads > "Show channel extensions over the video" - off by default.** Off: extensions drawn over the
+  video are hidden, so a broken one can't turn the player white. Extensions in the panels **below** the stream, chat and Twitch's
+  own controls always stay. It works whether Twitch ads are blocked or not (also in the Twitch button's panel).
+- **On: a broken one is still hidden** - one whose frame failed to load (the browser sees the load error), or one that covers a
+  playing stream with a blank sheet.
+- **The white-player watchdog now checks what is actually on screen**, not just the video's own pixels: when the stream plays fine
+  but a frame or an empty box lies over it, the browser takes a picture of the player area (only the tab you're looking at, every few
+  seconds while something covers it) and hides the cover if the player shows white or one flat colour twice in a row. Never Twitch's
+  controls, chat or the mature-content warning.
+- **"Make pages dark" leaves twitch.tv alone** - Twitch has its own light / dark theme (like Google in 1.16.2).
+- **Report a Twitch problem** now says whether extensions over the video were hidden, which frames failed to load, what the on-screen
+  check saw, and whether "Make pages dark" was on.
+- The Twitch script is **version 6**; installs from 1.10 on pick it up on their next daily check (Settings > Gaming > Twitch ads >
+  Check now), so overlay extensions are hidden there too before you update.
 
 ## What's new in 1.16.2: "Sign in with Google" works, extensions can't close the browser
 

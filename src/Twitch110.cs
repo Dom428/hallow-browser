@@ -151,7 +151,7 @@ namespace HallowBrowser
             var d = new Dictionary<string, object> {
                 { "version", CurrentVersion }, { "on", s.TwitchAds }, { "allow", s.TwitchAllow ?? new List<string>() },
                 { "gql", api != null ? api + "/gql" : Gql }, { "usher", api != null ? api + "/usher" : Usher }, { "clientId", ClientId }, { "types", PlayerTypes },
-                { "hide", string.Join(",", Hide) }, { "adOps", AdOps }, { "accent", Program.AccentHex ?? "#9B6BFF" }, { "test", BrowserSettings.TwitchTest } };
+                { "hide", string.Join(",", Hide) }, { "adOps", AdOps }, { "showExt", s.TwitchShowExt }, { "accent", Program.AccentHex ?? "#9B6BFF" }, { "test", BrowserSettings.TwitchTest } };
             if (BrowserSettings.TwitchDiag) d["diag"] = true;
             return new JavaScriptSerializer().Serialize(d);
         }
@@ -213,6 +213,7 @@ namespace HallowBrowser
                 if (x.TwMutedByUs) { try { c.IsMuted = false; } catch { } x.TwMutedByUs = false; }
                 x.TwCovered = false;
             };
+            TwHookFrames(c);   // 1.16.3: frame load errors on Twitch pages
             twPending[c] = TwRegister(c);
         }
         // the sidebar's panels (Twitch chat): only the blocking
@@ -225,7 +226,7 @@ namespace HallowBrowser
         {
             string old;
             if (twScripts.TryGetValue(c, out old)) { twScripts.Remove(c); try { c.RemoveScriptToExecuteOnDocumentCreated(old); } catch { } }
-            if (!S.TwitchAds) return;
+            if (!S.TwitchAds && S.TwitchShowExt) return;   // 1.16.3: also added (ads left alone) to hide channel extensions over the video
             try { twScripts[c] = await c.AddScriptToExecuteOnDocumentCreatedAsync(TwitchAdRules.Compose(S)); } catch { }
         }
         void OnTwitchRequest(object sender, CoreWebView2WebResourceRequestedEventArgs e)
@@ -260,7 +261,7 @@ namespace HallowBrowser
                     if (t.TwMutedByUs) { t.TwMutedByUs = false; try { c.IsMuted = false; } catch { } }
                     break;
                 case "allowed": t.TwNote = "Ads play on this channel - you support it"; t.TwWhen = DateTime.Now; break;
-                default: return;
+                default: OnTwitchMessage1163(t, c, ev, m); return;
             }
             if (t == Active) UpdateTwitchButton(t);
         }
@@ -322,6 +323,7 @@ namespace HallowBrowser
             if (t.TwSwaps + t.TwCovers > 0) sp.Children.Add(Ui.Muted("In this tab: " + t.TwSwaps + " skipped (swapped stream), " + t.TwCovers + " covered.", 11.5, 8));
             if (ch != null)
                 sp.Children.Add(Ui.Switch("Support " + ch + ": allow ads", "Ads on this channel play and are counted, so " + ch + " is paid for them. The page loads again.", S.TwitchAllow.Contains(ch), on => { Panels.CloseFlyouts(); SupportChannel(ch, on, t); }));
+            sp.Children.Add(TwitchShowExtSwitch(true));   // 1.16.3
             sp.Children.Add(Ui.Switch("Block Twitch ads", "Swaps an ad break for Twitch's own ad-free stream of the channel when there is one, otherwise covers it and mutes it. Only Twitch's servers are contacted.", S.TwitchAds, on => { Panels.CloseFlyouts(); S.TwitchAds = on; S.Save(); TwitchSettingsChanged(); }));
             var more = Ui.Btn("Twitch ad settings", () => { Panels.CloseFlyouts(); OpenSettingsAt("Twitch ads"); }, false, "gear"); more.Margin = new Thickness(0, 8, 0, 0); more.HorizontalAlignment = HorizontalAlignment.Left;
             sp.Children.Add(more);
@@ -337,6 +339,7 @@ namespace HallowBrowser
         {
             var items = new List<UIElement>();
             items.Add(Ui.Switch("Block Twitch ads", "Ads Twitch stitches into the stream are swapped for Twitch's own ad-free stream of the same channel (as another player type) while the break lasts; when every alternative has the ad, it plays muted under an \"Ad break - back in 0:28\" cover. Display ads and ad beacons are blocked - also in private windows. Only Twitch's own servers are contacted, never a third-party proxy.", S.TwitchAds, on => { S.TwitchAds = on; S.Save(); TwitchSettingsChanged(); }));
+            items.Add(TwitchShowExtSwitch(false));   // 1.16.3
             items.Add(Ui.Muted("Allow ads on these channels - their ads play and are counted, so the streamer is paid (also from the Twitch button on a channel: \"Support <channel>\").", 12, 6));
             var list = new StackPanel { Margin = new Thickness(0, 0, 0, 6) };
             Action fill = null;

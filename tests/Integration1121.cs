@@ -137,7 +137,7 @@ namespace HallowBrowser.Tests
                 int kp = NewTab(U + "/tw/keep");
                 Thread.Sleep(6000);
                 var w3 = Watch(kp);
-                Ok(N(w3, "unblocks") == 0 && Disp(kp, "#gate") != "none" && Disp(kp, "#ext") != "none", "overlays: the mature-content gate (text, a button) and an extension iframe are left alone (" + N(w3, "unblocks") + " hidden)");
+                Ok(N(w3, "unblocks") == 0 && Disp(kp, "#gate") != "none" && (Disp(kp, "#ext") != "none" || Eval(kp, "String(!document.getElementById('ext').hasAttribute('data-hallow-unblocked')&&!!document.getElementById('hallow-twitch-ext'))") == "true"), "overlays: the mature-content gate (text, a button) stays and the watchdog leaves an extension iframe alone (1.16.3: hidden only by the \"Show channel extensions over the video\" switch, off by default) (" + N(w3, "unblocks") + " hidden)");
 
                 // ---- a hide rule matching a box around the video
                 int wr = NewTab(U + "/tw/wrapped");

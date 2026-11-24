@@ -29,7 +29,7 @@ function cls(el){var c=(typeof el.className==='string'?el.className:(el.getAttri
 function d(el){if(!el||el.nodeType!==1)return null;var cs=getComputedStyle(el),r=el.getBoundingClientRect(),o={tag:el.tagName.toLowerCase()};var c=cls(el);if(c)o.cls=c;
 ['data-a-target','data-test-selector','data-a-player-state','data-a-player-type','role'].forEach(function(n){var v=el.getAttribute(n);if(v)o[n]=v.slice(0,60);});
 o.bg=cs.backgroundColor;o.disp=cs.display;o.vis=cs.visibility;o.op=cs.opacity;o.pos=cs.position;o.z=cs.zIndex;o.rect=[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)];
-o.textLen=(el.innerText||'').trim().length;if(el.tagName==='IFRAME'){try{o.host=el.src?new URL(el.src).host:'(none)';}catch(e){o.host='?';}}if(el.tagName==='HALLOW-ADBREAK')o.hallowCover=true;return o;}
+o.textLen=(el.innerText||'').trim().length;if(el.getAttribute('data-hallow-ext-hidden'))o.hallowExtHidden=el.getAttribute('data-hallow-ext-hidden').slice(0,80);if(el.tagName==='IFRAME'){try{o.host=el.src?new URL(el.src).host:'(none)';}catch(e){o.host='?';}}if(el.tagName==='HALLOW-ADBREAK')o.hallowCover=true;return o;}
 var vs=[].slice.call(document.querySelectorAll('video')),main=null,area=0;vs.forEach(function(v){var r=v.getBoundingClientRect();if(r.width*r.height>area){area=r.width*r.height;main=v;}});
 var pl=document.querySelector('[data-a-target=""video-player""], .video-player');var pr=pl?pl.getBoundingClientRect():(main?main.getBoundingClientRect():null);
 var out={page:/^\/[A-Za-z0-9_]{3,25}\/?$/.test(location.pathname)?'channel':'other',vis:document.visibilityState,dpr:devicePixelRatio,vw:innerWidth,vh:innerHeight,fullscreen:!!document.fullscreenElement,
@@ -44,6 +44,7 @@ var hid=[];for(var q=main.parentElement;q;q=q.parentElement){var qs=getComputedS
 if(pr&&pr.width>0){out.over={};[[0.5,0.5],[0.2,0.2],[0.8,0.2],[0.2,0.8],[0.8,0.8]].forEach(function(pt){var st=document.elementsFromPoint(pr.left+pr.width*pt[0],pr.top+pr.height*pt[1]),a=[];
 for(var i=0;i<st.length&&i<10;i++){a.push(d(st[i]));if(st[i]===main)break;}out.over[pt.join(',')]=a;});}
 var ads=document.querySelectorAll('[data-a-target*=""ad""],[data-test-selector*=""ad""],[class*=""isplay-ad""],[class*=""DisplayAd""],[class*=""squeezeback""],[class*=""pbyp""],[class*=""picture-by-picture""],[class*=""outstream""],[class*=""commercial""],[class*=""video-ad""],[aria-label*=""dvert""],[data-hallow-unblocked],[data-hallow-keep]');
+out.extensionFrames=[].slice.call(document.querySelectorAll('iframe')).filter(function(f){return /extension/.test(String(f.className))||/ext-twitch/.test(f.src||'')}).slice(0,12).map(function(f){var o=d(f);o.inPlayer=!!(pl&&pl.contains(f));o.shown=getComputedStyle(f).display!=='none';return o;});
 out.adMarkers=[];for(var j=0;j<ads.length&&out.adMarkers.length<40;j++){var e=ads[j],t=e.getAttribute('data-a-target')||'';if(/^(chat|channel|follow|subscribe|user|login|signup|nav|side-nav|home|browse|player-(theatre|fullscreen|settings|mute|play))/i.test(t))continue;var o=d(e);o.hasVideo=!!(main&&e.contains(main));out.adMarkers.push(o);}
 var H=window.__hallowTwitch;out.hallow=H?(H.report?JSON.parse(H.report()):{script:H.v,events:(H.events||[]).slice(-60),watch:H.watch||null,resyncs:H.resyncs||0,workers:H.workers||0,note:'an older Twitch script (no report)'}):null;
 return JSON.stringify(out);})()";
@@ -143,7 +144,11 @@ return JSON.stringify(out);})()";
                 { "tabSwaps", t.TwSwaps }, { "tabCovers", t.TwCovers }, { "tabCovered", t.TwCovered }, { "mutedByHallow", t.TwMutedByUs }, { "tabMuted", muted }, { "playingAudio", audio },
                 { "lastNote", t.TwNote }, { "adRequestsBlocked", TwBlocked }, { "gameMode", Game != null }, { "memoryLow", MemoryLow(t) }, { "bandwidthCap", CapApplied > 0 },
                 { "private", Private }, { "shield", ShieldState }, { "active", t == Active }, { "windowMinimized", WindowState == System.Windows.WindowState.Minimized }, { "theatre", Theatre },
-                { "asleep", t.Suspended }, { "time", now.ToString("yyyy-MM-dd HH:mm:ss") } };
+                { "asleep", t.Suspended }, { "time", now.ToString("yyyy-MM-dd HH:mm:ss") },
+                // 1.16.3: channel extensions over the video, frame load errors, the cover checks, "Make pages dark"
+                { "showChannelExtensions", S.TwitchShowExt }, { "extensionFramesHidden", t.TwExtHidden }, { "brokenExtensionsHidden", t.TwExtBroken },
+                { "frameLoadErrors", TwFrameErrorsOf(t) }, { "coverChecks", t.TwChecks }, { "coverFound", t.TwBlankFound }, { "lastCoverCheck", t.TwLastCheck },
+                { "makePagesDark", S.ForceDark }, { "pageMadeDark", t.DarkApplied == true } };
             var report = new Dictionary<string, object> { { "what", "Hallow Browser - Twitch problem report (anonymised: no chat, user names, cookies or sign-in; the channel is [channel])" },
                 { "browser", host }, { "page", page }, { "pageError", err }, { "picture", png != null ? "player.png (" + png.Length / 1024 + " KB)" : "none" } };
             var json = TwitchReport.Scrub(js.Serialize(report), ch);

@@ -345,7 +345,7 @@ namespace HallowBrowser.Tests
                 Clear();
                 Cmd("test-activate " + tw); Cmd("test-tw-set on 0");
                 Wait(() => Hits("/seg/adstreamer/site/ad-").Count, n => n >= 4, 12000);
-                Ok(Hits("/seg/adstreamer/site/ad-").Count >= 4 && Eval(0, tw, "typeof window.__hallowTwitch") == "undefined" && Hits("/h/edge.ads.twitch.tv/ads?ch=adstreamer").Count == 1, "off: the page loads again with nothing touched (ads play, beacons go): " + Hits("/seg/adstreamer/site/ad-").Count + " ad segments, script " + Eval(0, tw, "typeof window.__hallowTwitch") + ", " + Hits("/h/edge.ads.twitch.tv/ads?ch=adstreamer").Count + " beacons");
+                Ok(Hits("/seg/adstreamer/site/ad-").Count >= 4 && (Eval(0, tw, "typeof window.__hallowTwitch") == "undefined" || Eval(0, tw, "String(window.__hallowTwitch.report&&JSON.parse(window.__hallowTwitch.report()).on===false&&!window.__hallowTwCore)") == "true") && Hits("/h/edge.ads.twitch.tv/ads?ch=adstreamer").Count == 1, "off: the page loads again with nothing touched (ads play, beacons go): " + Hits("/seg/adstreamer/site/ad-").Count + " ad segments, script " + Eval(0, tw, "typeof window.__hallowTwitch") + " (1.16.3: present with on=false, only for extensions over the video), " + Hits("/h/edge.ads.twitch.tv/ads?ch=adstreamer").Count + " beacons");
                 var soff = St(0, tw);
                 Ok((S(soff, "tip") ?? "").StartsWith("Twitch ads aren't blocked"), "off: the button says so: " + S(soff, "tip"));
                 Cmd("test-tw-set on 1"); Thread.Sleep(1500);

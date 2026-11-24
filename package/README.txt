@@ -9,6 +9,16 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.16.3 - THE WHITE TWITCH PLAYER IS FIXED
+- The white Twitch player is fixed: it was a broken channel extension overlay (a frame some channels lay over the video, drawn
+  white - with "Make pages dark" on, or when it fails to load), now hidden
+- New: Settings > Gaming > Twitch ads > "Show channel extensions over the video" (off by default). Panel extensions below the
+  stream, chat and Twitch's controls always stay. On: a broken one (failed to load, or a blank sheet over the stream) is still hidden
+- The white-player watchdog checks what is actually on screen over the player, not just the video's own picture
+- "Make pages dark" leaves twitch.tv alone (Twitch has its own dark theme)
+- Report a Twitch problem includes hidden extensions, frame load errors, the on-screen check and "Make pages dark"
+- Twitch script version 6 (1.10+ installs pick it up from the release)
+
 WHAT'S NEW IN 1.16.2 - "SIGN IN WITH GOOGLE" WORKS, EXTENSIONS CAN'T CLOSE THE BROWSER
 - Google / Microsoft / Apple / GitHub sign-in pages (and the page they send you back to) are left alone: Shield strips no
   parameters and blocks nothing there, Hallow adds no headers, sign-in pop-ups are allowed and keep window.opener, and the tab

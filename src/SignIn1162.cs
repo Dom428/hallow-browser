@@ -123,6 +123,9 @@ namespace HallowBrowser
             var labels = host.Split('.');
             int g = Array.LastIndexOf(labels, "google");
             if (g >= 0 && labels.Length - g >= 2 && labels.Length - g <= 3 && labels.Skip(g + 1).All(l => l.Length >= 2 && l.Length <= 3)) return true;
+            // 1.16.3: Twitch has its own light / dark theme - and Chromium's automatic dark mode painted channel extensions over the
+            // video opaque white (the white Twitch player)
+            if (host == "twitch.tv" || host.EndsWith(".twitch.tv")) return true;
             return SignIn.IsIdentityHost(host);
         }
     }

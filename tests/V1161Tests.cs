@@ -13,7 +13,7 @@ namespace HallowBrowser.Tests
         public static void All()
         {
             var js = TwitchAdRules.BuiltIn;
-            Ok(TwitchAdRules.VersionOf(js) == 5 && TwitchAdRules.LooksRight(js), "twitch 1.16.1: the built-in script is version 5 (1.10+ installs take it from the release)");
+            Ok(TwitchAdRules.VersionOf(js) >= 5 && TwitchAdRules.LooksRight(js), "twitch 1.16.1: the built-in script is version 5 or newer (1.10+ installs take it from the release)");
             Ok(js.Contains("CFG.types5 || ['embed', 'popout', 'autoplay', 'site', 'picture-by-picture', 'thunderdome', 'frontpage']"), "twitch 1.16.1: seven backups in order, from the script itself (an older browser's shorter list is ignored)");
             Ok(string.Join(",", TwitchAdRules.PlayerTypes) == "embed,popout,autoplay,site,picture-by-picture,thunderdome,frontpage", "twitch 1.16.1: the browser's own list matches");
             Ok(js.Contains("PLATFORM = { autoplay: 'android' }") && js.Contains("platform: PLATFORM[type] || 'web'"), "twitch 1.16.1: autoplay is asked for as Twitch's Android app asks for it");

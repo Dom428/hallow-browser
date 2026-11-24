@@ -1,4 +1,4 @@
-// hallow-twitch 5
+// hallow-twitch 6
 // Hallow Browser's Twitch ad handling - the page part. Hallow Browser's own code (github.com/Dom428/hallow-browser), no third-party
 // code. The browser runs it at document start on twitch.tv pages as (function(CFG){ ...this file... })(settings), in the page itself
 // (not an extension, so it works in private windows too). Newer copies can come from the browser's GitHub release (asset
@@ -45,6 +45,19 @@
 //    player's own quality after the break (the player loads its stream again);
 //  - every backup asked for is in the decisions with why it failed (token / usher / playlist error, ad marker), so "Report a Twitch
 //    problem" shows it. The dark cover stays only for when every backup has the ad too.
+//
+// Version 6 (Hallow Browser 1.16.3, real use: "Report a Twitch problem" showed a white player while the video itself played fine - its
+// own picture was normal, there was no ad, the watchdog saw nothing wrong): what covered the whole player was a channel's video-overlay
+// extension (an iframe from supervisor.ext-twitch.tv) drawn as a plain white sheet. Reproduced on the real twitch.tv: with "Make pages
+// dark" on, Chromium's automatic dark mode paints that transparent extension frame opaque white over the stream; a frame that fails to
+// load (blocked, or an HTTP error) shows a light error page over it the same way. Now:
+//  - video-overlay extensions (frames inside the player) are hidden unless "Show channel extensions over the video" is on (off by
+//    default; a browser without that switch hides them too). Panel extensions below the stream, chat and Twitch's own controls stay;
+//  - with the switch on, a broken one is hidden: one whose frame failed to load (the browser sees the load error), or one that covers a
+//    healthy video with a blank sheet;
+//  - the watchdog checks what is actually on screen over the player, not only the video's pixels: when the video is healthy but a frame
+//    or an empty opaque box covers it, the browser takes a picture of the player area and compares it with the video's own picture;
+//    blank twice in a row = that cover is hidden (never Twitch's controls, chat or the mature-content gate).
 'use strict';
 if (!CFG || window.__hallowTwitch) return;
 var HERE = location.href;
@@ -633,6 +646,12 @@ function isBlocker(el, v, vr) {
     for (var p = el, i = 0; p && i < 4 && !p.contains(v); p = p.parentElement, i++) if (adish(p)) return true;
     return false;
 }
+// the frame itself, or its ad-named box around it (never a box that holds the video)
+function hideBox(el, v) {
+    var box = el; for (var p = el.parentElement, k = 0; p && k < 4 && !p.contains(v); p = p.parentElement, k++) if (adish(p)) box = p;
+    box.style.setProperty('display', 'none', 'important'); box.setAttribute('data-hallow-unblocked', '');
+    return box;
+}
 // 2. what covers the middle of the video, if it is an empty ad frame: hidden (the frame itself, or its ad-named box)
 function unblock(v) {
     var vr = v.getBoundingClientRect(); if (vr.width < 160 || vr.height < 90) return 0;
@@ -642,8 +661,7 @@ function unblock(v) {
         for (var j = 0; j < stack.length && stack[j] !== v; j++) {
             var el = stack[j];
             if (!isBlocker(el, v, vr)) continue;
-            var box = el; for (var p = el.parentElement, k = 0; p && k < 4 && !p.contains(v); p = p.parentElement, k++) if (adish(p)) box = p;
-            box.style.setProperty('display', 'none', 'important'); box.setAttribute('data-hallow-unblocked', '');
+            hideBox(el, v);
             n++; break;
         }
     }
@@ -795,7 +813,8 @@ function blankCheck(v) {
     else if (BL.tries === 2) nudge(true);
     else if (BL.tries === 3) { backup('blank ' + why); nudge(true); }
     else pageReload('white player after an ad');
-}function watchdog() {
+}
+function watchdog() {
     if (!document.body || !CH_NOW()) return;
     var v = playerVideo(); if (!v) return;
     try { guardPlayer(v); } catch (e) { }
@@ -806,6 +825,114 @@ function blankCheck(v) {
     try { blankCheck(v); } catch (e) { }
 }
 if (CFG.on) setInterval(watchdog, 1000);
+
+// ---------------------------------------------------------------- version 6 (Hallow Browser 1.16.3): what is on screen over the player
+//  6. Video-overlay extensions - a channel's extension frames inside the player - are hidden unless "Show channel extensions over the
+//     video" is on (CFG.showExt; a browser without the switch passes nothing: hidden). Only frames inside the player: panel extensions
+//     below the stream (extension-panel-...), chat and Twitch's controls are never matched. This runs whether ads are blocked or not.
+//  7. With the switch on, a broken extension is hidden: the browser tells this script when an ext-twitch.tv frame failed to load.
+//  8. The cover check: when the video is healthy (playing, a picture that isn't white) but a frame or an empty opaque box lies over it,
+//     the browser is asked to compare a picture of the player area on screen with the video's own picture. Blank (white, or one flat
+//     colour) on two checks in a row = that cover is hidden through the watchdog's own unblock path. Never Twitch's controls, chat, the
+//     mature-content gate, or Hallow's own cover / badge.
+var EXT_SEL = '.video-player .extension-view__iframe,[data-a-target="video-player"] .extension-view__iframe,.video-player__overlay .extension-view__iframe,[class*="extensions-video-overlay"] .extension-view__iframe';
+var SHOW_EXT = CFG.showExt === true;
+var EXT = { show: SHOW_EXT, hidden: 0, hiddenMax: 0, broken: 0, failed: [], checks: 0, covered: 0, last: null };
+window.__hallowTwitch.ext = function () { return EXT; };
+if (!SHOW_EXT) {
+    var extSt = document.createElement('style'); extSt.id = 'hallow-twitch-ext';
+    extSt.textContent = EXT_SEL + '{display:none!important}';
+    var extCss = function () { var r = document.head || document.documentElement; if (r && !extSt.isConnected) r.appendChild(extSt); };
+    extCss();
+    if (!extSt.isConnected) { var extMo = new MutationObserver(function () { extCss(); if (extSt.isConnected) extMo.disconnect(); }); extMo.observe(document, { childList: true, subtree: true }); }
+    setInterval(extCss, 2000);
+}
+function hostOf(el) { try { return el.src ? new URL(el.src, location.href).host : '(none)'; } catch (e) { return '?'; } }
+function descOf(el) { var c = (typeof el.className === 'string' ? el.className : '').split(/\s+/).filter(function (x) { return /^[A-Za-z][\w-]{0,60}$/.test(x); })[0]; return el.tagName.toLowerCase() + (c ? '.' + c : '') + (el.tagName === 'IFRAME' ? '@' + hostOf(el) : ''); }
+function extCount() {
+    if (SHOW_EXT) { EXT.hidden = document.querySelectorAll('[data-hallow-ext-hidden]').length; return; }
+    var n = document.querySelectorAll(EXT_SEL).length; EXT.hidden = n;
+    if (n > EXT.hiddenMax) { if (!EXT.hiddenMax) decide('channel extensions over the video are hidden (' + n + ' frame' + (n > 1 ? 's' : '') + '; "Show channel extensions over the video" is off)'); EXT.hiddenMax = n; toHost({ ev: 'ext', hidden: n, broken: EXT.broken }); }
+}
+function hideExt(el, why) {
+    if (el.hasAttribute('data-hallow-ext-hidden')) return false;
+    el.style.setProperty('display', 'none', 'important'); el.setAttribute('data-hallow-ext-hidden', why);
+    EXT.broken++; decide('a channel extension over the video was hidden: ' + why + ' (' + hostOf(el) + ')'); log({ ev: 'ext-hidden' });
+    toHost({ ev: 'ext', hidden: EXT.hidden, broken: EXT.broken, why: why });
+    return true;
+}
+// 7. the browser saw an ext-twitch.tv frame fail to load (it can't say which overlay held it: every overlay frame in the player goes)
+window.__hallowTwitch.extFailed = function (host, status) {
+    EXT.failed.push(String(host).slice(0, 80) + ' ' + String(status).slice(0, 40)); if (EXT.failed.length > 10) EXT.failed.shift();
+    if (!SHOW_EXT) return 0;
+    var n = 0, fr = document.querySelectorAll(EXT_SEL);
+    for (var i = 0; i < fr.length; i++) if (hideExt(fr[i], 'it failed to load (' + String(status).slice(0, 40) + ')')) n++;
+    return n;
+};
+// 8. the cover check
+var OWN_UI = '[data-a-target="player-controls"],.player-controls,[data-a-target*="content-gate"],[class*="content-overlay-gate"],[data-a-target*="mature"],' +
+    '[data-a-target="player-overlay-click-handler"],.chat-shell,[class*="chat-room"],[class*="chat-scrollable"],hallow-adbreak,hallow-backup';
+function opaqueEmpty(el, cs) {
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(cs.backgroundColor || '');
+    if (!m || (m[4] !== undefined && +m[4] < 0.9) || +cs.opacity < 0.9) return false;
+    return (el.innerText || '').trim().length <= 40 && !el.querySelector('video,canvas,img,svg,button,input,textarea,a[href]');
+}
+function shown(el) { var cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0.05; }
+function coverers(v) {
+    var vr = v.getBoundingClientRect(), out = [];
+    if (vr.width < 160 || vr.height < 90) return out;
+    var add = function (el) {
+        if (!el || el === v || out.indexOf(el) >= 0 || el.contains(v) || el.hasAttribute('data-hallow-unblocked') || el.hasAttribute('data-hallow-ext-hidden')) return;
+        if (overlap(el.getBoundingClientRect(), vr) < 0.5 || (el.closest && el.closest(OWN_UI))) return;
+        if (el.tagName === 'IFRAME' ? shown(el) : opaqueEmpty(el, getComputedStyle(el))) out.push(el);
+    };
+    var pts = [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]];
+    for (var i = 0; i < pts.length; i++) {
+        var st = document.elementsFromPoint(vr.left + vr.width * pts[i][0], vr.top + vr.height * pts[i][1]);
+        for (var j = 0; j < st.length && st[j] !== v; j++) add(st[j]);
+    }
+    // frames that let clicks through (pointer-events: none) aren't in elementsFromPoint: the player's own frames too
+    var pl = v.closest('[data-a-target="video-player"], .video-player') || v.parentElement, fr = pl ? pl.querySelectorAll('iframe') : [];
+    for (var k = 0; k < fr.length; k++) add(fr[k]);
+    return out;
+}
+var CW = { sig: '', n: 0, last: 0, hits: 0, wait: false };
+window.__hallowTwitch.coverWatch = CW;
+function coverWatch() {
+    if (!document.documentElement) return;
+    extCount();
+    if (!document.body || !CH_NOW() || document.hidden || cover.end || CW.wait) return;
+    var v = playerVideo(); if (!v || v.paused || v.ended || v.readyState < 3 || !v.videoWidth) return;
+    var list = coverers(v); if (!list.length) { CW.sig = ''; CW.hits = 0; return; }
+    var s = sample(v); if (!s || s.white >= 0.9) return;   // the video's own picture must be known, and not white itself
+    var sig = list.map(descOf).join(' | ');
+    if (sig !== CW.sig) { CW.sig = sig; CW.n = 0; CW.hits = 0; }
+    var now = Date.now(); if (now - CW.last < (CW.hits ? 2500 : CW.n < 4 ? 4000 : 10000)) return;   // blank once: looked at again soon
+    CW.last = now; CW.n++; EXT.checks++; CW.wait = true; setTimeout(function () { CW.wait = false; }, 5000);
+    var r = v.getBoundingClientRect();
+    toHost({ ev: 'covercheck', rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], vw: innerWidth, video: { white: s.white, spread: s.spread, mean: s.mean }, what: sig.slice(0, 300) });
+}
+// the browser's answer: { covered: true|false, why: 'white'|'blank', white: 0.97, flat: 0.99, mean: 254 }
+window.__hallowTwitch.checked = function (res) {
+    CW.wait = false; EXT.last = res;
+    if (!res || !res.covered) { CW.hits = 0; return 'ok'; }
+    if (++CW.hits < 2) return 'once';   // looked at again in ~3 s: hidden only when it's blank twice in a row
+    CW.hits = 0;
+    var v = playerVideo(); if (!v) return 'no video';
+    var list = coverers(v), names = [];
+    for (var i = 0; i < list.length; i++) {
+        var el = list[i];
+        if (el.tagName === 'IFRAME' && el.matches(EXT_SEL + ',.extension-view__iframe')) { if (hideExt(el, 'a ' + res.why + ' sheet over a playing video')) names.push(descOf(el)); continue; }
+        hideBox(el, v); names.push(descOf(el));
+    }
+    if (names.length) {
+        EXT.covered += names.length; WD.unblocks += names.length; wdEvent('unblock');
+        decide('on screen the player was ' + res.why + ' while its video played (white ' + res.white + ', flat ' + res.flat + ') - hidden: ' + names.join(', ').slice(0, 300));
+    }
+    CW.sig = '';
+    return names.length;
+};
+setInterval(function () { try { coverWatch(); } catch (e) { } }, 2000);
 
 // v5: while a backup plays the break, a small badge on the player says so ("ad-free backup (480p)") - never over the middle of the
 // picture, never in the way of a click; gone when the break is over (or after 3 minutes at most)
@@ -903,7 +1030,7 @@ window.__hallowTwitch.report = function () {
     var o = {
         script: CFG.version, on: !!CFG.on, allowedHere: allowedHere(null), events: H.events.slice(-60), decisions: DEC.slice(-100), watch: WD, blank: BL,
         signals: SIG, cover: H.cover(), workers: H.workers || 0, droppedOps: H.droppedOps || 0, resyncs: H.resyncs || 0,
-        core: window.__hallowTwCore || null, swappedSince: swappedSince ? Date.now() - swappedSince : 0, sinceAd: SIG.lastAd ? Date.now() - SIG.lastAd : -1
+        ext: EXT, core: window.__hallowTwCore || null, swappedSince: swappedSince ? Date.now() - swappedSince : 0, sinceAd: SIG.lastAd ? Date.now() - SIG.lastAd : -1
     };
     var s = JSON.stringify(o);
     for (var i = 0; i < names.length; i++) if (names[i]) s = s.split(names[i]).join('[channel]');
