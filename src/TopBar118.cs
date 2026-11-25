@@ -578,13 +578,16 @@ namespace HallowBrowser
                 var xx = x; Button b = null;
                 b = new Button { Style = Ui.S("Tool"), Content = ExtGlyph(x, 16), ToolTip = x.Name, Tag = x.Id };
                 b.Click += (a, e) => OpenExtension(xx, b);
+                b.MouseRightButtonUp += (a, e) => { ShowPinnedExtMenu(xx, b); e.Handled = true; };   // 1.20: open, side panel, options, unpin
                 pinHost.Children.Add(b); PinButtons.Add(b);
             }
         }
         public void OpenExtension(UserExtension x, UIElement at)
         {
             Panels.CloseFlyouts();
+            if (PanelOnActionClick(x)) { OpenExtSidePanel(x); return; }   // 1.20: it asked (setPanelBehavior) for its side panel on a click
             if (x.Popup != null) { var _ = ExtPopup(x, at); }
+            else if (SidePanelPathOf(x) != null) OpenExtSidePanel(x);   // 1.20: no popup, but a side panel
             else if (x.Options != null) NewTab("chrome-extension://" + x.Id + "/" + x.Options.TrimStart('/'), true);
             else Toast(x.Name + " has no popup.", 3);
         }
@@ -597,8 +600,8 @@ namespace HallowBrowser
             foreach (var x in list)
             {
                 var xx = x; var g = new Grid();
-                g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                var row = new Button { Style = Ui.S("MenuRow"), ToolTip = xx.Popup != null ? "Open " + xx.Name : xx.Options != null ? xx.Name + "'s options" : xx.Name };
+                g.ColumnDefinitions.Add(new ColumnDefinition()); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var row = new Button { Style = Ui.S("MenuRow"), ToolTip = xx.Popup != null ? "Open " + xx.Name : SidePanelPathOf(xx) != null ? "Open " + xx.Name + "'s side panel" : xx.Options != null ? xx.Name + "'s options" : xx.Name };
                 var rg = new Grid(); rg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); rg.ColumnDefinitions.Add(new ColumnDefinition());
                 var glyph = ExtGlyph(xx, 16); ((FrameworkElement)glyph).HorizontalAlignment = HorizontalAlignment.Left; rg.Children.Add(glyph);
                 var nm = new TextBlock { Text = xx.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis }; Grid.SetColumn(nm, 1); rg.Children.Add(nm);
@@ -608,7 +611,14 @@ namespace HallowBrowser
                 bool pinned = IsPinned(xx);
                 var pin = new System.Windows.Controls.Primitives.ToggleButton { Style = Ui.S("Tool"), Width = 30, Height = 28, IsChecked = pinned, Content = Ui.Icon("thumbtack", 12, pinned ? "AccentBrush" : "Muted"), ToolTip = pinned ? "Unpin " + xx.Name + " from the toolbar" : "Pin " + xx.Name + " to the toolbar", Tag = "pin:" + xx.Id };
                 pin.Click += (a, b) => { SetPinned(xx, pin.IsChecked == true); var on = pin.IsChecked == true; pin.Content = Ui.Icon("thumbtack", 12, on ? "AccentBrush" : "Muted"); pin.ToolTip = (on ? "Unpin " : "Pin ") + xx.Name + (on ? " from the toolbar" : " to the toolbar"); };
-                Grid.SetColumn(pin, 1); g.Children.Add(pin);
+                Grid.SetColumn(pin, 2); g.Children.Add(pin);
+                if (SidePanelPathOf(xx) != null)   // 1.20: "Open side panel" (in Hallow's sidebar)
+                {
+                    var spb = new Button { Style = Ui.S("Tool"), Width = 30, Height = 28, Content = Ui.Icon("table-columns", 12, "Muted"), ToolTip = "Open side panel - " + xx.Name + "'s panel in Hallow's sidebar", Tag = "sidepanel:" + xx.Id };
+                    System.Windows.Automation.AutomationProperties.SetName(spb, "Open side panel: " + xx.Name);
+                    spb.Click += (a, b) => { if (close != null) close(); OpenExtSidePanel(xx); };
+                    Grid.SetColumn(spb, 1); g.Children.Add(spb);
+                }
                 g.Margin = new Thickness(0, 0, 4, 0);
                 sp.Children.Add(g);
             }

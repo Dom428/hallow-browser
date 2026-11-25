@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.19.0.0")]
-[assembly: AssemblyFileVersion("1.19.0.0")]
+[assembly: AssemblyVersion("1.20.0.0")]
+[assembly: AssemblyFileVersion("1.20.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.19";
+        public const string Version = "1.20";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -435,6 +435,30 @@ namespace HallowBrowser
                         Snap.Save(sw, Path.Combine(dir, q.Item1 + wsfx + sfx + ".png"), width, 800); sw.Close();
                         s.AiOn = false; AiKey.SnapHas = null;
                     }
+                }
+                // 1.20: the extension bridge - an extension's side panel in the sidebar (and one with the gap note), the verdicts on
+                // hallow://extensions and the store card, Open in Chrome in the tab's menu, the private-window question, the pinned
+                // extension's menu, the extensions list and the setting - each at 1280 and 900 px (made-up extensions, nothing loaded)
+                foreach (var width in new[] { 1280.0, 900.0 })
+                {
+                    var wsfx = width < 1000 ? "-900" : "";
+                    BrowserWindow.SnapExtSetup(s);
+                    shotW("ext-side-panel" + wsfx, width, w => w.SnapBridge("side-panel"));
+                    shotW("ext-side-panel-gap" + wsfx, width, w => w.SnapBridge("side-panel-gap"));
+                    shotW("open-in-chrome-menu" + wsfx, width, w => w.SnapBridge("tab-menu"));
+                    shotW("open-in-private" + wsfx, width, w => w.SnapBridge("private-ask"));
+                    shotW("pinned-ext-menu" + wsfx, width, w => w.SnapBridge("pinned-menu"));
+                    shotW("extensions-flyout-120" + wsfx, width, w => w.SnapBridge("ext-flyout"));
+                    foreach (var pg in new[] { "extensions", "store-card" })   // taller, so every card shows
+                    {
+                        s.VerticalTabs = false; s.VTabsCollapsed = false;
+                        var bw = new BrowserWindow(s, true) { Width = width, Height = 1900 }; bw.SnapFill("news", false, false); bw.SnapBridge(pg);
+                        Snap.Save(bw, Path.Combine(dir, (pg == "extensions" ? "extensions-verdicts" : "store-card-verdict") + wsfx + sfx + ".png"), width, 1900); bw.Close();
+                    }
+                    var sw = new BrowserWindow(s, true) { Width = width, Height = 800 }; sw.SnapFill("news", false, false); sw.SettingsQuery = "Open in another browser";
+                    sw.ContentGrid.Children.Add(Panels.SettingsPage(sw));
+                    Snap.Save(sw, Path.Combine(dir, "settings-open-in" + wsfx + sfx + ".png"), width, 800); sw.Close();
+                    s.Extensions = new List<UserExtension>(); s.PinnedExtensions = null; OpenIn.SnapFound = null; ExtCompat.SnapManifests.Clear();
                 }
             }
         }

@@ -46,6 +46,49 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.20: the extension bridge
+
+Hallow Browser runs Chrome extensions through Microsoft's WebView2, and WebView2 leaves out some extension features:
+`chrome.sidePanel`, `chrome.debugger`, `chrome.identity` (Google sign-in for extensions), native messaging (talking to a desktop app)
+and a few more. 1.20 closes the gap where it can, and says plainly where it can't.
+
+**Side panels in Hallow's sidebar.** An extension with a side panel (`"side_panel"` in its manifest) gets **Open side panel**: in the
+puzzle piece's list (the panel icon next to the pin), in a pinned extension's **right-click menu**, and on hallow://extensions. Its
+panel page opens in Hallow's sidebar as the extension's own page, with its extension features (its storage, messages to its
+background...). WebView2 has no `chrome.sidePanel`, so Hallow gives those pages (and the extension's popup) a small stand-in:
+`open`, `setOptions`, `getOptions` and `setPanelBehavior` answer as in Chrome, `open()` opens Hallow's panel, `setOptions({path})`
+switches its page and `setOptions({enabled: false})` closes it. An extension that sets its panel page only from its background (not
+from its popup or panel) isn't caught - the stand-in only lives in pages Hallow opens. An extension that needs more than the side
+panel gets a note above its panel saying so, with **Open this page in Chrome**.
+
+**"Open in Chrome".** A tab's right-click menu, the page's right-click menu ("Open page in Chrome", "Open link in Chrome"), Ctrl+K,
+Menu > More tools and the notes on extensions that need Chrome send the page's address to **Google Chrome, Brave or Microsoft Edge** -
+whichever you pick in **Settings > General > Open in another browser** (automatic: Chrome if it's installed, else Brave, else Edge;
+found at their standard install places - read only, nothing installed or changed). Only the address goes - not your Hallow tabs,
+sign-ins or cookies, and no profile switches. **From a private window Hallow asks first**: the other browser's normal window isn't
+private, so you choose between it and that browser's own Incognito / InPrivate window.
+
+**Will it work? Three answers per extension.** Worked out from the extension's manifest (permissions, optional permissions, side panel,
+oauth2...), on the **Chrome Web Store card before you add it** and on **hallow://extensions** for each one you have:
+- **Works fully** - it uses only features WebView2 has.
+- **Works with Hallow's bridge** - the side panel is its only gap; it opens in Hallow's sidebar.
+- **Use Open in Chrome** - it needs `chrome.debugger`, Google sign-in (`chrome.identity` / `oauth2`), native messaging, tab groups,
+  hidden helper pages or another feature WebView2 doesn't have; the reasons are listed, with an **Open this page in Chrome** button.
+  You can still add it. (Features it only *may ask for later* are listed as notes and don't change the answer.)
+
+**Claude in Chrome, honestly.** Anthropic's Claude in Chrome extension needs `chrome.debugger` (that's how it acts on pages), Chrome's
+side panel and native messaging (to the Claude desktop app). WebView2 has neither the debugger nor native messaging, so **it can't
+fully work in Hallow Browser** - even with Hallow's side panel, the parts that read and act on pages won't run. Its card says **Use
+Open in Chrome**, and links to Hallow's own **Ask Claude** sidebar (1.19, unchanged) for chatting about a page.
+
+Why not another engine? A Chromium Embedded Framework prototype was tried and ruled out; WebView2 stays.
+
+Tests: unit tests `V120` (the verdicts, Claude's from a manifest written by hand, side panel paths, the stand-in's text, which
+browser, the command line, the private flags, the setting) and an integration suite `v120` with three small extensions written into
+the test folder (a side panel, one needing `debugger` / `nativeMessaging`, a plain one) - nothing from the Web Store. It opens the side
+panel in the sidebar and checks `chrome.storage` and `chrome.runtime` work there and the stand-in is in place before the page's own
+script runs; "Open in Chrome" is written to a file instead of started (a test run never starts Chrome, Brave or Edge).
+
 ## What's new in 1.19: modern extras
 
 **Pinned tabs.** Right-click a tab > **Pin tab**. Pinned tabs sit at the left of the strip as small icons (with vertical tabs: a

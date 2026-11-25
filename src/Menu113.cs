@@ -87,7 +87,7 @@ namespace HallowBrowser
                 R("camera", "Screenshot", "Ctrl+Shift+X", w.ShowScreenshot),
                 R("terminal", "Command palette", "Ctrl+K", () => Palette.Show(w)),
                 new MItem { Icon = "star", Text = "Print...", Keys = "Ctrl+P", Run = () => { if (w.Active != null && w.Active.Core != null) w.Active.Core.ShowPrintUI(); }, Enabled = web } };
-            if (web) { more.Add(R("language", a.Translated ? "Show original" : "Translate...", null, () => w.TranslateFlyout(w.Active))); more.Add(R("tv", "Cast... (open in Edge)", null, () => w.OpenInEdgeToCast(w.Active))); }
+            if (web) { more.Add(R("language", a.Translated ? "Show original" : "Translate...", null, () => w.TranslateFlyout(w.Active))); more.Add(R("tv", "Cast... (open in Edge)", null, () => w.OpenInEdgeToCast(w.Active))); if (w.OpenInId != null && OpenIn.CanOpen(a.Url)) more.Add(R("globe", w.OpenInLabel, null, () => w.OpenInBrowser(w.Active, null, w.MenuButton))); }   // 1.20
             more.Add(MItem.Sep());
             more.Add(new MItem { Icon = "square-plus", Text = "Install this site...", Run = () => { var _ = w.InstallSite(w.Active); }, Enabled = !w.Private && web });
             more.Add(R("table-cells-large", "Apps", null, () => w.NewTab(Omni.AppsUrl, true)));

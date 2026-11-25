@@ -55,7 +55,7 @@ namespace HallowBrowser
                 string e2; info = ExtStore.Read(folder, out e2); if (info == null) { err = "Not added: " + e2; try { Directory.Delete(folder, true); } catch { } folder = null; }
             });
             if (err != null || c == null || info == null) { Pending = new PendingExt { Id = id, Error = err ?? "Not added." }; StoreNote = null; RefreshExtList(); return Pending.Error; }
-            Pending = new PendingExt { Id = id, Name = info.Name, Version = info.Version, Crx = c, Asks = WebStore.Asks(man), Gaps = WebStore.Gaps(man), Update = update };
+            Pending = new PendingExt { Id = id, Name = info.Name, Version = info.Version, Crx = c, Asks = WebStore.Asks(man), Gaps = WebStore.Gaps(man), Update = update, Compat = ExtCompat.Of(man, id) };
             Pending.Crx.Name = folder;   // the unpacked folder (removed if you cancel)
             StoreNote = null; RefreshExtList();
             return null;
@@ -129,7 +129,7 @@ namespace HallowBrowser
             sp.Children.Add(Ui.Row(box, Ui.Btn("Add", go, true, "plus", "Fetch it from the Chrome Web Store and check it")));
             sp.Children.Add(Ui.Switch("Check store extensions for updates once a day", "Asks Google's update server about your store extensions only (their IDs and versions). A newer version is shown here for your OK, with what it asks for.", S.StoreUpdates, on => { S.StoreUpdates = on; S.Save(); }));
             sp.Children.Add(Ui.Row(Ui.Btn("Check for updates now", () => { var _ = CheckStoreUpdates(false); }, false, "rotate")));
-            sp.Children.Add(Ui.Muted("What WebView2 extensions can't do: talk to desktop apps (native messaging - password managers that need their desktop app won't connect), Google sign-in for extensions (chrome.identity), side panels, managing other extensions, and permission prompts for optional permissions. They don't run in private windows, and store sync of their settings isn't there.", 11.5, 6));
+            sp.Children.Add(Ui.Muted("What WebView2 extensions can't do: talk to desktop apps (native messaging - password managers that need their desktop app won't connect), Google sign-in for extensions (chrome.identity), control pages through chrome.debugger, manage other extensions, and permission prompts for optional permissions. Side panels open in Hallow's sidebar instead (Hallow's bridge). They don't run in private windows, and store sync of their settings isn't there. Each extension below says whether it works fully, works with Hallow's bridge, or is better used in Chrome (\"Open in Chrome\").", 11.5, 6));
             return Ui.Card(sp);
         }
         static void AutomationName(FrameworkElement e, string n) { System.Windows.Automation.AutomationProperties.SetName(e, n); }
@@ -149,7 +149,8 @@ namespace HallowBrowser
             sp.Children.Add(Ui.Muted("From the Chrome Web Store - signature and ID " + p.Id + " checked.", 11.5, 4));
             sp.Children.Add(Ui.Label("It can:"));
             foreach (var a in p.Asks.DefaultIfEmpty("Nothing beyond its own pages")) sp.Children.Add(Ui.Muted("• " + a, 12, 2));
-            if (p.Gaps.Count > 0)   // 1.16.2: said plainly, before adding (adding still works)
+            if (p.Compat != null) sp.Children.Add(VerdictView(p.Compat, true));   // 1.20: the 3-level verdict with its reasons (adding still works)
+            else if (p.Gaps.Count > 0)   // 1.16.2: said plainly, before adding (adding still works)
             {
                 var warn = Ui.T(WebStore.GapWarning, 12.5, true, "Text", 6); warn.TextWrapping = TextWrapping.Wrap; warn.MaxWidth = 520; var wi = Ui.Icon("triangle-exclamation", 13, "AmberText"); wi.Margin = new Thickness(0, 2, 8, 0); wi.VerticalAlignment = VerticalAlignment.Top;
                 sp.Children.Add(Ui.Row(wi, warn));

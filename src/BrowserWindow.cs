@@ -528,6 +528,7 @@ namespace HallowBrowser
             Hook116(c);   // 1.16: the "Add to Hallow Browser" button on Chrome Web Store pages
             Hook118(c);   // 1.18: Shield's count, the install check
             Hook119(c);   // 1.19: cookie banners declined, Copy clean link in the page's menu
+            Hook120(c);   // 1.20: Open page / link in Chrome (Brave, Edge) in the page's menu
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
             Rehook(t, c);

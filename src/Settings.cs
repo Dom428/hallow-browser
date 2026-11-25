@@ -202,7 +202,7 @@ namespace HallowBrowser
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
-            Fix16(); Fix17(); Fix18(); Fix19(); Fix110(); Fix119();
+            Fix16(); Fix17(); Fix18(); Fix19(); Fix110(); Fix119(); Fix120();
             if (double.IsNaN(Width) || Width < 480) Width = 1280;
             if (double.IsNaN(Height) || Height < 360) Height = 820;
         }

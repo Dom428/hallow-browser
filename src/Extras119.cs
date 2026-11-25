@@ -270,6 +270,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
             var r = new List<UIElement>();
             if (!AppMode) r.Add(Ui.MenuRow("thumbtack", t.Pinned ? "Unpin tab" : "Pin tab", null, () => run(() => SetPinnedTab(t, !t.Pinned))));
             if (Omni.IsWeb(t.Url)) r.Add(Ui.MenuRow("link", "Copy clean link", null, () => run(() => CopyCleanLink(t))));
+            var oi = OpenInRow120(t, run); if (oi != null) r.Add(oi);   // 1.20: Open in Chrome / Brave / Edge
             return r;
         }
         public List<UIElement> StripMenuRows119(Action<Action> run)

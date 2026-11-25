@@ -300,6 +300,7 @@ namespace HallowBrowser
             col.Children.Add(card("Translate pages", w.TranslateSettings()));             // 1.7
             col.Children.Add(card("Ask Claude (AI sidebar)", w.AiSettings119()));          // 1.19: optional, off by default
             col.Children.Add(card("Cast to a TV", w.CastSettings()));                     // 1.7
+            col.Children.Add(card("Open in another browser", w.OpenInSettings120()));     // 1.20: Chrome / Brave / Edge
 
             col.Children.Add(card("Profiles", w.ProfileSettings()));                    // 1.6
             col.Children.Add(card("Spell check", w.SpellSettings()));                   // 1.6

@@ -141,7 +141,7 @@ namespace HallowBrowser
 
             host = new Grid { Visibility = Visibility.Collapsed };
             host.SetResourceReference(Panel.BackgroundProperty, "Bg");
-            host.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) }); host.RowDefinitions.Add(new RowDefinition());
+            host.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) }); host.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); host.RowDefinitions.Add(new RowDefinition());   // 1.20: a note row (an extension panel's gap)
             var head = new Grid(); head.SetResourceReference(Panel.BackgroundProperty, "Bar");
             head.ColumnDefinitions.Add(new ColumnDefinition()); head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             headTitle = new TextBlock { FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 6, 0), TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12 };
@@ -154,7 +154,8 @@ namespace HallowBrowser
             bs.Margin = new Thickness(0, 0, 4, 0); bs.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(bs, 1); head.Children.Add(bs);
             var hl = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom }; hl.SetResourceReference(Border.BackgroundProperty, "LineDim"); Grid.SetColumnSpan(hl, 2); head.Children.Add(hl);
             host.Children.Add(head);
-            viewBox = new Grid(); Grid.SetRow(viewBox, 1); host.Children.Add(viewBox);
+            viewBox = new Grid(); Grid.SetRow(viewBox, 2); host.Children.Add(viewBox);
+            BuildNoteHost120(host);   // 1.20
             A11y.SetScaleHost(host, true); A11y.SetNoScale(viewBox, true); A11y.SetScaleHost(viewBox, true);   // 1.9: the header and the browser's own panels scale, web panels never
             Grid.SetColumn(host, 2); body.Children.Add(host);
 
@@ -277,6 +278,7 @@ namespace HallowBrowser
             hostCol.Width = new GridLength(SidebarRules.ClampWidth(p.Site.Width)); splitCol.Width = GridLength.Auto;
             headTitle.Text = p.Title ?? p.Site.Name;
             UaButton(p);
+            uaBtn.Visibility = p.ExtId != null ? Visibility.Collapsed : Visibility.Visible; ShowNote120(p);   // 1.20: an extension's side panel
             if (p.View == null) { var _ = Create(p); }
             else { p.View.Visibility = Visibility.Visible; if (p.Asleep && p.Core != null) { try { p.Core.Resume(); } catch { } } p.Asleep = false; }
             foreach (var x in Panels) if (x.View != null && x != p) x.View.Visibility = Visibility.Hidden;
@@ -286,7 +288,7 @@ namespace HallowBrowser
         public void Hide()
         {
             if (Open == null) { if (NativeOpen != null) HideNative(true); return; }   // 1.6: the reading list / notes
-            var was = Open; HideOnly(Open); Open = null;
+            var was = Open; HideOnly(Open); Open = null; ShowNote120(null);
             if (!was.Transient) { w.S.SidebarOpenId = null; w.S.Save(); } else ChatClosedByYou(was);
             host.Visibility = Visibility.Collapsed; splitter.Visibility = Visibility.Collapsed;
             hostCol.Width = new GridLength(0); splitCol.Width = new GridLength(0);
@@ -322,6 +324,7 @@ namespace HallowBrowser
             p.DesktopAgent = core.Settings.UserAgent;
             if (p.Site.Mobile) core.Settings.UserAgent = SidebarRules.MobileAgent(Engine.RuntimeVersion);
             w.HookPanel(core);
+            if (p.ExtId != null) { var ext = p.ExtId; await w.HookShim120(core, w.SidePanelPathOf(w.S.Extensions.FirstOrDefault(e => e.Id == ext)), () => ext, p); if (p.View != v) return; }   // 1.20: chrome.sidePanel's shim
             core.DocumentTitleChanged += (a, b) =>
             {
                 p.Title = core.DocumentTitle; var u = SidebarRules.Unread(p.Title);
@@ -370,6 +373,7 @@ namespace HallowBrowser
         public void Unload(SidePanel p)
         {
             if (p == Open) Hide();
+            if (p.ExtId != null) Panels.Remove(p);   // 1.20: an extension's panel goes away when unloaded
             if (p.View != null) { viewBox.Children.Remove(p.View); try { p.View.Dispose(); } catch { } p.View = null; }
             p.Asleep = false; p.Audible = false; p.Ready = false; Refresh(p);
         }

@@ -109,6 +109,7 @@ namespace HallowBrowser
             if (w.Groups.Count > 0) C("Ungroup all tabs", null, "layer-group", () => w.UngroupAll());
             if (a != null && !w.AppMode) C(a.Pinned ? "Unpin tab" : "Pin tab", null, "thumbtack", () => w.SetPinnedTab(a, !a.Pinned));
             if (a != null && Omni.IsWeb(a.Url)) C("Copy clean link (without tracking parameters)", null, "link", () => w.CopyCleanLink(a));
+            if (a != null && OpenIn.CanOpen(a.Url) && w.OpenInId != null) C(w.OpenInLabel + " (this page in " + OpenIn.Name(w.OpenInId) + ")", null, "globe", () => w.OpenInBrowser(a, null, w.MenuButton));   // 1.20
             if (S.AiOn && !w.Private && !w.AppMode) C("Ask Claude (AI sidebar)", null, "comments", () => w.Side.ShowNative("claude"));
             T("Decline cookie banners", S.CookieDecline, v => S.CookieDecline = v, () => BrowserWindow.ConsentChangedAll());
             T("Clean links when I copy the address", S.CleanCopy, v => S.CleanCopy = v, null);

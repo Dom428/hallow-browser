@@ -172,6 +172,7 @@ namespace HallowBrowser
             if (cmd.StartsWith("test-d-")) return V112(w, cmd.Substring(7), arg);     // 1.12
             if (cmd.StartsWith("test-tb-")) return V118(w, cmd.Substring(8), arg);    // 1.18: the Brave-style top bar
             if (cmd.StartsWith("test-nn-")) return V119(w, cmd.Substring(8), arg);    // 1.19: pins, cookie banners, clean links, auto PiP, groups, Ask Claude
+            if (cmd.StartsWith("test-xb-")) return V120(w, cmd.Substring(8), arg);    // 1.20: the extension bridge (side panels, verdicts, Open in Chrome)
             return "error unknown test command";
         }
 

@@ -137,6 +137,7 @@ namespace HallowBrowser
             if (w.Private || w.AppMode) return;
             if (!w.S.SidebarOn) { w.S.SidebarOn = true; ApplyOn(); }
             if (Open != null) { HideOnly(Open); Open = null; }
+            ShowNote120(null);   // 1.20
             RemoveNative();
             NativeOpen = kind;
             host.Visibility = Visibility.Visible; splitter.Visibility = Visibility.Visible;

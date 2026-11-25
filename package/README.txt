@@ -9,6 +9,18 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.20 - THE EXTENSION BRIDGE
+- Side panels: an extension with a side panel gets "Open side panel" (the extensions list, a pinned extension's right-click menu,
+  hallow://extensions). Its panel opens in Hallow's sidebar with its extension features; chrome.sidePanel calls from its pages work
+- "Open in Chrome" (a tab's menu, right-click on a page, Ctrl+K, More tools): the page's address goes to Chrome, Brave or Edge -
+  Settings > General > Open in another browser. From a private window it asks first (the other browser's normal window isn't
+  private) and offers that browser's own Incognito / InPrivate window
+- Every extension gets a verdict - on the Chrome Web Store card before adding, and on hallow://extensions: "Works fully",
+  "Works with Hallow's bridge" (only its side panel was missing) or "Use Open in Chrome" (it needs chrome.debugger, Google sign-in,
+  native messaging or another feature WebView2 lacks), with the reasons
+- Honestly: Claude in Chrome can't fully work in Hallow Browser - it needs chrome.debugger and native messaging, which WebView2
+  doesn't have. Its card says "Use Open in Chrome" and points to Hallow's own Ask Claude sidebar for chatting about a page
+
 WHAT'S NEW IN 1.19 - MODERN EXTRAS
 - Pinned tabs: right-click a tab > "Pin tab". They stay at the left as small icons (a row of tiles with vertical tabs), have no
   close button and come back after a restart. Ctrl+W still closes one, like in Chrome

@@ -186,5 +186,5 @@ namespace HallowBrowser
     public class StoreInfo { [System.Runtime.Serialization.DataMember] public string Id, Checked, Latest; }
 
     // one store install waiting for your OK (shown on hallow://extensions)
-    public class PendingExt { public string Id, Name, Version, Error; public Crx.Result Crx; public List<string> Asks = new List<string>(), Gaps = new List<string>(); public bool Update; }
+    public class PendingExt { public string Id, Name, Version, Error; public Crx.Result Crx; public List<string> Asks = new List<string>(), Gaps = new List<string>(); public bool Update; public Compat Compat; }
 }

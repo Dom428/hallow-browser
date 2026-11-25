@@ -207,7 +207,8 @@ namespace HallowBrowser
             }
             extWin.Show(); if (!BrowserSettings.Offscreen) extWin.Activate();
             await Engine.Ensure(extView);
-            var url = "chrome-extension://" + x.Id + "/" + x.Popup.TrimStart('/');
+            await HookPopup120(extView.CoreWebView2);   // 1.20: chrome.sidePanel's shim in the popup too (its open() opens Hallow's panel)
+            var url ="chrome-extension://" + x.Id + "/" + x.Popup.TrimStart('/');
             await Panels.NavigateAndWait(extView.CoreWebView2, url);
             return extView.CoreWebView2.Source;
         }
@@ -251,6 +252,8 @@ namespace HallowBrowser
                 var xx = x; var row = new DockPanel();
                 var tools = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top }; DockPanel.SetDock(tools, Dock.Right);
                 if (xx.Popup != null && xx.Enabled) tools.Children.Add(Ui.Btn("Open", () => { var _ = ExtPopup(xx, extBtn); }, false, "up-right-from-square"));
+                var compat = ExtCompat.Of(xx);   // 1.20: the verdict, and the side panel
+                if (xx.Enabled && SidePanelPathOf(xx) != null) { var spb = Ui.Btn("Side panel", () => OpenExtSidePanel(xx), false, "table-columns", "Open " + xx.Name + "'s side panel in Hallow's sidebar"); spb.Tag = "sidepanel:" + xx.Id; tools.Children.Add(spb); }
                 if (xx.Options != null && xx.Enabled) tools.Children.Add(Ui.Btn("Options", () => NewTab("chrome-extension://" + xx.Id + "/" + xx.Options.TrimStart('/'), true), false, "gear"));
                 tools.Children.Add(Ui.Btn("Remove", () => { var _ = RemoveExt(xx); }, false, "trash-can"));
                 foreach (FrameworkElement b in tools.Children) b.Margin = new Thickness(6, 0, 0, 0);
@@ -259,6 +262,7 @@ namespace HallowBrowser
                 info.Children.Add(Ui.Row(Ui.Icon("puzzle-piece", 13, "Lilac"), Ui.T("  " + xx.Name + "  " + xx.Version, 14, true, "Text")));
                 if (!string.IsNullOrWhiteSpace(xx.Description)) info.Children.Add(Ui.Muted(xx.Description.Length > 160 ? xx.Description.Substring(0, 160) + "..." : xx.Description, 11.5, 2));
                 info.Children.Add(Ui.Muted("ID " + xx.Id + "  -  loaded from " + (xx.Source ?? "?"), 10.5, 6));
+                if (compat != null) info.Children.Add(VerdictView(compat, false));   // 1.20
                 info.Children.Add(Ui.Switch("On", null, xx.Enabled, on => { var _ = SetExtEnabled(xx, on); }));
                 row.Children.Add(info);
                 extList.Children.Add(Ui.Card(row));
