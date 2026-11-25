@@ -111,10 +111,10 @@ namespace HallowBrowser
         async void AutoPipCheck(Tab old, Tab now)
         {
             if (now != null && now.PoppedOut && now.AutoPipped) { now.AutoPipped = false; Pip.Return(this, now); }
-            if (!S.AutoPip || old == null || old == now || old.View == null || old.PoppedOut || !Tabs.Contains(old) || IsShown(old)) return;
-            if (!(old.Audible || old.MediaSeen)) return;
-            var st = await Media.State(old);
-            if (st == null || !st.Playing || !st.Video || old == Active || old.PoppedOut || !Tabs.Contains(old)) return;
+            if (!S.AutoPip || Game != null || old == null || old == now || old.View == null || old.PoppedOut || !Tabs.Contains(old) || IsShown(old)) return;   // 1.19: never in game mode
+            if (!(old.Audible || old.MediaSeen)) { LastAutoPip = "no media"; return; }
+            var why = await AutoPipWhy119(old); LastAutoPip = why;   // 1.19: a playing video of a real size - not a muted autoplay (an ad, a background loop)
+            if (why != "ok" || Game != null || old == Active || old.PoppedOut || !Tabs.Contains(old)) return;
             old.AutoPipped = true; AutoPips++;
             Pip.PopOut(this, old);
         }

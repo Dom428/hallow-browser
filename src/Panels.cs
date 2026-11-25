@@ -47,6 +47,7 @@ namespace HallowBrowser
             var sp = new StackPanel(); Popup p = null;
             Action<Action> run = a => { p.IsOpen = false; a(); };
             sp.Children.Add(Ui.MenuRow("plus", "New tab to the right", null, () => run(() => w.NewTab(Omni.NewTabUrl, true, w.Tabs.IndexOf(t) + 1))));
+            foreach (var r in w.TabMenuRows119(t, run)) sp.Children.Add(r);   // 1.19: pin / unpin, Copy clean link
             sp.Children.Add(Ui.MenuRow("arrow-rotate-right", "Reload", null, () => run(() => { if (t.Core != null) t.Core.Reload(); })));
             sp.Children.Add(Ui.MenuRow("plus", "Duplicate", null, () => run(() => w.Duplicate(t))));
             sp.Children.Add(Ui.MenuRow(t.Muted ? "volume-high" : "volume-xmark", t.Muted ? "Unmute site" : "Mute tab", "Ctrl+Shift+M", () => run(() => w.ToggleMute(t))));
@@ -59,6 +60,7 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("layer-group", "Add tab to new group", null, () => run(() => w.GroupFromMenu(t))));
             if (w.Groups.Any(g => g != t.Group)) sp.Children.Add(Ui.MenuRow("layer-group", "Add to group \u25B8", null, () => run(() => w.AddToGroupFlyout(t))));
             sp.Children.Add(Ui.MenuRow("layer-group", "Auto-group tabs by site", null, () => run(() => w.AutoGroupBySite())));
+            if (w.Groups.Count > 0) sp.Children.Add(Ui.MenuRow("layer-group", "Ungroup all", null, () => run(() => w.UngroupAll())));   // 1.19
             if (t.Group != null) sp.Children.Add(Ui.MenuRow("layer-group", "Remove from " + t.Group.Name, null, () => run(() => w.RemoveFromGroup(t))));
             if (w.SplitOn && (t == w.SplitL || t == w.SplitR)) { sp.Children.Add(Ui.MenuRow("right-left", "Swap the split sides", null, () => run(w.SwapSplit))); sp.Children.Add(Ui.MenuRow("xmark", "Close split view", null, () => run(w.CloseSplit))); }
             else if (t != w.Active) sp.Children.Add(Ui.MenuRow("table-columns", "Split view with this tab", "Ctrl+click", () => run(() => w.AddToSplit(t))));
@@ -296,6 +298,7 @@ namespace HallowBrowser
             col.Children.Add(card("Downloads", w.DownloadSettings()));                  // 1.5
             col.Children.Add(card("Tab previews, gestures and media", w.TabsMediaSettings()));   // 1.5
             col.Children.Add(card("Translate pages", w.TranslateSettings()));             // 1.7
+            col.Children.Add(card("Ask Claude (AI sidebar)", w.AiSettings119()));          // 1.19: optional, off by default
             col.Children.Add(card("Cast to a TV", w.CastSettings()));                     // 1.7
 
             col.Children.Add(card("Profiles", w.ProfileSettings()));                    // 1.6
@@ -312,6 +315,7 @@ namespace HallowBrowser
             col.Children.Add(card("Privacy", new UIElement[] {
                 Ui.Switch("Block third-party cookies", "Sites can't follow you around with cookies from other sites. Applies after a restart.", S.BlockThirdPartyCookies, on => { S.BlockThirdPartyCookies = on; save(); }),
                 Ui.Switch("Ask sites not to track or sell my data", "Sends Global Privacy Control (Sec-GPC) and Do Not Track.", S.DoNotTrack, on => { S.DoNotTrack = on; save(); }),
+                w.CookieSwitch119(), w.CleanCopySwitch119(),   // 1.19
                 Ui.Switch("Strict tracking prevention", "Microsoft's tracking prevention on Strict instead of Balanced (may break some sites).", S.StrictTracking, on => { S.StrictTracking = on; save(); w.ApplyPageColors(); }),
                 Ui.Switch("Clear browsing data when I close the browser", null, S.ClearOnExit, on => { S.ClearOnExit = on; save(); }),
                 Ui.Switch("Keep a history of the pages I visit", "Only on this PC (in the profile folder), so Ctrl+K can find them again. At most 5,000 pages.", S.KeepHistory, on => { S.KeepHistory = on; save(); }),
@@ -397,6 +401,9 @@ namespace HallowBrowser
             var S = w.S; var items = new List<UIElement>();
             items.Add(Ui.Switch("Vertical tabs", "Tabs in a column on the left (with their site icons) instead of the title bar. Also in the tab's right-click menu.", S.VerticalTabs, on => { if (on != S.VerticalTabs) w.ToggleVerticalTabs(); }));
             items.Add(Ui.Switch("Icons only", "The tab column shows just the site icons (hover for the title).", S.VTabsCollapsed, on => { if (on != S.VTabsCollapsed) w.ToggleVTabsCollapsed(); }));
+            items.Add(Ui.Muted("Pinned tabs: right-click a tab > Pin tab. Pinned tabs stay at the left as small icons, have no close button (Ctrl+W still closes them, like in Chrome) and come back after a restart.", 11.5, 8));   // 1.19
+            items.Add(Ui.Row(Ui.Btn("Group tabs by site", () => w.AutoGroupBySite(), false, "layer-group"), Ui.Btn("Ungroup all", () => w.UngroupAll(), false, "layer-group")));
+            items.Add(new Border { Height = 8 });
             items.Add(Ui.Muted("Tab groups: right-click a tab > Add to a new group. Click a group's name to fold it away, right-click it to rename, recolour, put the whole group to sleep or ungroup; drag a tab onto it to add the tab. Groups are saved with the session.", 11.5, 10));
             var names = w.Spaces == null ? "Default" : string.Join(", ", w.Spaces.Items.Select(x => x.Name + (x.Id == w.SpaceId ? " (here)" : "")));
             items.Add(Ui.Muted("Workspaces: " + names, 12, 4));

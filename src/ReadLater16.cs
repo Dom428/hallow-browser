@@ -103,7 +103,7 @@ namespace HallowBrowser
     public partial class Sidebar
     {
         public string NativeOpen;              // "reading" | "notes" | null
-        FrameworkElement nativeView; Button readBtn, notesBtn;
+        FrameworkElement nativeView; Button readBtn, notesBtn, aiBtn;
         string notesKey; TextBox noteBox; DispatcherTimer noteTimer;
         public const int NativeWidth = 340;
         void AddNativeButtons()
@@ -111,6 +111,8 @@ namespace HallowBrowser
             readBtn = NativeButton("book-bookmark", "Reading list - pages you saved for later (Ctrl+Shift+D)", "reading");
             notesBtn = NativeButton("note-sticky", "Notes - a short note for the page you're on", "notes");
             railList.Children.Add(readBtn); railList.Children.Add(notesBtn);
+            aiBtn = w.S.AiOn && !w.Private && !w.AppMode ? NativeButton("comments", "Ask Claude - with your own Anthropic API key; a page is sent only when you click \"Use this page\"", "claude") : null;   // 1.19
+            if (aiBtn != null) railList.Children.Add(aiBtn);
             var sep = new Border { Height = 1, Margin = new Thickness(10, 4, 10, 4) }; sep.SetResourceReference(Border.BackgroundProperty, "LineDim"); railList.Children.Add(sep);
             RefreshNativeButtons();
         }
@@ -122,7 +124,7 @@ namespace HallowBrowser
         }
         void RefreshNativeButtons()
         {
-            foreach (var x in new[] { Tuple.Create(readBtn, "reading", "book-bookmark"), Tuple.Create(notesBtn, "notes", "note-sticky") })
+            foreach (var x in new[] { Tuple.Create(readBtn, "reading", "book-bookmark"), Tuple.Create(notesBtn, "notes", "note-sticky"), Tuple.Create(aiBtn, "claude", "comments") })
             {
                 if (x.Item1 == null) continue;
                 x.Item1.Content = Ui.Icon(x.Item3, 16, NativeOpen == x.Item2 ? "AccentBrush" : "Text");
@@ -148,6 +150,7 @@ namespace HallowBrowser
         {
             SaveNoteNow();
             if (nativeView != null) { viewBox.Children.Remove(nativeView); nativeView = null; }
+            if (NativeOpen == "claude") w.AiClosed119();
             NativeOpen = null; noteBox = null; notesKey = null; uaBtn.Visibility = Visibility.Visible;
             RefreshNativeButtons();
         }
@@ -163,9 +166,9 @@ namespace HallowBrowser
             if (NativeOpen == "notes" && noteBox != null && notesKey == PageNotes.Key(w.Active == null ? null : w.Active.Url)) return;   // still the same page: keep the cursor where it is
             SaveNoteNow();
             if (nativeView != null) viewBox.Children.Remove(nativeView);
-            nativeView = NativeOpen == "reading" ? ReadingView() : NotesView();
+            nativeView = NativeOpen == "reading" ? ReadingView() : NativeOpen == "claude" ? w.AiView119() : NotesView();   // 1.19: Ask Claude
             viewBox.Children.Add(nativeView);
-            headTitle.Text = NativeOpen == "reading" ? "Reading list" : "Notes";
+            headTitle.Text = NativeOpen == "reading" ? "Reading list" : NativeOpen == "claude" ? "Ask Claude" : "Notes";
         }
         bool showAllRead;
         FrameworkElement ReadingView()

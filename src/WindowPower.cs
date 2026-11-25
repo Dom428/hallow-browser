@@ -95,13 +95,16 @@ namespace HallowBrowser
             var host = TabPanel; var other = host == strip ? (Panel)vlist : strip;
             if (other.Children.Count > 0) other.Children.Clear();
             var want = new List<UIElement>(); var seen = new HashSet<TabGroup>(); TabGroup cur = null;
+            var pinnedHeads = new List<UIElement>(); bool vert = S.VerticalTabs;   // 1.19: pinned tabs first (in the column: a row of icons)
             foreach (var t in Tabs)
             {
+                if (t.Pinned) { t.Header.Visibility = Visibility.Visible; StyleHeader(t); if (vert) pinnedHeads.Add(t.Header); else want.Add(t.Header); continue; }
                 if (t.Group != cur) { cur = t.Group; if (cur != null && seen.Add(cur)) { StyleChip(cur); want.Add(cur.Chip); } }
                 t.Header.Visibility = t.Group != null && t.Group.Collapsed ? Visibility.Collapsed : Visibility.Visible;
                 StyleHeader(t);
                 want.Add(t.Header);
             }
+            PinnedColumn119(want, pinnedHeads, vert);
             Sync(host, want);
             FitTabs();
         }
@@ -121,7 +124,8 @@ namespace HallowBrowser
         void NormalizeGroups()
         {
             if (dragActive) return;
-            var order = GroupRules.Contiguous(Tabs, t => t.Group);
+            foreach (var t in Tabs) if (t.Pinned) t.Group = null;   // 1.19: a pinned tab is in no group
+            var order = PinRules.Order(GroupRules.Contiguous(Tabs, t => t.Group), t => t.Pinned);
             if (!order.SequenceEqual(Tabs)) { Tabs.Clear(); Tabs.AddRange(order); }
             Groups.RemoveAll(g => !Tabs.Any(t => t.Group == g));
             foreach (var t in Tabs) if (t.Group != null && !Groups.Contains(t.Group)) Groups.Add(t.Group);
@@ -147,6 +151,7 @@ namespace HallowBrowser
             t.GroupLine.Visibility = key != null ? Visibility.Visible : Visibility.Collapsed;
             if (key != null) t.GroupLine.SetResourceReference(Border.BackgroundProperty, key);
             t.SplitMark.Visibility = SplitOn && (t == SplitL || t == SplitR) ? Visibility.Visible : Visibility.Collapsed;
+            StylePinned119(t);
         }
         void StyleChip(TabGroup g)
         {
@@ -216,7 +221,7 @@ namespace HallowBrowser
             var chip = dropChip; dropChip = null;
             var prev = i > 0 ? Tabs[i - 1].Group : null; var next = i < Tabs.Count - 1 ? Tabs[i + 1].Group : null;
             bool others = t.Group != null && Tabs.Any(x => x != t && x.Group == t.Group);
-            var g = GroupRules.Drop(prev, next, t.Group, chip, others);
+            var g = t.Pinned ? null : GroupRules.Drop(prev, next, t.Group, chip, others);   // 1.19: pinned tabs stay out of groups
             if (chip != null)
             {
                 // to the end of that group
@@ -315,6 +320,7 @@ namespace HallowBrowser
             sp.Children.Add(Ui.MenuRow("table-list", S.VerticalTabs ? "Tabs in the title bar" : "Vertical tabs", null, () => run(ToggleVerticalTabs)));
             if (S.VerticalTabs) sp.Children.Add(Ui.MenuRow(S.VTabsCollapsed ? "angles-right" : "angles-left", S.VTabsCollapsed ? "Show tab names" : "Icons only", null, () => run(ToggleVTabsCollapsed)));
             var re = Ui.MenuRow("rotate-left", "Reopen closed tab", "Ctrl+Shift+T", () => run(ReopenClosed)); re.IsEnabled = ClosedCount > 0; sp.Children.Add(re);
+            foreach (var r in StripMenuRows119(run)) sp.Children.Add(r);   // 1.19: group tabs by site, ungroup all
             sp.Children.Add(Ui.MenuRow("briefcase", "Workspaces and sessions...", null, () => run(() => ShowWorkspaces(false))));
             Panels.CloseFlyouts();
             pop = new Popup { Child = Ui.Flyout(sp, 260), PlacementTarget = at, Placement = PlacementMode.MousePoint, StaysOpen = false, AllowsTransparency = true };
@@ -414,6 +420,7 @@ namespace HallowBrowser
                 {
                     var t = new Tab { Url = first[i].Url, Title = first[i].Title ?? (Omni.IsNewTab(first[i].Url) ? "New tab" : Omni.HostOf(first[i].Url) ?? "Tab") };
                     TabGroup tg; if (first[i].Group != null && gmap.TryGetValue(first[i].Group, out tg)) t.Group = tg;
+                    if (first[i].Pinned) { t.Pinned = true; t.Group = null; }   // 1.19
                     AddHeader(t, Tabs.Count); Tabs.Add(t);
                     if (i != activeIdx) { t.Discarded = true; t.LastActive = DateTime.Now.AddSeconds(-i); }
                 }
@@ -431,7 +438,7 @@ namespace HallowBrowser
         public Session BuildSession()
         {
             var s = new Session(); var kept = new List<Tab>();
-            foreach (var t in Tabs) if (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || t.Internal) { kept.Add(t); s.Tabs.Add(new SessionTab { Url = t.Url, Title = t.Title, Group = t.Group == null ? null : t.Group.Id }); }
+            foreach (var t in Tabs) if (Omni.IsWeb(t.Url) || Omni.IsNewTab(t.Url) || t.Internal) { kept.Add(t); s.Tabs.Add(new SessionTab { Url = t.Url, Title = t.Title, Group = t.Group == null || t.Pinned ? null : t.Group.Id, Pinned = t.Pinned }); }
             s.Active = Math.Max(0, kept.IndexOf(Active));
             var used = Groups.Where(g => kept.Any(t => t.Group == g)).ToList();
             if (used.Count > 0) s.Groups = used.Select(g => new SessionGroup { Id = g.Id, Name = g.Name, Color = g.Color, Collapsed = g.Collapsed }).ToList();

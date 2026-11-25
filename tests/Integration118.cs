@@ -142,7 +142,7 @@ namespace HallowBrowser.Tests
             {
                 br = Start(exe, run, hostRules);
                 var ping = Wait(() => Cmd("ping", 2000), r => r != null && r.StartsWith("ok"), 25000);
-                Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\"") && Program.Version == "1.18", "browser answers ping as 1.18: " + ping);
+                Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\"") && (Program.Version == "1.18" || Program.Version == "1.19"), "browser answers ping as 1.18 (or 1.19, which keeps its bar): " + ping);
                 Wait(Tabs, t => t.Count >= 1 && (bool)t[0]["ready"], 30000); Thread.Sleep(1000);
                 Cmd("test-mute 0");
                 Cmd("test-settings DownloadScan=false");   // the downloads here are made-up bytes: no Defender scan

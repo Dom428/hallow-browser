@@ -46,6 +46,38 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.19: modern extras
+
+**Pinned tabs.** Right-click a tab > **Pin tab**. Pinned tabs sit at the left of the strip as small icons (with vertical tabs: a
+row of icon tiles at the top of the column), have no close button, stay out of tab groups and come back after a restart. Like in
+Chrome, Ctrl+W and a middle-click still close them, and "Close other tabs" leaves them alone. Right-click > **Unpin tab** puts one
+back.
+
+**Cookie banners declined for you** (on by default). When a site shows a cookie banner - OneTrust, Cookiebot, Didomi, Quantcast,
+Usercentrics, TrustArc, Google's consent dialog, Sourcepoint, or a plain cookie dialog with a "Reject all" / "Only necessary" button -
+Hallow clicks **Reject / Only necessary**. It only clicks buttons whose text says exactly that (in English, Spanish, French, German,
+Portuguese, Italian and Dutch), **never Accept**, never on sign-in pages (Google, Microsoft, Apple, GitHub), and gives up after a few
+seconds if it finds nothing. The padlock shows what it declined on the page and has a switch to leave one site alone; Settings >
+Privacy turns it off everywhere.
+
+**Copy clean link.** The share button, a tab's right-click menu, the page's right-click menu and Ctrl+K have **Copy clean link**: the
+address without tracking parameters (utm_..., fbclid, gclid, msclkid, mc_eid, igshid, yclid, _hsenc, mkt_tok, WT.mc_id, YouTube's and
+Spotify's si...), with the parameters the page needs left exactly as they were. Settings > Privacy > **Clean links when I copy the
+address** (off by default) does it every time you copy the address.
+
+**Picture-in-picture when you switch tabs** (off by default, Settings > General > Tab previews, gestures and media): a playing video
+pops out into the small on-top window when you leave its tab and comes back when you return. 1.19 leaves muted autoplay videos (ads,
+background loops) and tiny players alone, and never pops anything out while game mode is on.
+
+**Group tabs by site.** Right-click the tab strip (or Ctrl+K) > **Group tabs by site** puts every site with two or more loose tabs
+into its own group; **Ungroup all** undoes it.
+
+**Ask Claude** (optional, off by default). Turn it on in Settings > General > Ask Claude, paste your own Anthropic API key, and a
+chat with Claude sits in the sidebar - answers stream in as they are written, with a model picker (Claude Opus 5.5 by default,
+Sonnet 5.5, Haiku 5.5, Fable 5.2). Nothing is sent until you ask something, and the page you're on only when you click **Use this
+page** (its text, up to 50,000 characters, shown as a chip first). The key is stored encrypted for your Windows account in the profile
+folder - never synced, exported or logged. Not in private windows.
+
 ## What's new in 1.18: a Brave-style top bar
 
 **Your toolbar, your order.** Right-click the toolbar and pick **Customize toolbar...** (it's also in Menu > View): every button has

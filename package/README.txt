@@ -9,6 +9,20 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.19 - MODERN EXTRAS
+- Pinned tabs: right-click a tab > "Pin tab". They stay at the left as small icons (a row of tiles with vertical tabs), have no
+  close button and come back after a restart. Ctrl+W still closes one, like in Chrome
+- Cookie banners declined for you (on by default): Hallow clicks "Reject all" / "Only necessary" on cookie banners (OneTrust,
+  Cookiebot, Didomi, Quantcast, Usercentrics, TrustArc, Google and plain ones) - never Accept, never on sign-in pages. The padlock
+  shows what it did and can leave a site alone; Settings > Privacy turns it off
+- Copy clean link (share button, a tab's menu, right-click on a page, Ctrl+K): the address without tracking parameters (utm_...,
+  fbclid, gclid...). Settings > Privacy > "Clean links when I copy the address" (off by default) does it for every copy
+- Picture-in-picture when you switch tabs (off by default) skips muted autoplay videos and never runs during game mode
+- Right-click the tab strip (or Ctrl+K) > "Group tabs by site", and "Ungroup all"
+- Ask Claude (optional, off by default): a chat with Claude in the sidebar with your own Anthropic API key (stored encrypted, never
+  synced). Nothing is sent until you ask; the page you're on only when you click "Use this page". Models: Claude Opus 5.5 (default),
+  Sonnet 5.5, Haiku 5.5, Fable 5.2
+
 WHAT'S NEW IN 1.18 - A BRAVE-STYLE TOP BAR
 - Customize the toolbar: right-click it > "Customize toolbar..." (or Menu > View) - switch buttons on or off and move them
   (Home, Bookmarks, Downloads, Sidebar, Extensions, Shield, Game mode, Screenshot, Split view, Reader, Profile, Settings).

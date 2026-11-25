@@ -17,6 +17,7 @@ namespace HallowBrowser
                 Data["picture-in-picture"] = "M0 0L0 0M512 512L512 512" +
                     "M16 64h480v384h-480z M64 112v288h384v-288z" +
                     "M240 248h176v120h-176z";
+            Add119();   // 1.19: a speech bubble, a chain link, a paper plane (Extras119.cs)
         }
     }
 }

@@ -77,7 +77,7 @@ namespace HallowBrowser
         }
         public int AutoGroupBySite()
         {
-            var plan = Rules19.BySite(Tabs.Select(x => x.Url).ToList(), Tabs.Select(x => x.Group != null).ToList());
+            var plan = Rules19.BySite(Tabs.Select(x => x.Url).ToList(), Tabs.Select(x => x.Group != null || x.Pinned).ToList());   // 1.19: pinned tabs stay out
             if (plan.Count == 0) { Toast("Nothing to group: no site has two or more tabs outside a group.", 4); return 0; }
             var snapshot = Tabs.ToList();
             foreach (var kv in plan)

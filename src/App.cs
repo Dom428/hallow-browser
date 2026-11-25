@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.18.0.0")]
-[assembly: AssemblyFileVersion("1.18.0.0")]
+[assembly: AssemblyVersion("1.19.0.0")]
+[assembly: AssemblyFileVersion("1.19.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.18";
+        public const string Version = "1.19";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -414,6 +414,27 @@ namespace HallowBrowser
                     Profiles = null;
                     shotW("not-secure" + wsfx, width, w => w.SnapTopBar("http"));
                     shotW("tabs-overflow" + wsfx, width, w => w.SnapTopBar("overflow"));
+                }
+                // 1.19: pinned tabs (title bar and column), what the padlock says about cookie banners, share with Copy clean link, the
+                // Ask Claude panel with a made-up conversation (no key, nothing sent), and the new settings - each at 1280 and 900 px
+                foreach (var width in new[] { 1280.0, 900.0 })
+                {
+                    var wsfx = width < 1000 ? "-900" : "";
+                    shotW("pinned-tabs" + wsfx, width, w => w.SnapExtras("pinned"));
+                    shotW("pinned-vertical" + wsfx, width, w => w.SnapExtras("pinned-vertical"));
+                    s.VerticalTabs = false;
+                    shotW("cookie-banner-site-info" + wsfx, width, w => w.SnapExtras("cookie"));
+                    shotW("share-clean-link" + wsfx, width, w => w.SnapExtras("share-clean"));
+                    shotW("ask-claude" + wsfx, width, w => w.SnapAi());
+                    s.AiOn = false; AiKey.SnapHas = null;
+                    foreach (var q in new[] { Tuple.Create("settings-privacy-119", "cookie banners"), Tuple.Create("settings-ask-claude", "Ask Claude") })
+                    {
+                        if (q.Item1 == "settings-ask-claude") { s.AiOn = true; AiKey.SnapHas = true; }
+                        var sw = new BrowserWindow(s, true) { Width = width, Height = 800 }; sw.SnapFill("news", false, false); sw.SettingsQuery = q.Item2;
+                        sw.ContentGrid.Children.Add(Panels.SettingsPage(sw));
+                        Snap.Save(sw, Path.Combine(dir, q.Item1 + wsfx + sfx + ".png"), width, 800); sw.Close();
+                        s.AiOn = false; AiKey.SnapHas = null;
+                    }
                 }
             }
         }

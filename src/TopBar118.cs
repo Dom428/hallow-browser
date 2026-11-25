@@ -378,8 +378,10 @@ namespace HallowBrowser
             var box = new TextBox { Style = Ui.S("Field"), Text = t.Url, IsReadOnly = true, Padding = new Thickness(6, 5, 6, 5), Margin = new Thickness(0, 0, 0, 8), VerticalContentAlignment = VerticalAlignment.Center };
             System.Windows.Automation.AutomationProperties.SetName(box, "The page's address");
             sp.Children.Add(box);
-            var copy = Ui.Btn("Copy link", () => { CopyText(t.Url); Toast("Link copied.", 2); if (close != null) close(); }, true, "copy");
-            copy.HorizontalAlignment = HorizontalAlignment.Left; sp.Children.Add(copy);
+            var copy = Ui.Btn("Copy link", () => { CopyText(S.CleanCopy ? LinkClean.Clean(t.Url) : t.Url); Toast("Link copied.", 2); if (close != null) close(); }, true, "copy");
+            var copyClean = CleanLinkButton119(t, close);   // 1.19: without the tracking parameters
+            copy.Margin = new Thickness(0, 0, 8, 0); var copies = Ui.Row(copy, copyClean); copies.HorizontalAlignment = HorizontalAlignment.Left; sp.Children.Add(copies);
+            var note = CleanLinkNote119(t); if (note != null) sp.Children.Add(note);
             var q = Qr.Encode(t.Url);
             if (q != null)
             {
@@ -643,6 +645,7 @@ namespace HallowBrowser
             scrollL = Ui.Tool("chevron-left", "Scroll the tabs left", () => ScrollTabs(-1), 10); scrollR = Ui.Tool("chevron-right", "Scroll the tabs right", () => ScrollTabs(1), 10);
             foreach (var b in new[] { scrollL, scrollR }) { b.Width = 24; b.Height = 28; b.Margin = new Thickness(0, 6, 0, 0); b.VerticalAlignment = VerticalAlignment.Center; b.Visibility = Visibility.Collapsed; Chrome(b); }
             sp.Children.Add(scrollL); sp.Children.Add(stripScroll); sp.Children.Add(scrollR);
+            stripScroll.MouseRightButtonUp += (a, b) => { if (!b.Handled) { StripMenu(stripScroll); b.Handled = true; } };   // 1.19: the strip's own menu (group tabs by site...)
             tabSearchBtn = Ui.Tool("chevron-down", "Search your tabs", OpenTabSearch, 10); tabSearchBtn.Width = 30; tabSearchBtn.Height = 28; tabSearchBtn.VerticalAlignment = VerticalAlignment.Center; tabSearchBtn.Margin = new Thickness(4, 2, 2, 0); Chrome(tabSearchBtn);
         }
         public void ScrollTabs(int dir) { if (stripScroll == null) return; stripScroll.ScrollToHorizontalOffset(stripScroll.HorizontalOffset + dir * Math.Max(TabFit.Min * 2, stripScroll.ViewportWidth * 0.6)); }
@@ -650,13 +653,15 @@ namespace HallowBrowser
         void FitStrip118(int vis, double chips)
         {
             double room = Math.Max(100, stripHost.ActualWidth - 40);
-            bool over; var w = TabFit.Width(room, vis, chips, out over);
+            int pins = Tabs.Count(t => t.Pinned && t.Header.Visibility == Visibility.Visible);   // 1.19: pinned tabs keep their small width
+            bool over; var w = TabFit.Width(room - pins * (PinRules.Width + 1), vis - pins, chips, out over);
             stripOverflow = over;
             scrollL.Visibility = scrollR.Visibility = over ? Visibility.Visible : Visibility.Collapsed;
             stripScroll.Width = over ? Math.Max(80, room - 2 * TabFit.Arrows) : double.NaN;
             narrowTabs = w < TabFit.Narrow;
             foreach (var t in Tabs)
             {
+                if (t.Pinned) { t.Header.Width = PinRules.Width; t.CloseBtn.Visibility = Visibility.Collapsed; t.TitleBlock.Visibility = Visibility.Collapsed; continue; }
                 t.Header.Width = w;
                 var mine = t == Active || (t.Header.IsMouseOver && narrowTabs);
                 t.CloseBtn.Visibility = !narrowTabs || mine ? Visibility.Visible : Visibility.Collapsed;
@@ -666,7 +671,7 @@ namespace HallowBrowser
         }
         void TabHover118(Tab t, bool over)
         {
-            if (!narrowTabs || S.VerticalTabs || t.CloseBtn == null) return;
+            if (!narrowTabs || S.VerticalTabs || t.CloseBtn == null || t.Pinned) return;
             t.CloseBtn.Visibility = over || t == Active ? Visibility.Visible : Visibility.Collapsed;
         }
         public Dictionary<string, object> StripState()

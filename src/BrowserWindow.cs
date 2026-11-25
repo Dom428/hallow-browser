@@ -215,6 +215,7 @@ namespace HallowBrowser
             suggest = new Popup { Child = Ui.Flyout(suggestList, double.NaN), PlacementTarget = addressBox, Placement = PlacementMode.Bottom, AllowsTransparency = true, StaysOpen = true, VerticalOffset = 4 };
             Deactivated += (a, b) => { suggest.IsOpen = false; };
             HookDefaultCheck();   // 1.13: back from Windows Settings - the default-browser hint follows Windows' choice
+            Build119();   // 1.19: clean links when you copy the address (optional)
         }
         static void Chrome(UIElement e) { WindowChrome.SetIsHitTestVisibleInChrome(e, true); }
         Button Caption(string icon, string tip, Action click)
@@ -413,7 +414,7 @@ namespace HallowBrowser
         void FitTabs()
         {
             if (Tabs.Count == 0) return;
-            if (S.VerticalTabs) { bool ic = S.VTabsCollapsed; foreach (var t in Tabs) { t.Header.Width = double.NaN; t.CloseBtn.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; t.TitleBlock.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; } narrowTabs = false; stripOverflow = false; if (scrollL != null) scrollL.Visibility = scrollR.Visibility = Visibility.Collapsed; return; }
+            if (S.VerticalTabs) { bool ic = S.VTabsCollapsed; foreach (var t in Tabs) { if (t.Pinned) { t.Header.Width = PinRules.Width; continue; } t.Header.Width = double.NaN; t.CloseBtn.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; t.TitleBlock.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; } narrowTabs = false; stripOverflow = false; if (scrollL != null) scrollL.Visibility = scrollR.Visibility = Visibility.Collapsed; return; }
             int vis = Tabs.Count(t => t.Header.Visibility == Visibility.Visible);
             double chips = 0;
             foreach (var g in Groups) if (g.Chip != null && g.Chip.Parent == strip) { g.Chip.Measure(new Size(double.PositiveInfinity, 38)); chips += g.Chip.DesiredSize.Width; }
@@ -494,7 +495,7 @@ namespace HallowBrowser
         }
         public int ClosedCount { get { return closed.Count; } }
         public void Duplicate(Tab t) { if (t != null) NewTab(t.Url, true, Tabs.IndexOf(t) + 1); }
-        public void CloseOthers(Tab t) { foreach (var x in Tabs.Where(x => x != t).ToList()) CloseTab(x); }
+        public void CloseOthers(Tab t) { foreach (var x in Tabs.Where(x => x != t && !x.Pinned).ToList()) CloseTab(x); }   // 1.19: like Chrome, pinned tabs stay
         public void ToggleMute(Tab t) { if (t == null || t.Core == null) return; t.Core.IsMuted = !t.Core.IsMuted; }
 
         // ================================================================ the WebView's events
@@ -526,6 +527,7 @@ namespace HallowBrowser
             // 1.2: in split view, clicking into a side makes it the active tab
             Hook116(c);   // 1.16: the "Add to Hallow Browser" button on Chrome Web Store pages
             Hook118(c);   // 1.18: Shield's count, the install check
+            Hook119(c);   // 1.19: cookie banners declined, Copy clean link in the page's menu
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
             Rehook(t, c);

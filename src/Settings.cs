@@ -145,7 +145,7 @@ namespace HallowBrowser
             SidebarSide = "auto"; ReaderFontSize = 18; ReaderWidth = "medium"; KeepHistory = true; NewTabTopSites = true; NewTabClock = true; NewTabFamily = true;   // PageColors stays "dark" here: Fix() moves 1.0's default to "follow"
             HttpsOnly = true; SecureDns = "off"; ShareShieldCounts = true;
             SaveLogins = true; DownloadScan = true; TabPreviews = true;
-            Defaults16(); Defaults17(); Defaults18(); Defaults19(); Defaults110(); Defaults114(); Defaults115();
+            Defaults16(); Defaults17(); Defaults18(); Defaults19(); Defaults110(); Defaults114(); Defaults115(); Defaults119();
         }
 
         public static BrowserSettings Load()
@@ -202,7 +202,7 @@ namespace HallowBrowser
             if (Typed == null) Typed = new List<string>();
             Typed.RemoveAll(string.IsNullOrWhiteSpace);
             if (Typed.Count > 200) Typed.RemoveRange(200, Typed.Count - 200);
-            Fix16(); Fix17(); Fix18(); Fix19(); Fix110();
+            Fix16(); Fix17(); Fix18(); Fix19(); Fix110(); Fix119();
             if (double.IsNaN(Width) || Width < 480) Width = 1280;
             if (double.IsNaN(Height) || Height < 360) Height = 820;
         }
@@ -255,7 +255,7 @@ namespace HallowBrowser
     }
 
     [DataContract] public class PinnedSite { [DataMember] public string Url; [DataMember] public string Title; }
-    [DataContract] public class SessionTab { [DataMember] public string Url; [DataMember] public string Title; [DataMember] public string Group; }
+    [DataContract] public class SessionTab { [DataMember] public string Url; [DataMember] public string Title; [DataMember] public string Group; [DataMember] public bool Pinned; }   // 1.19: pinned tabs
     [DataContract] public class SessionGroup { [DataMember] public string Id; [DataMember] public string Name; [DataMember] public string Color; [DataMember] public bool Collapsed; }
     [DataContract]
     public class Session

@@ -18,7 +18,7 @@ using Microsoft.Web.WebView2.Core;
 namespace HallowBrowser
 {
     [DataContract]
-    public class SiteRule
+    public partial class SiteRule
     {
         [DataMember] public string Host;
         [DataMember] public string Popups;   // null = blocked unless you clicked | allow | block
@@ -37,7 +37,7 @@ namespace HallowBrowser
             var r = Find(s, host); if (r != null || !create) return r;
             r = new SiteRule { Host = Key(host) }; s.Sites.Add(r); return r;
         }
-        public static bool Empty(SiteRule r) { return r == null || (r.Popups == null && r.Sound == null && r.Script == null && !r.Http && r.Dark == null); }
+        public static bool Empty(SiteRule r) { return r == null || (r.Popups == null && r.Sound == null && r.Script == null && !r.Http && r.Dark == null && r.Consent == null); }
         public static void Tidy(BrowserSettings s) { s.Sites.RemoveAll(Empty); }
         public static void Reset(BrowserSettings s, string host) { var k = Key(host); s.Sites.RemoveAll(x => x.Host == k); }
 
@@ -311,7 +311,8 @@ namespace HallowBrowser
             conn.Margin = new Thickness(0, 0, 0, 4); sp.Children.Add(conn);
             var n = BadgeNumber(t);
             var sh = Ui.Row(Ui.Icon("shield-halved", 11, "AccentBrush"), Ui.T("  " + (ShieldState == "extension" || ShieldState == "fallback" ? (n > 0 ? "Hallow Shield blocked " + n + (n == 1 ? " request" : " requests") + " on this page" : "Hallow Shield is on - nothing blocked on this page") : "Hallow Shield is starting"), 12, false, "Text"));
-            sh.Margin = new Thickness(0, 0, 0, 10); sp.Children.Add(sh);
+            sh.Margin = new Thickness(0, 0, 0, 4); sp.Children.Add(sh);
+            sp.Children.Add(ConsentInfo119(t, host));   // 1.19: cookie banners declined here, and the switch for this site
             var permHead = Ui.Label("Permissions for this site"); permHead.Margin = new Thickness(0, 0, 0, 4); sp.Children.Add(permHead);
             var body = new StackPanel(); sp.Children.Add(body);
             Action fill = null;
