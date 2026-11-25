@@ -20,14 +20,14 @@ using Microsoft.Web.WebView2.Core;
 [assembly: AssemblyTitle("Hallow Browser")]
 [assembly: AssemblyProduct("Hallow Browser")]
 [assembly: AssemblyDescription("A fast Chromium browser for gamers, with Hallow Shield built in")]
-[assembly: AssemblyVersion("1.17.0.0")]
-[assembly: AssemblyFileVersion("1.17.0.0")]
+[assembly: AssemblyVersion("1.18.0.0")]
+[assembly: AssemblyFileVersion("1.18.0.0")]
 
 namespace HallowBrowser
 {
     public static partial class Program
     {
-        public const string Version = "1.17";
+        public const string Version = "1.18";
         public const string SdkVersion = "1.0.4314.35";
         [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
         public static string AccentHex = Accent.Default;
@@ -389,6 +389,32 @@ namespace HallowBrowser
                 A11y.SetScale(1.5);
                 shot("ui-scale-150", null);
                 A11y.SetScale(1.0);
+                // 1.18: the Brave-style top bar - each at 1280 px and at a narrow 900 px window (all made-up)
+                Action<string, double, Action<BrowserWindow>> shotW = (name, width, setup) =>
+                {
+                    s.VerticalTabs = false; s.VTabsCollapsed = false;
+                    var w = new BrowserWindow(s, true) { Width = width, Height = 800 };
+                    w.SnapFill("news", false, false);
+                    if (setup != null) setup(w);
+                    Snap.Save(w, Path.Combine(dir, name + sfx + ".png"), width, 800);
+                    w.Close();
+                };
+                foreach (var width in new[] { 1280.0, 900.0 })
+                {
+                    var wsfx = width < 1000 ? "-900" : "";
+                    if (wsfx.Length > 0) shotW("browser-900", width, null);
+                    shotW("toolbar-customize" + wsfx, width, w => w.SnapTopBar("customize"));
+                    shotW("site-info" + wsfx, width, w => w.SnapTopBar("site-info"));
+                    shotW("extensions-flyout" + wsfx, width, w => w.SnapTopBar("extensions"));
+                    s.Extensions = new List<UserExtension>(); s.PinnedExtensions = null;
+                    shotW("downloads-flyout" + wsfx, width, w => w.SnapTopBar("downloads"));
+                    shotW("page-actions" + wsfx, width, w => w.SnapTopBar("page-actions"));
+                    Profiles = BrowserWindow.SnapProfiles();
+                    shotW("profile-button" + wsfx, width, w => w.SnapTopBar("profile"));
+                    Profiles = null;
+                    shotW("not-secure" + wsfx, width, w => w.SnapTopBar("http"));
+                    shotW("tabs-overflow" + wsfx, width, w => w.SnapTopBar("overflow"));
+                }
             }
         }
     }

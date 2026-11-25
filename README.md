@@ -46,6 +46,33 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.18: a Brave-style top bar
+
+**Your toolbar, your order.** Right-click the toolbar and pick **Customize toolbar...** (it's also in Menu > View): every button has
+a switch and up / down - Home, Bookmarks, Downloads, Sidebar, Extensions, Shield, Game mode, Screenshot, Split view, Reader, Profile
+and Settings. Right-clicking a button offers to hide it. **Reset to default** brings back Shield, Extensions, Downloads, Game mode,
+Settings and Profile (the menu always stays at the end). Your layout is kept, in every window.
+
+**A clean address bar.** While you aren't in it, the address bar shows `example.com/path` - no `https://`, no leading `www.`; click in
+and you get the full address to edit. Pages over plain http say **Not secure** beside the padlock. The padlock opens the site's
+panel: the connection, what Shield blocked there, the site's permissions and rules, its cookies and site data, and Site settings.
+
+**Page actions, only when they apply.** On the right of the address bar: the **zoom** level when it isn't 100% (click to reset),
+**reader mode** on articles, **translate** (when you've set it up), **install as app** on sites that offer it, **share** (copy the link,
+or a QR code to scan with your phone - drawn on your PC, nothing is sent anywhere) and **pop out** a playing video.
+
+**Shield's count on its button.** The shield shows how many requests Hallow Shield blocked on the page you're looking at.
+
+**Extensions with pins.** The puzzle piece lists your extensions; pin one and it gets its own toolbar button (with its icon) that
+opens its popup, like in Brave and Chrome.
+
+**Downloads and profile.** The downloads button draws a progress ring while downloads run, and its pop-up shows the latest five
+(open, show in folder, All downloads). A profile button shows your profile's initial in its colour and opens the profile switcher.
+
+**Tab strip.** Tabs shrink evenly as you open more, down to a minimum; narrow tabs show their close button when you point at them
+(and on the active tab), and arrows scroll the strip when the tabs don't fit. A **tab search** button at the end of the strip lists
+your open tabs (the address bar's `% ` search).
+
 ## What's new in 1.17: arrow keys in the address bar, magnet links to Hallow Torrents
 
 **Arrow keys in the address bar.** As you type, **Down** and **Up** move through the suggestions one row at a time and the

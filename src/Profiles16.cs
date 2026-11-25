@@ -304,6 +304,7 @@ namespace HallowBrowser
         public static Color ProfileColor(ProfileInfo p) { try { return (Color)ColorConverter.ConvertFromString(p == null ? ProfileStore.Colors[0] : p.Color); } catch { return Color.FromRgb(0x8B, 0x5C, 0xF6); } }
         public void ProfileChrome()
         {
+            RefreshProfileButton();   // 1.18: the profile button on the toolbar
             if (snap && Program.Profiles == null) return;
             if (!snap && JumpListDone && Program.First == this) ScheduleJumpList(300);   // 1.7: the jump list lists the profiles
             var top = (Grid)root.Children[0];

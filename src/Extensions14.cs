@@ -81,6 +81,31 @@ namespace HallowBrowser
             foreach (var f in Directory.GetFiles(from)) { total += new FileInfo(f).Length; if (total > 300L * 1024 * 1024) throw new IOException("the folder is bigger than 300 MB"); File.Copy(f, Path.Combine(to, Path.GetFileName(f)), true); }
             foreach (var d in Directory.GetDirectories(from)) { var n = Path.GetFileName(d); if (n == ".git" || n == "node_modules") continue; Copy(d, Path.Combine(to, n), ref total); }
         }
+        // 1.18: the extension's own icon file (its toolbar icon, else its icons; the size nearest 32 px), or null
+        public static string IconFile(string folder)
+        {
+            try
+            {
+                var mf = Path.Combine(folder ?? "", "manifest.json"); if (!File.Exists(mf)) return null;
+                var d = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(mf));
+                var action = Obj(d, "action") ?? Obj(d, "browser_action") ?? Obj(d, "page_action");
+                object di = null; if (action != null) action.TryGetValue("default_icon", out di);
+                var cands = new List<object> { di, Obj(d, "icons") };
+                foreach (var c in cands)
+                {
+                    string rel = c as string;
+                    var dict = c as Dictionary<string, object>;
+                    if (dict != null) { int best = -1; foreach (var kv in dict) { int sz; if (!int.TryParse(kv.Key, out sz) || !(kv.Value is string)) continue; bool better = best < 0 || (sz >= 32 && (best < 32 || sz < best)) || (best < 32 && sz > best); if (better) { best = sz; rel = (string)kv.Value; } } }
+                    if (string.IsNullOrEmpty(rel)) continue;
+                    var full = Path.GetFullPath(Path.Combine(folder, rel.TrimStart('/', '\\')));
+                    if (!full.StartsWith(Path.GetFullPath(folder), StringComparison.OrdinalIgnoreCase) || !File.Exists(full)) continue;
+                    var ext = Path.GetExtension(full).ToLowerInvariant(); if (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".bmp" && ext != ".ico") continue;
+                    return full;
+                }
+            }
+            catch { }
+            return null;
+        }
         public static bool Ours(string folder) { try { return folder != null && Path.GetFullPath(folder).StartsWith(Path.GetFullPath(Dir) + "\\", StringComparison.OrdinalIgnoreCase); } catch { return false; } }
     }
 
@@ -90,13 +115,12 @@ namespace HallowBrowser
         public string ExtNote;
         FrameworkElement BuildExtButton()
         {
-            extBtn = Ui.Tool("puzzle-piece", "Your extensions", () => ExtMenu(extBtn), 14);
-            extBtn.Visibility = S.Extensions.Any(x => x.Enabled) ? Visibility.Visible : Visibility.Collapsed;
+            extBtn = Ui.Tool("puzzle-piece", "Extensions", () => ExtFlyout(extBtn), 14);   // 1.18: always there (when it's on the toolbar): your extensions, with pins
             return extBtn;
         }
         void ExtUiChanged()
         {
-            foreach (var w in Program.Windows) if (w.extBtn != null) w.extBtn.Visibility = S.Extensions.Any(x => x.Enabled) && !w.Private ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var w in Program.Windows) if (w.extBtn != null) w.RefreshPins();   // 1.18: the puzzle piece stays; pinned buttons follow
             var t = Tabs.FirstOrDefault(x => x.Url == Omni.ExtensionsUrl); if (t != null && extList != null) RefreshExtList();
         }
         async Task LoadUserExtensions(CoreWebView2Profile p)
@@ -159,21 +183,7 @@ namespace HallowBrowser
         }
 
         // ---- the overflow menu (the puzzle piece) and an extension's popup in a flyout like Shield's
-        void ExtMenu(UIElement at)
-        {
-            var sp = new StackPanel(); Popup pop = null;
-            foreach (var x in S.Extensions.Where(e => e.Enabled).ToList())
-            {
-                var xx = x; var r = Ui.MenuRow("puzzle-piece", xx.Name, xx.Popup != null ? null : xx.Options != null ? "options" : null, () =>
-                {
-                    pop.IsOpen = false;
-                    if (xx.Popup != null) { var _ = ExtPopup(xx, at); } else if (xx.Options != null) NewTab("chrome-extension://" + xx.Id + "/" + xx.Options.TrimStart('/'), true); else Toast(xx.Name + " has no popup.", 3);
-                });
-                sp.Children.Add(r);
-            }
-            sp.Children.Add(Ui.MenuRow("gear", "Manage extensions", null, () => { pop.IsOpen = false; NewTab(Omni.ExtensionsUrl, true); }));
-            pop = Panels.ShowFlyout(at, sp, 280);
-        }
+        void ExtMenu(UIElement at) { ExtFlyout(at); }   // 1.18: the list with pins (TopBar118.cs)
         static Window extWin; static WebView2 extView;
         public async Task<string> ExtPopup(UserExtension x, UIElement at)
         {

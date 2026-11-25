@@ -109,7 +109,7 @@ namespace HallowBrowser
             var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Bottom };
             strip = new StackPanel { Orientation = Orientation.Horizontal };
             newBtn = Ui.Tool("plus", "New tab (Ctrl+T)", () => NewTab(Omni.NewTabUrl, true), 12); newBtn.Margin = new Thickness(4, 6, 0, 0); newBtn.VerticalAlignment = VerticalAlignment.Center; Chrome(newBtn);   // 1.9: centred on the tabs (they start 6 px down; it sat 2 px high)
-            sp.Children.Add(strip); sp.Children.Add(newBtn);
+            BuildStrip118(sp); sp.Children.Add(newBtn);   // 1.18: the strip scrolls (arrows) when the tabs don't fit
             stripHost.Children.Add(sp); stripHost.SizeChanged += (a, b) => FitTabs();
             top.Children.Add(stripHost);
             // 1.9: a small controller icon (no pill, no text) - only while game mode is really on, and it can be hidden (Settings > Gaming)
@@ -119,7 +119,8 @@ namespace HallowBrowser
             gameChip.Child = gi;
             System.Windows.Automation.AutomationProperties.SetName(gameChip, "Game mode on");
             gameChip.ToolTip = "Gaming-light mode: background tabs sleep and the browser runs at a lower priority while you play. Tabs playing sound stay awake.";
-            Grid.SetColumn(gameChip, 2); top.Children.Add(gameChip);
+            var topRight = Ui.Row(tabSearchBtn, gameChip); topRight.VerticalAlignment = VerticalAlignment.Center;   // 1.18: the tab search at the strip's end
+            Grid.SetColumn(topRight, 2); top.Children.Add(topRight);
             var caps = new StackPanel { Orientation = Orientation.Horizontal }; Grid.SetColumn(caps, 3);
             var minB = Caption("window-minimize", "Minimise", () => WindowState = WindowState.Minimized);
             maxBtn = Caption("window-maximize", "Maximise", () => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized);
@@ -141,8 +142,8 @@ namespace HallowBrowser
             lockIcon = Ui.Icon("magnifying-glass", 12, "Muted"); ag.Children.Add(LockButton(lockIcon));   // 1.4: the padlock is a button (site info and permissions)
             Address = new TextBox { Style = Ui.S("Address") }; Grid.SetColumn(Address, 1); ag.Children.Add(Address);
             System.Windows.Automation.AutomationProperties.SetName(Address, "Address and search bar"); System.Windows.Automation.AutomationProperties.SetHelpText(Address, "Type an address or words to search for, then Enter. Ctrl+L or F6 comes here."); System.Windows.Automation.AutomationProperties.SetAcceleratorKey(Address, "Ctrl+L");   // 1.9
-            Address.GotKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "AccentBrush"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldFocus"); Dispatcher.BeginInvoke(new Action(Address.SelectAll), DispatcherPriority.Input); };
-            Address.LostKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "LineDim"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldBg"); if (!suggestList.IsKeyboardFocusWithin) suggest.IsOpen = false; };
+            Address.GotKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "AccentBrush"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldFocus"); AddressFull(); Dispatcher.BeginInvoke(new Action(Address.SelectAll), DispatcherPriority.Input); };   // 1.18: the full address while you edit
+            Address.LostKeyboardFocus += (a, b) => { addressBox.SetResourceReference(Border.BorderBrushProperty, "LineDim"); addressBox.SetResourceReference(Border.BackgroundProperty, "FieldBg"); if (!suggestList.IsKeyboardFocusWithin) suggest.IsOpen = false; if (!suggestList.IsKeyboardFocusWithin) AddressClean(); };   // 1.18: a clean one when you leave
             Address.PreviewMouseLeftButtonDown += (a, b) => { if (!Address.IsKeyboardFocusWithin) { Address.Focus(); b.Handled = true; } };
             Address.PreviewKeyDown += AddressKey; Address.TextChanged += (a, b) => { if (Address.IsKeyboardFocusWithin) Suggest(); };
             var inBar = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 4, 0) }; Grid.SetColumn(inBar, 2);
@@ -154,21 +155,21 @@ namespace HallowBrowser
             BuildTranslateButton(inBar);   // 1.7
             BuildStreamButtons(inBar);     // 1.8: Clip it, theatre mode
             BuildTwitchButton(inBar);      // 1.10: Twitch ads (status, Support <channel>)
+            BuildPageActions118(inBar);    // 1.18: install as app, share, pop out the video
             ag.Children.Add(inBar);
             addressBox.Child = ag; bar.Children.Add(addressBox);
             var right = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(right, 2);
             shieldBtn = Ui.Tool("shield-halved", "Hallow Shield - this site, levels, filters", () => { var _ = Panels.Shield(this, shieldBtn); }, 14);
-            right.Children.Add(BuildExtButton());   // 1.4: your own extensions (an overflow menu)
-            shieldBtn.Content = Ui.Icon("shield-halved", 14, "AccentBrush");
-            var dlGrid = new Grid(); dlGrid.Children.Add(Ui.Icon("download", 14));
-            dlBadge = new Border { Width = 8, Height = 8, CornerRadius = new CornerRadius(4), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -2, -4, 0), Visibility = Visibility.Collapsed };
-            dlBadge.SetResourceReference(Border.BackgroundProperty, "AccentBrush"); dlGrid.Children.Add(dlBadge);
-            dlBtn = new Button { Style = Ui.S("Tool"), Content = dlGrid, ToolTip = "Downloads (Ctrl+J)" }; dlBtn.Click += (a, b) => Panels.DownloadsFlyout(this, dlBtn);
+            BuildExtButton();   // 1.4: your own extensions (1.18: the puzzle piece lists them, with pins)
+            shieldBtn.Content = ShieldButtonContent();   // 1.18: with the number blocked on this page
+            dlBtn = new Button { Style = Ui.S("Tool"), Content = DownloadButtonContent(), ToolTip = "Downloads (Ctrl+J)" }; dlBtn.Click += (a, b) => Panels.DownloadsFlyout(this, dlBtn);   // 1.18: a progress ring
             quickBtn = Ui.Tool("gamepad", "Game and Hallow panel", () => Panels.Quick(this, quickBtn), 15);
             menuBtn = Ui.Tool("bars", "Menu", () => Panels.Menu(this, menuBtn), 14);
-            right.Children.Add(BuildMediaButton());   // 1.5: media playing in any tab
-            right.Children.Add(shieldBtn); right.Children.Add(dlBtn); right.Children.Add(quickBtn); right.Children.Add(BuildSettingsButton()); right.Children.Add(menuBtn);   // 1.13: Settings one click away
+            BuildMediaButton();   // 1.5: media playing in any tab
+            BuildSettingsButton();   // 1.13: Settings one click away
+            BuildToolbar118(left, right);   // 1.18: the buttons in the order you chose (right-click the toolbar > Customize toolbar)
             bar.Children.Add(right);
+            bar.MouseRightButtonUp += ToolbarRightClick;
             // 1.3: the toolbar and, under it, the bookmarks bar (Ctrl+Shift+B)
             var row1 = new StackPanel(); Grid.SetRow(row1, 1); toolbarRow = row1; A11y.Scaled(row1); row1.Children.Add(bar); row1.Children.Add(BuildBookmarksBar());
             root.Children.Add(row1);
@@ -398,8 +399,8 @@ namespace HallowBrowser
             t.Header.LostMouseCapture += (a, b) => { GhostHide(); if (dragging) { dragging = false; DropTab(t); } };
             t.Header.MouseDown += (a, b) => { if (b.ChangedButton == MouseButton.Middle) { CloseTab(t); b.Handled = true; } };
             t.Header.MouseRightButtonUp += (a, b) => { Panels.TabMenu(this, t); b.Handled = true; };
-            t.Header.MouseEnter += (a, b) => { if (t != Active) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); HoverEnter(t); };
-            t.Header.MouseLeave += (a, b) => { HoverLeave(); if (t != Active) { if (IsShown(t)) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); else t.Header.Background = Brushes.Transparent; } };
+            t.Header.MouseEnter += (a, b) => { if (t != Active) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); HoverEnter(t); TabHover118(t, true); };
+            t.Header.MouseLeave += (a, b) => { HoverLeave(); TabHover118(t, false); if (t != Active) { if (IsShown(t)) t.Header.SetResourceReference(Border.BackgroundProperty, "TabHover"); else t.Header.Background = Brushes.Transparent; } };
             SetTabIcon(t);
         }
         public void MoveTab(Tab t, int to)
@@ -412,13 +413,11 @@ namespace HallowBrowser
         void FitTabs()
         {
             if (Tabs.Count == 0) return;
-            if (S.VerticalTabs) { bool ic = S.VTabsCollapsed; foreach (var t in Tabs) { t.Header.Width = double.NaN; t.CloseBtn.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; } return; }
+            if (S.VerticalTabs) { bool ic = S.VTabsCollapsed; foreach (var t in Tabs) { t.Header.Width = double.NaN; t.CloseBtn.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; t.TitleBlock.Visibility = ic ? Visibility.Collapsed : Visibility.Visible; } narrowTabs = false; stripOverflow = false; if (scrollL != null) scrollL.Visibility = scrollR.Visibility = Visibility.Collapsed; return; }
             int vis = Tabs.Count(t => t.Header.Visibility == Visibility.Visible);
             double chips = 0;
             foreach (var g in Groups) if (g.Chip != null && g.Chip.Parent == strip) { g.Chip.Measure(new Size(double.PositiveInfinity, 38)); chips += g.Chip.DesiredSize.Width; }
-            double avail = Math.Max(100, stripHost.ActualWidth - 44 - chips);
-            double w = vis == 0 ? 200 : Math.Max(48, Math.Min(230, avail / vis - 1));
-            foreach (var t in Tabs) { t.Header.Width = w; t.CloseBtn.Visibility = w < 80 && t != Active ? Visibility.Collapsed : Visibility.Visible; }
+            FitStrip118(vis, chips);   // 1.18: even widths down to a minimum, then the strip scrolls (arrows); narrow tabs show close on hover
         }
         void SetTabIcon(Tab t)
         {
@@ -468,7 +467,7 @@ namespace HallowBrowser
             SetTabIcon(t); FitTabs();
             UpdateBar();
             if (findBar.Visibility == Visibility.Visible) FindStart();
-            if (old != t) { Changed(); HoverLeave(); SchedulePreview(t, 700); AutoPipCheck(old, t); PageChangedForNotes(); }   // 1.5: hover previews, auto pop-out; 1.6: the notes panel follows
+            if (old != t) { Changed(); HoverLeave(); SchedulePreview(t, 700); AutoPipCheck(old, t); PageChangedForNotes(); var _c = CountShield(t); }   // 1.18: Shield's count for the tab you see   // 1.5: hover previews, auto pop-out; 1.6: the notes panel follows
             if (t.Ready && t.ProbedUrl != t.Url && !snap) ProbeReader(t);
         }
         public void CloseTab(Tab t)
@@ -526,6 +525,7 @@ namespace HallowBrowser
             Hook115(c);  // 1.15: passkeys through Hallow Keys (not in private windows)
             // 1.2: in split view, clicking into a side makes it the active tab
             Hook116(c);   // 1.16: the "Add to Hallow Browser" button on Chrome Web Store pages
+            Hook118(c);   // 1.18: Shield's count, the install check
             var ____ = c.AddScriptToExecuteOnDocumentCreatedAsync("if(window.top===window)window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage('hallow:focus')}catch(e){}},true);");
             if (isPrewarm) return;
             Rehook(t, c);
@@ -661,6 +661,7 @@ namespace HallowBrowser
                 {
                     e.Response = Engine.Env.CreateWebResourceResponse(null, 403, "Blocked by Hallow Shield", "");
                     FallbackBlocked++;
+                    Tab bt; var bc = sender as CoreWebView2; if (bc != null && owner.TryGetValue(bc, out bt)) { bt.FallbackBlockedHere++; if (bt == Active) UpdateShieldBadge(); }   // 1.18: per page, for the badge
                 }
                 if (NetLogOn && e.ResourceContext == CoreWebView2WebResourceContext.Document) LogRequest(e.Request, sender as CoreWebView2);
             }
@@ -702,7 +703,7 @@ namespace HallowBrowser
             var c = t.Core;
             back.IsEnabled = c != null && c.CanGoBack; fwd.IsEnabled = c != null && c.CanGoForward;
             reload.Content = Ui.Icon(t.Loading ? "xmark" : "arrow-rotate-right", 14); reload.ToolTip = t.Loading ? "Stop (Esc)" : "Reload (F5)";
-            if (!Address.IsKeyboardFocusWithin) Address.Text = Omni.Display(t.Url);
+            if (!Address.IsKeyboardFocusWithin) { suggestFilling = true; try { Address.Text = AddressText.Clean(t.Url); } finally { suggestFilling = false; } }   // 1.18: clean while you aren't in it
             Uri u; var secure = Uri.TryCreate(t.Url ?? "", UriKind.Absolute, out u) && u.Scheme == "https" && !Omni.IsNewTab(t.Url);
             lockIcon.Data = Icons.Get(t.Internal ? "gear" : secure ? "lock" : Omni.IsWeb(t.Url) ? "lock-open" : "magnifying-glass");
             lockIcon.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, secure ? "Green" : Omni.IsWeb(t.Url) && u != null && u.Scheme == "http" ? "Amber" : "Muted");
@@ -713,7 +714,7 @@ namespace HallowBrowser
             keyBtn.ToolTip = pkShow && t.PasskeyCond.Items.Count > 0 ? "Sign in with a passkey from Hallow Keys (" + t.PasskeyCond.Items.Count + ")" : t.KeysLocked || pkShow ? "Hallow Keys is locked" : "Fill a login from Hallow Keys (" + (t.KeysItems == null ? 0 : t.KeysItems.Count) + ")";
             UpdatePasskeyPrompt();
             ((System.Windows.Shapes.Path)keyBtn.Content).SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
-            UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateTwitchButton(t); UpdateZoom(); UpdateTitle();
+            UpdateBarPower(t); UpdateTranslateButton(t); UpdateBar18(t); UpdateTwitchButton(t); UpdateZoom(); UpdateTitle(); UpdatePageActions(t); UpdateShieldBadge();   // 1.18
         }
         void UpdateTitle()
         {
@@ -831,7 +832,7 @@ namespace HallowBrowser
                     case Key.R: act = () => { if (Active != null && Active.Core != null) { if (shift) Active.Core.CallDevToolsProtocolMethodAsync("Page.reload", "{\"ignoreCache\":true}"); else Active.Core.Reload(); } }; break;
                     case Key.F: act = ShowFind; break;
                     case Key.G: act = () => FindNext(!shift); break;
-                    case Key.J: act = () => Panels.DownloadsFlyout(this, dlBtn); break;
+                    case Key.J: act = () => Panels.DownloadsFlyout(this, Anchor(dlBtn)); break;
                     case Key.H: act = ShowHistory; break;                                                  // 1.13: the History page
                     case Key.P: act = () => { if (Active != null && Active.Core != null) Active.Core.ShowPrintUI(); }; break;
                     case Key.D0: case Key.NumPad0: act = () => SetZoom(1.0); break;
@@ -932,6 +933,7 @@ namespace HallowBrowser
         public void Tick(bool force)
         {
             SweepDeadViews("on the tick");   // 1.16.4
+            ShieldTick();   // 1.18: the shown tab's Shield count
             var g = GameNow();   // 1.8: also a game just started from the new tab page (until it closes)
             bool changed = g != Game;
             Game = g;
@@ -1162,6 +1164,7 @@ namespace HallowBrowser
             if (gameOn) { Game = "Delta Force"; gameChip.Visibility = GameChipVisible(Game, S.GameChip) ? Visibility.Visible : Visibility.Collapsed; gameText.Text = "GAME MODE"; }
             var mock = Panels.MockPage(page); mock.Tag = "mock"; content.Children.Add(mock);
             dlBadge.Visibility = Visibility.Visible;
+            SnapShield(12);   // 1.18: Shield's count on its button (made-up)
         }
     }
 }

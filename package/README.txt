@@ -9,6 +9,21 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.18 - A BRAVE-STYLE TOP BAR
+- Customize the toolbar: right-click it > "Customize toolbar..." (or Menu > View) - switch buttons on or off and move them
+  (Home, Bookmarks, Downloads, Sidebar, Extensions, Shield, Game mode, Screenshot, Split view, Reader, Profile, Settings).
+  "Reset to default" brings back Shield, Extensions, Downloads, Game mode, Settings and Profile
+- The address bar shows a clean address (example.com/path) until you click in it; http pages say "Not secure"
+- The padlock shows the connection, what Shield blocked, the site's permissions, cookies and site data, and Site settings
+- Buttons inside the address bar only when they apply: zoom (click for 100%), reader, translate, install as app, share
+  (copy the link or show a QR code - made on your PC) and pop out a playing video
+- Shield's button shows how many things it blocked on the page
+- The puzzle piece lists your extensions with a pin: pinned ones get their own toolbar button that opens their popup
+- The downloads button shows a progress ring while downloads run; its pop-up shows the latest five
+- A profile button with your profile's initial and colour; a tab-search button at the end of the tab strip
+- Tabs shrink evenly as you open more; narrow tabs show the close button when you point at them, and arrows scroll the strip when
+  the tabs don't fit
+
 WHAT'S NEW IN 1.17 - ARROW KEYS IN THE ADDRESS BAR, MAGNET LINKS TO HALLOW TORRENTS
 - Down / Up move through the address bar's suggestions one row at a time, Enter opens the row, Esc goes back to what you typed.
 - A page's magnet link goes straight to Hallow Torrents when it's installed, even if Windows has another app for magnet links (like qBittorrent). Settings > Downloads can turn it off.

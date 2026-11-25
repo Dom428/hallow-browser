@@ -697,9 +697,9 @@ namespace HallowBrowser
             Toast(n == 0 ? "No other tabs to mute." : "Muted " + n + " other " + (n == 1 ? "tab." : "tabs."), 3);
             return n;
         }
-        public void ShowDownloads() { Panels.DownloadsFlyout(this, dlBtn); }
+        public void ShowDownloads() { Panels.DownloadsFlyout(this, Anchor(dlBtn)); }
         public void ShowHotTabs() { HotTabs.Flyout(this, menuBtn); }
-        public void ShowQuick() { Panels.Quick(this, quickBtn); }
+        public void ShowQuick() { Panels.Quick(this, Anchor(quickBtn)); }
         public void ShowScreenshot() { Shots.Flyout(this, menuBtn); }
 
         // ================================================================ --snap: made-up groups, splits, reader, palette

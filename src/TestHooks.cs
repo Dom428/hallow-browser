@@ -170,6 +170,7 @@ namespace HallowBrowser
             if (cmd.StartsWith("test-tw63-")) return V1163(w, cmd.Substring(10), arg);   // 1.16.3: channel extensions over the video, the cover check
             if (cmd.StartsWith("test-tw-")) return V110(w, cmd.Substring(8), arg);    // 1.10
             if (cmd.StartsWith("test-d-")) return V112(w, cmd.Substring(7), arg);     // 1.12
+            if (cmd.StartsWith("test-tb-")) return V118(w, cmd.Substring(8), arg);    // 1.18: the Brave-style top bar
             return "error unknown test command";
         }
 

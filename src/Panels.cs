@@ -83,15 +83,27 @@ namespace HallowBrowser
             sp.Children.Add(Sep());
             sp.Children.Add(Ui.MenuRow("download", "All downloads", null, () => { CloseFlyouts(); w.NewTab(Omni.DownloadsUrl, true); }));   // 1.5
             sp.Children.Add(Ui.MenuRow("folder-open", "Open the Downloads folder", null, () => { try { Process.Start(Engine.Downloads()); } catch { } }));
-            RefreshDownloads(w);
             Show(at, sp, 360);
+            RefreshDownloads(w);   // 1.18: after the pop-up is open (before, the list stayed empty until a download moved)
         }
+        // 1.18: the same pop-up as a panel (--snap draws it)
+        public static FrameworkElement DownloadsPanel(BrowserWindow w)
+        {
+            var sp = new StackPanel(); sp.Children.Add(Head("Downloads"));
+            if (w.Downloads.Count == 0) { var m = Ui.Muted("Nothing downloaded yet.", 12); m.Margin = new Thickness(12, 2, 12, 8); sp.Children.Add(m); }
+            foreach (var d in w.Downloads.Take(5)) sp.Children.Add(w.DownloadRow(d, d.Record, false));
+            sp.Children.Add(Sep());
+            sp.Children.Add(Ui.MenuRow("download", "All downloads", null, null));
+            sp.Children.Add(Ui.MenuRow("folder-open", "Open the Downloads folder", null, null));
+            return sp;
+        }
+        public static int DownloadsShown { get { return dlList == null || open == null || !open.IsOpen ? -1 : dlList.Children.Count; } }
         public static void RefreshDownloads(BrowserWindow w)
         {
             if (dlList == null || dlWin != w || open == null || !open.IsOpen) return;
             dlList.Children.Clear();
             if (w.Downloads.Count == 0) { var m = Ui.Muted("Nothing downloaded yet.", 12); m.Margin = new Thickness(12, 2, 12, 8); dlList.Children.Add(m); return; }
-            foreach (var d in w.Downloads.Take(8)) dlList.Children.Add(w.DownloadRow(d, d.Record, false));   // 1.5: pause / resume / cancel, Defender's badge
+            foreach (var d in w.Downloads.Take(5)) dlList.Children.Add(w.DownloadRow(d, d.Record, false));   // 1.5: pause / resume / cancel, Defender's badge; 1.18: the latest five (all of them: "All downloads")
         }
 
         // ---------------------------------------------------------------- Hallow Keys (the key in the address bar)

@@ -127,9 +127,10 @@ namespace HallowBrowser
             var d = new DownloadItem { Op = op, File = e.ResultFilePath, Name = Path.GetFileName(e.ResultFilePath), Total = (long)(op.TotalBytesToReceive ?? 0), Private = Private, Source = sender as CoreWebView2 };
             if (!Private) { d.Record = new DownloadRecord { Name = d.Name, File = d.File, State = "running", Started = DateTime.Now.ToString("s"), Size = d.Total }; DownloadHistory.Add(d.Record); }
             Downloads.Insert(0, d); dlBadge.Visibility = Visibility.Visible;
-            op.BytesReceivedChanged += (a, b) => { d.Got = op.BytesReceived; d.Total = (long)(op.TotalBytesToReceive ?? (ulong)d.Got); Panels.RefreshDownloads(this); };
+            op.BytesReceivedChanged += (a, b) => { d.Got = op.BytesReceived; d.Total = (long)(op.TotalBytesToReceive ?? (ulong)d.Got); Panels.RefreshDownloads(this); UpdateDownloadRing(); };   // 1.18: the ring
             op.StateChanged += (a, b) => DownloadStateChanged(d);
             Toast("Downloading " + d.Name + "...", 3);
+            UpdateDownloadRing(true);   // 1.18: the ring on the downloads button
             EnsureLimitTimer();
         }
         void DownloadStateChanged(DownloadItem d)
@@ -148,6 +149,7 @@ namespace HallowBrowser
                 if (d.Record != null && d.State != "paused") { d.Record.State = d.State; d.Record.Size = Math.Max(d.Got, d.Total); if (d.State == "done" && !S.DownloadScan) d.Record.Scan = "off"; DownloadHistory.Save(); }
             }
             Panels.RefreshDownloads(this); RefreshDownloadsPage();
+            UpdateDownloadRing(true);   // 1.18
         }
         public void PauseDownload(DownloadItem d) { if (d == null || d.State != "running") return; d.UserPaused = true; try { d.Op.Pause(); } catch { } }
         public void ResumeDownload(DownloadItem d)
@@ -269,7 +271,7 @@ namespace HallowBrowser
             }
             g.Children.Add(info);
             var acts = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center }; Grid.SetColumn(acts, 1);
-            bool exists = false; try { exists = file != null && File.Exists(file); } catch { }
+            bool exists = Snap.On; try { exists = exists || (file != null && File.Exists(file)); } catch { }   // 1.18: --snap shows the buttons
             if (state == "done" && exists)
             {
                 if (scan != "threat") acts.Children.Add(Ui.Tool("up-right-from-square", "Open", () => { try { Process.Start(file); } catch { } }, 12));

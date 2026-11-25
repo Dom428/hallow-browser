@@ -204,7 +204,9 @@ namespace HallowBrowser
         UIElement LockButton(System.Windows.Shapes.Path icon)
         {
             icon.Margin = new Thickness(0);
-            lockBtn = new Button { Style = Ui.S("Tool"), Width = 28, Height = 24, Margin = new Thickness(5, 0, 3, 0), Content = icon, ToolTip = "Site info and permissions", VerticalAlignment = VerticalAlignment.Center };
+            notSecureText = new TextBlock { Text = "Not secure", FontSize = 11.5, Margin = new Thickness(6, 0, 2, 0), VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };   // 1.18: http pages say so beside the padlock
+            notSecureText.SetResourceReference(TextBlock.ForegroundProperty, "AmberText");
+            lockBtn = new Button { Style = Ui.S("Tool"), Width = double.NaN, MinWidth = 28, Height = 24, Margin = new Thickness(5, 0, 3, 0), Content = new Border { Child = Ui.Row(icon, notSecureText), Margin = new Thickness(8, 0, 8, 0) }, ToolTip = "Site info and permissions", VerticalAlignment = VerticalAlignment.Center };
             lockBtn.Click += (a, b) => { var _ = SiteFlyout(lockBtn); };
             return lockBtn;
         }
@@ -279,32 +281,47 @@ namespace HallowBrowser
             var del = Ui.Btn("Delete", () => { var _ = DeleteCookies(host).ContinueWith(x => Dispatcher.BeginInvoke(new Action(() => { Toast("Deleted " + x.Result + " cookies of " + host + ".", 3); changed(); }))); }, false, "trash-can");
             rows.Add(row("cookie-bite", "Cookies", Ui.Row(cookieText, del)));
             var __ = CookieCount(host).ContinueWith(x => Dispatcher.BeginInvoke(new Action(() => cookieText.Text = x.Result == 1 ? "1 cookie" : x.Result + " cookies")));
+            if (snap) cookieText.Text = "3 cookies";   // 1.18: --snap draws before the count comes back (made-up)
             return rows;
         }
         async Task SiteFlyout(UIElement at)
         {
             var t = Active; if (t == null) return;
-            var sp = new StackPanel { Margin = new Thickness(6, 4, 6, 6) }; Popup pop = null;
+            Popup pop = null;
+            var sp = SiteInfoPanel(t, () => { if (pop != null) pop.IsOpen = false; });
+            pop = Panels.ShowFlyout(at, sp, Omni.IsWeb(t.Url) ? 430 : 300); pop.HorizontalOffset = 0;
+            LastSiteInfo = sp;
+            await Task.Yield();
+        }
+        public static FrameworkElement LastSiteInfo;   // tests: what the padlock's flyout says
+        // 1.18: the padlock's flyout as a panel (--snap draws it too): the connection, Shield on this page, the site's permissions and
+        // rules, its cookies and site data, Site settings
+        public StackPanel SiteInfoPanel(Tab t, Action close)
+        {
+            var sp = new StackPanel { Margin = new Thickness(6, 4, 6, 6) };
             if (!Omni.IsWeb(t.Url))
             {
                 sp.Children.Add(Ui.T(t.Internal ? "A page of Hallow Browser" : Private && Omni.IsNewTab(t.Url) ? "A private window's new tab" : Omni.IsNewTab(t.Url) ? "Your new tab page" : "No site", 13.5, true, "Text", 4));
                 sp.Children.Add(Ui.Muted("It's drawn by the browser itself, on this PC.", 11.5, 2));
-                pop = Panels.ShowFlyout(at, sp, 300); pop.HorizontalOffset = 0; return;
+                return sp;
             }
             var host = Omni.HostOf(t.Url); var https = t.Url.StartsWith("https:", StringComparison.OrdinalIgnoreCase) && t.HttpsBlocked == null;
             sp.Children.Add(Ui.T(host, 14.5, true, "Text", 2));
             var conn = Ui.Row(Ui.Icon(https ? "lock" : "lock-open", 11, https ? "Green" : "Amber"), Ui.T("  " + (https ? "Connection is secure (https)" : "Not secure: this page isn't sent over https"), 12, false, https ? "GreenText" : "AmberText"));
-            conn.Margin = new Thickness(0, 0, 0, 10); sp.Children.Add(conn);
+            conn.Margin = new Thickness(0, 0, 0, 4); sp.Children.Add(conn);
+            var n = BadgeNumber(t);
+            var sh = Ui.Row(Ui.Icon("shield-halved", 11, "AccentBrush"), Ui.T("  " + (ShieldState == "extension" || ShieldState == "fallback" ? (n > 0 ? "Hallow Shield blocked " + n + (n == 1 ? " request" : " requests") + " on this page" : "Hallow Shield is on - nothing blocked on this page") : "Hallow Shield is starting"), 12, false, "Text"));
+            sh.Margin = new Thickness(0, 0, 0, 10); sp.Children.Add(sh);
+            var permHead = Ui.Label("Permissions for this site"); permHead.Margin = new Thickness(0, 0, 0, 4); sp.Children.Add(permHead);
             var body = new StackPanel(); sp.Children.Add(body);
             Action fill = null;
-            fill = async () => { body.Children.Clear(); foreach (var r in await SiteRows(host, Omni.Origin(t.Url), () => fill(), true)) body.Children.Add(r); };
+            fill = async () => { var rows = await SiteRows(host, Omni.Origin(t.Url), () => fill(), true); body.Children.Clear(); foreach (var r in rows) body.Children.Add(r); };
             fill();
-            var links = Ui.Row(Ui.Btn("Site settings", () => { if (pop != null) pop.IsOpen = false; NewTab(Omni.SitesUrl, true); }, false, "sliders"), Ui.Btn("Reset this site", () => { var _ = ResetSite(host).ContinueWith(x => Dispatcher.BeginInvoke(fill)); }, false, "rotate-left"));
-            links.Margin = new Thickness(0, 10, 0, 0); foreach (FrameworkElement b in links.Children) b.Margin = new Thickness(0, 0, 8, 0);
+            var links = Ui.Row(Ui.Btn("Site settings", () => { if (close != null) close(); NewTab(Omni.SitesUrl, true); }, false, "sliders"), Ui.Btn("Cookies and site data", () => { if (close != null) close(); Panels.ClearData(this); }, false, "cookie-bite"), Ui.Btn("Reset", () => { var _ = ResetSite(host).ContinueWith(x => Dispatcher.BeginInvoke(fill)); }, false, "rotate-left", "Forget this site's permissions and rules"));
+            links.Margin = new Thickness(0, 10, 0, 8); foreach (FrameworkElement b in links.Children) b.Margin = new Thickness(0, 0, 8, 0);
             sp.Children.Add(links);
             sp.Children.Add(Ui.Muted("Pop-ups, sound and JavaScript take effect on the next page load; dark pages at once.", 11, 0));
-            pop = Panels.ShowFlyout(at, sp, 430); pop.HorizontalOffset = 0;
-            await Task.Yield();
+            return sp;
         }
 
         // ---- hallow://settings/sites

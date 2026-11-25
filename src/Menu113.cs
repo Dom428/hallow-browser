@@ -79,6 +79,7 @@ namespace HallowBrowser
             if (web) { var host = Omni.HostOf(a.Url); view.Add(R("circle-half-stroke", w.WantsDark(a.Url) ? "Don't make " + host + " dark" : "Make " + host + " dark", null, () => w.ToggleSiteDark(w.Active))); }
             view.Add(new MItem { Icon = "book-open", Text = a != null && a.ReaderOn ? "Leave reader mode" : "Reader mode", Keys = "F9", Run = () => w.ToggleReader(w.Active), Enabled = a != null && (a.Readable || a.ReaderOn) });
             view.Add(R("expand", "Full screen", "F11", () => w.SetFullscreen(true)));
+            view.Add(R("sliders", "Customize toolbar...", null, () => w.CustomizeToolbar(null)));   // 1.18 (also: right-click the toolbar)
             top.Add(new MItem { Icon = "eye", Text = "View", Id = "view", Kids = view });
             var more = new List<MItem> {
                 R("up-right-from-square", "Pop out video", null, () => { if (w.Active != null) Pip.PopOut(w, w.Active); }),
