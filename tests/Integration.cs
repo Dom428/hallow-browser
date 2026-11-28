@@ -82,6 +82,7 @@ namespace HallowBrowser.Tests
             if (mode == "v1161") return Integration1161.Main(exe, dir);   // 1.16.1: Twitch script v5 - more backups, lower quality for the break, the badge, the cover only when all fail
             if (mode == "v1163") return Integration1163.Main(exe, dir);   // 1.16.3: channel extensions over the video hidden, the cover check (the white Twitch player)
             if (mode == "v117") return Integration117.Main(exe, dir);   // 1.17: arrow keys in the address bar list, magnet links to Hallow Torrents
+            if (mode == "v121") return Integration121.Main(exe, dir);   // 1.21: a new tab is ready to type in
             if (mode == "v120") return Integration120.Main(exe, dir);   // 1.20: the extension bridge (side panels in the sidebar, the chrome.sidePanel shim, verdicts, Open in Chrome)
             if (mode == "v119") return Integration119.Main(exe, dir);   // 1.19: pinned tabs, cookie banners declined, Copy clean link, auto PiP, group by site, Ask Claude (a local stand-in)
             if (mode == "v118") return Integration118.Main(exe, dir);   // 1.18: the Brave-style top bar (clean address, Customize toolbar, page actions, Shield badge, pins, downloads ring, tab strip)

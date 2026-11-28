@@ -46,6 +46,13 @@ Hallow Browser **never makes itself your default browser**. It registers as a br
 choose it yourself: **Settings > General > Default browser > "Make Hallow my default browser"** opens Windows' Default apps page
 for Hallow Browser - click **Set default** at the top (or click HTTPS, then HTTP, then .html, and pick Hallow Browser each time).
 
+## What's new in 1.21: a new tab is ready to type in
+
+Ctrl+T, the + button, the menus, Ctrl+K and the taskbar's "New tab" now put the caret in the address bar, so you can start
+typing a search or an address straight away. The new tab page used to take the keyboard as it appeared; for two seconds after
+a new tab opens, a page grabbing focus by itself is undone (clicking into the page yourself always wins). **Settings > "Start
+typing in the address bar on a new tab"** (on) turns it off.
+
 ## What's new in 1.20: the extension bridge
 
 Hallow Browser runs Chrome extensions through Microsoft's WebView2, and WebView2 leaves out some extension features:

@@ -281,7 +281,7 @@ namespace HallowBrowser
                 if (prewarmReady && prewarm != null && Omni.IsNewTab(t.Url)) { TakePrewarm(t); }
                 else { t.PendingUrl = t.Url; var _ = CreateView(t, null); }
             }
-            if (activate) Activate(t);
+            if (activate) { Activate(t); WantAddressFor(t); }   // 1.21: a new tab page is ready to type in
             Changed(); GroupTip();   // 1.9: the one-time tip about tab groups
             Vibe.Play("open", this);   // 1.6 (when sounds are on)
             return t;

@@ -380,7 +380,7 @@ namespace HallowBrowser
             }
         }
         // the side you click in becomes the active tab (the address bar follows it)
-        void ViewFocused(Tab x) { if (x != null && x != Active && SplitShown && (x == SplitL || x == SplitR)) Activate(x); }
+        void ViewFocused(Tab x) { if (KeepAddress(x)) return; if (x != null && x != Active && SplitShown && (x == SplitL || x == SplitR)) Activate(x); }
 
         // ================================================================ workspaces and saved sessions
         public Workspace CurrentSpace { get { return Spaces == null ? null : Spaces.Items.FirstOrDefault(x => x.Id == SpaceId); } }

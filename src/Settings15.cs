@@ -49,6 +49,7 @@ namespace HallowBrowser
             items.Add(msg);
             items.Add(Ui.Row(Ui.Btn("Put the usual ones back", () => { foreach (var d in Keywords.Defaults()) if (!S.Keywords.Any(x => x.Key == d.Key)) S.Keywords.Add(d); S.Save(); fill(); }, false, "rotate-left")));
             items.Add(new Border { Height = 10 });
+            items.Add(Ui.Switch("Start typing in the address bar on a new tab", "On by default: Ctrl+T or the + button puts the caret in the address bar, so you can type a search or address straight away.", !S.NewTabPageFocus, on => { S.NewTabPageFocus = !on; S.Save(); }));   // 1.21
             items.Add(Ui.Switch("Search suggestions from " + Omni.EngineName(S.Search), "Off by default. When on, what you type in the address bar is sent to " + Omni.EngineName(S.Search) + " as you type, to get its suggestions. Addresses, sums and tab searches are never sent, and private windows never send anything.", S.SearchSuggest, on => { S.SearchSuggest = on; S.Save(); }));
             return items.ToArray();
         }

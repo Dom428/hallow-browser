@@ -134,7 +134,7 @@ namespace HallowBrowser.Tests
             {
                 br = Start(exe, run, found, record);
                 var ping = Wait(() => Cmd("ping", 2000), r => r != null && r.StartsWith("ok"), 25000);
-                Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\"") && Program.Version == "1.20", "browser answers ping as 1.20: " + ping);
+                Ok(ping != null && ping.Contains("\"version\":\"" + Program.Version + "\"") && (Program.Version == "1.20" || Program.Version == "1.21"), "browser answers ping as 1.20 (or 1.21): " + ping);
                 Wait(RawTabs, t => t.Count >= 1 && (bool)t[0]["ready"], 30000); Thread.Sleep(1000);
                 Cmd("test-mute 0");
                 Cmd("test-settings HttpsOnly=false");   // the local pages are plain http

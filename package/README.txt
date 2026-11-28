@@ -9,6 +9,9 @@ HOW TO INSTALL
 2. Right-click the zip > Extract All
 3. Double-click INSTALL.bat (no admin needed)
 
+WHAT'S NEW IN 1.21 - A NEW TAB IS READY TO TYPE IN
+- Ctrl+T / the + button put the caret in the address bar - start typing a search or address straight away. Settings can turn it off.
+
 WHAT'S NEW IN 1.20 - THE EXTENSION BRIDGE
 - Side panels: an extension with a side panel gets "Open side panel" (the extensions list, a pinned extension's right-click menu,
   hallow://extensions). Its panel opens in Hallow's sidebar with its extension features; chrome.sidePanel calls from its pages work
